@@ -25,3 +25,11 @@ export type ProcessCardState =
   | { status: 'loading' }
   | { status: 'success'; card: CapturedCard }
   | { status: 'error'; message: string };
+
+export type CardListState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'success'; cards: CapturedCard[] }
+  | { status: 'error'; message: string };
+
+export type CardCaptureSource = 'scan' | 'nfc';

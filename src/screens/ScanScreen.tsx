@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Button,
@@ -8,17 +8,31 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { CoreFieldsCard } from '../components/CoreFieldsCard';
 import { CustomFieldsList } from '../components/CustomFieldsList';
 import { useProcessCard } from '../hooks/useProcessCard';
+import type { MainStackParamList } from '../navigation/AppNavigator';
 import { extractTextFromImage, type OcrSource } from '../services/ocr';
+import { luxuryColors } from '../theme/luxury';
+
+type ScanNavigation = NativeStackNavigationProp<MainStackParamList, 'Scan'>;
 
 export function ScanScreen(): React.JSX.Element {
+  const navigation = useNavigation<ScanNavigation>();
   const { state, capturedCard, submitOcrText, reset } = useProcessCard();
   const [rawPreview, setRawPreview] = useState<string>('');
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   const [ocrError, setOcrError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (state.status === 'success') {
+      navigation.navigate('CardDetail', { card: state.card });
+      reset();
+    }
+  }, [navigation, reset, state]);
 
   const handleScan = async (source: OcrSource) => {
     reset();
@@ -96,6 +110,7 @@ const styles = StyleSheet.create({
   container: {
     padding: 20,
     gap: 16,
+    backgroundColor: luxuryColors.background,
   },
   title: {
     fontSize: 24,

@@ -30,9 +30,14 @@ export function AuthProvider({
   const [initializing, setInitializing] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = auth().onAuthStateChanged((nextUser) => {
+    const unsubscribe = auth().onAuthStateChanged(async (nextUser) => {
       setUser(nextUser);
       setInitializing(false);
+
+      if (__DEV__ && nextUser) {
+        const token = await nextUser.getIdToken();
+        console.log('Token for testing:', token);
+      }
     });
     return unsubscribe;
   }, []);

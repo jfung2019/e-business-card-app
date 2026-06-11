@@ -11,9 +11,9 @@ export class ApiClientError extends Error {
   }
 }
 
-export async function apiPost<TResponse>(
+async function apiRequest<TResponse>(
   path: string,
-  body: unknown,
+  options: { method: 'GET' | 'POST'; body?: unknown },
 ): Promise<TResponse> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -22,16 +22,18 @@ export async function apiPost<TResponse>(
     const token = await getAccessToken();
     const headers: Record<string, string> = {
       Accept: 'application/json',
-      'Content-Type': 'application/json',
     };
     if (token) {
       headers.Authorization = `Bearer ${token}`;
     }
+    if (options.body !== undefined) {
+      headers['Content-Type'] = 'application/json';
+    }
 
     const response = await fetch(`${API_BASE_URL}${path}`, {
-      method: 'POST',
+      method: options.method,
       headers,
-      body: JSON.stringify(body),
+      body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
       signal: controller.signal,
     });
 
@@ -60,4 +62,15 @@ export async function apiPost<TResponse>(
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+export async function apiGet<TResponse>(path: string): Promise<TResponse> {
+  return apiRequest<TResponse>(path, { method: 'GET' });
+}
+
+export async function apiPost<TResponse>(
+  path: string,
+  body: unknown,
+): Promise<TResponse> {
+  return apiRequest<TResponse>(path, { method: 'POST', body });
 }
