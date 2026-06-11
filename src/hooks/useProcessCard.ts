@@ -7,14 +7,14 @@ import type { CapturedCard, ProcessCardState } from '../types/card';
 interface UseProcessCardResult {
   state: ProcessCardState;
   capturedCard: CapturedCard | null;
-  submitOcrText: (ownerUserId: string, rawOcrText: string) => Promise<void>;
+  submitOcrText: (rawOcrText: string) => Promise<void>;
   reset: () => void;
 }
 
 export function useProcessCard(): UseProcessCardResult {
   const [state, setState] = useState<ProcessCardState>({ status: 'idle' });
 
-  const submitOcrText = useCallback(async (ownerUserId: string, rawOcrText: string) => {
+  const submitOcrText = useCallback(async (rawOcrText: string) => {
     const trimmed = rawOcrText.trim();
     if (!trimmed) {
       setState({ status: 'error', message: 'No text was detected on the card.' });
@@ -25,7 +25,6 @@ export function useProcessCard(): UseProcessCardResult {
 
     try {
       const card = await processCard({
-        owner_user_id: ownerUserId,
         raw_ocr_text: trimmed,
       });
       setState({ status: 'success', card });

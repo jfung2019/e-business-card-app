@@ -23,10 +23,31 @@ npm install
 OCR packages are already in `package.json`:
 - `react-native-image-picker`
 - `@react-native-ml-kit/text-recognition`
+- `@react-native-firebase/app` + `@react-native-firebase/auth`
+- `@react-navigation/native` + `@react-navigation/native-stack`
 
 ---
 
-## Step 2 — Android permissions & HTTP
+## Step 2 — Firebase setup (required for login)
+
+1. Create a project at [Firebase Console](https://console.firebase.google.com/)
+2. Add an **Android app** with package name `com.ebusinesscard`
+3. Download `google-services.json` and place it at:
+   ```
+   android/app/google-services.json
+   ```
+4. In Firebase Console → **Authentication** → **Sign-in method**:
+   - Enable **Email/Password**
+   - (Later) enable **Google** for Google Sign-In
+5. For the API, download a **service account JSON** from Firebase Console → Project settings → Service accounts → Generate new private key
+   - Save as `e-business-card-api/firebase-service-account.json`
+   - Set in API `.env`: `FIREBASE_CREDENTIALS_PATH=./firebase-service-account.json`
+
+After adding `google-services.json`, rebuild the Android app (`npm run android`).
+
+---
+
+## Step 3 — Android permissions & HTTP
 
 Edit `android/app/src/main/AndroidManifest.xml` — add inside `<manifest>`:
 
@@ -46,7 +67,7 @@ Inside `<application>` tag add `android:usesCleartextTraffic="true"` (required f
 
 ---
 
-## Step 3 — iOS permissions (Mac only)
+## Step 4 — iOS permissions (Mac only)
 
 Edit `ios/e-business-card-mobile/Info.plist` (or the app target folder under `ios/`):
 
@@ -69,7 +90,7 @@ For iOS simulator HTTP to localhost, add to Info.plist:
 
 ---
 
-## Step 4 — API URL for your device
+## Step 5 — API URL for your device
 
 Edit `src/config/apiConfig.ts`:
 
@@ -83,7 +104,7 @@ Find your PC IP: `ipconfig` → IPv4 Address.
 
 ---
 
-## Step 5 — Run the app
+## Step 6 — Run the app
 
 **Terminal 1 — Metro:**
 
@@ -114,14 +135,15 @@ Restart the PC, then rebuild. Alternatively move the repo to a shorter path such
 
 ---
 
-## Step 6 — Test flow
+## Step 7 — Test flow
 
-1. App opens → **Take Photo** or **Choose Image**
-2. Select/capture a business card image
-3. On-device OCR extracts text → shows **Raw OCR**
-4. App calls `POST /api/v1/cards/process`
-5. **Contact** + **Additional Details** appear
-6. Confirm in MongoDB Compass: `e_business_card` → `captured_cards`
+1. App opens → sign in or create an account
+2. **Take Photo** or **Choose Image**
+3. Select/capture a business card image
+4. On-device OCR extracts text → shows **Raw OCR**
+5. App calls `POST /api/v1/cards/process` (with Firebase ID token)
+6. **Contact** + **Additional Details** appear
+7. Confirm in MongoDB Compass: `e_business_card` → `captured_cards` (`owner_user_id` = Firebase UID)
 
 ---
 
@@ -136,3 +158,6 @@ Restart the PC, then rebuild. Alternatively move the repo to a shorter path such
 | Physical device can't reach API | Same Wi‑Fi as PC; use LAN IP not localhost |
 | Build fails: path too long (Windows) | Enable `LongPathsEnabled` in registry and restart PC |
 | Hot reload not working | Run `npm start` from `e-business-card-mobile`, not a copy folder |
+| Login fails / Firebase error | Check `google-services.json` exists and Email/Password is enabled in Firebase Console |
+| 401 from API | API needs `firebase-service-account.json` and `FIREBASE_CREDENTIALS_PATH` in `.env` |
+| Forgot password | Enter email on login screen → tap **Forgot password?** |

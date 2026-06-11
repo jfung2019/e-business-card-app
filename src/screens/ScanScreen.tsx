@@ -14,11 +14,7 @@ import { CustomFieldsList } from '../components/CustomFieldsList';
 import { useProcessCard } from '../hooks/useProcessCard';
 import { extractTextFromImage, type OcrSource } from '../services/ocr';
 
-interface ScanScreenProps {
-  ownerUserId: string;
-}
-
-export function ScanScreen({ ownerUserId }: ScanScreenProps): React.JSX.Element {
+export function ScanScreen(): React.JSX.Element {
   const { state, capturedCard, submitOcrText, reset } = useProcessCard();
   const [rawPreview, setRawPreview] = useState<string>('');
   const [previewUri, setPreviewUri] = useState<string | null>(null);
@@ -43,7 +39,7 @@ export function ScanScreen({ ownerUserId }: ScanScreenProps): React.JSX.Element 
     }
 
     setRawPreview(ocrText);
-    await submitOcrText(ownerUserId, ocrText);
+    await submitOcrText(ocrText);
   };
 
   return (

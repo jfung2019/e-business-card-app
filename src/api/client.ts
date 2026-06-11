@@ -1,4 +1,5 @@
 import { API_BASE_URL, REQUEST_TIMEOUT_MS } from '../config/apiConfig';
+import { getAccessToken } from './authToken';
 
 export class ApiClientError extends Error {
   constructor(
@@ -18,12 +19,18 @@ export async function apiPost<TResponse>(
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   try {
+    const token = await getAccessToken();
+    const headers: Record<string, string> = {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
     const response = await fetch(`${API_BASE_URL}${path}`, {
       method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify(body),
       signal: controller.signal,
     });

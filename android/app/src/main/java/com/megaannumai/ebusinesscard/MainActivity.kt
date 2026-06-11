@@ -1,4 +1,4 @@
-package com.ebusinesscard
+package com.megaannumai.ebusinesscard
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate

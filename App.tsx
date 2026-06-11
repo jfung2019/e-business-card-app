@@ -1,22 +1,26 @@
 import React from 'react';
-import { SafeAreaView, StatusBar, StyleSheet } from 'react-native';
+import { StatusBar, StyleSheet } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { ScanScreen } from './src/screens/ScanScreen';
-
-const OWNER_USER_ID = 'mobile-dev-user-1';
+import { AuthProvider } from './src/context/AuthContext';
+import { AppNavigator } from './src/navigation/AppNavigator';
 
 export default function App(): React.JSX.Element {
   return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="dark-content" />
-      <ScanScreen ownerUserId={OWNER_USER_ID} />
-    </SafeAreaView>
+    <GestureHandlerRootView style={styles.root}>
+      <SafeAreaProvider>
+        <StatusBar barStyle="dark-content" />
+        <AuthProvider>
+          <AppNavigator />
+        </AuthProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: {
+  root: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
 });

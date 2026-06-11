@@ -17,7 +17,6 @@ export interface CapturedCard {
 }
 
 export interface ProcessCardRequest {
-  owner_user_id: string;
   raw_ocr_text: string;
 }
 

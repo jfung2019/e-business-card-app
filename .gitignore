@@ -39,6 +39,10 @@ local.properties
 .env
 .env.local
 
+# Firebase
+android/app/google-services.json
+ios/GoogleService-Info.plist
+
 # node.js
 #
 node_modules/

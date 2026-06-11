@@ -1,4 +1,4 @@
-package com.ebusinesscard
+package com.megaannumai.ebusinesscard
 
 import android.app.Application
 import com.facebook.react.PackageList
