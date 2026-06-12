@@ -10,6 +10,7 @@ interface CoreFieldsCardProps {
 const CORE_FIELD_LABELS: Array<{ key: keyof CoreFields; label: string }> = [
   { key: 'name', label: 'Name' },
   { key: 'company_name', label: 'Company' },
+  { key: 'job_title', label: 'Job title' },
   { key: 'email', label: 'Email' },
   { key: 'phone', label: 'Phone' },
   { key: 'website', label: 'Website' },

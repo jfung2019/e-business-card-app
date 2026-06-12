@@ -3,6 +3,7 @@
 export interface CoreFields {
   name: string;
   company_name?: string | null;
+  job_title?: string | null;
   email?: string | null;
   phone?: string | null;
   website?: string | null;

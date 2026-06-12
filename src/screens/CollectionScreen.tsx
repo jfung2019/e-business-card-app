@@ -12,46 +12,74 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { MyCardCarousel } from '../components/MyCardCarousel';
+import { MyCardsBanner } from '../components/MyCardsBanner';
+import { ProfileAvatarButton } from '../components/ProfileAvatarButton';
 import { WalletCardStack } from '../components/WalletCardStack';
+import { useAuth } from '../context/AuthContext';
 import { useCards } from '../hooks/useCards';
+import { useMyCardsBanner } from '../hooks/useMyCardsBanner';
+import { useUserCards } from '../hooks/useUserCards';
 import type { MainStackParamList } from '../navigation/AppNavigator';
 import { walletColors } from '../theme/wallet';
 import type { CapturedCard } from '../types/card';
+import type { UserCard } from '../types/userCard';
 
 type CollectionNavigation = NativeStackNavigationProp<MainStackParamList, 'Collection'>;
 
-interface CollectionScreenProps {
-  onSignOut: () => Promise<void>;
-}
-
-export function CollectionScreen({ onSignOut }: CollectionScreenProps): React.JSX.Element {
+export function CollectionScreen(): React.JSX.Element {
   const navigation = useNavigation<CollectionNavigation>();
+  const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const { state, cards, fetchCards } = useCards();
+  const {
+    state: userCardsState,
+    cards: userCards,
+    fetchUserCards,
+  } = useUserCards();
+  const { visible: bannerVisible, dismiss: dismissBanner } = useMyCardsBanner(
+    userCards.length > 0,
+  );
+
+  const refreshAll = useCallback(async () => {
+    await Promise.all([fetchCards(), fetchUserCards()]);
+  }, [fetchCards, fetchUserCards]);
 
   useFocusEffect(
     useCallback(() => {
-      void fetchCards();
-    }, [fetchCards]),
+      void refreshAll();
+    }, [refreshAll]),
   );
 
-  const handleCardPress = (card: CapturedCard) => {
+  const handleCollectedCardPress = (card: CapturedCard) => {
     navigation.navigate('CardDetail', { card });
   };
 
-  const isRefreshing = state.status === 'loading' && cards.length > 0;
+  const handleMyCardPress = (card: UserCard) => {
+    navigation.navigate('MyCardForm', { mode: 'edit', card });
+  };
+
+  const isRefreshing =
+    (state.status === 'loading' && cards.length > 0) ||
+    (userCardsState.status === 'loading' && userCards.length > 0);
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Text style={styles.title}>Wallet</Text>
-        <Pressable
-          onPress={() => navigation.navigate('Scan')}
-          style={({ pressed }) => [styles.addButton, pressed && styles.addButtonPressed]}
-          accessibilityLabel="Scan a new card"
-        >
-          <Text style={styles.addButtonText}>+</Text>
-        </Pressable>
+        <Text style={styles.title}>E-Business Cards</Text>
+        <View style={styles.headerActions}>
+          <ProfileAvatarButton
+            email={user?.email}
+            onPress={() => navigation.navigate('Profile')}
+          />
+          <Pressable
+            onPress={() => navigation.navigate('Scan')}
+            style={({ pressed }) => [styles.addButton, pressed && styles.addButtonPressed]}
+            accessibilityLabel="Scan a collected card"
+          >
+            <Text style={styles.addButtonText}>+</Text>
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView
@@ -59,55 +87,124 @@ export function CollectionScreen({ onSignOut }: CollectionScreenProps): React.JS
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
-            onRefresh={() => void fetchCards()}
+            onRefresh={() => void refreshAll()}
             tintColor={walletColors.title}
           />
         }
       >
-        {state.status === 'loading' && cards.length === 0 && (
-          <View style={styles.centered}>
-            <ActivityIndicator size="large" color={walletColors.title} />
-            <Text style={styles.loadingText}>Loading your wallet...</Text>
+        <View style={styles.myCardsSection}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>My cards</Text>
+            {userCards.length > 1 ? (
+              <Pressable
+                onPress={() => navigation.navigate('ReorderMyCards', { cards: userCards })}
+              >
+                <Text style={styles.sectionAction}>Reorder</Text>
+              </Pressable>
+            ) : null}
           </View>
-        )}
 
-        {state.status === 'error' && (
-          <View style={styles.centered}>
-            <Text style={styles.errorText}>{state.message}</Text>
-            <Pressable onPress={() => void fetchCards()} style={styles.retryButton}>
-              <Text style={styles.retryText}>Try again</Text>
-            </Pressable>
-          </View>
-        )}
+          {bannerVisible ? (
+            <MyCardsBanner
+              onAdd={() => navigation.navigate('MyCardScan')}
+              onDismiss={() => void dismissBanner()}
+            />
+          ) : null}
 
-        {state.status === 'success' && cards.length === 0 && (
-          <View style={styles.centered}>
-            <Text style={styles.emptyTitle}>Your wallet is empty</Text>
-            <Text style={styles.emptyBody}>
-              Scan a business card to add your first contact card.
-            </Text>
-            <Pressable
-              onPress={() => navigation.navigate('Scan')}
-              style={styles.primaryButton}
-            >
-              <Text style={styles.primaryButtonText}>Scan a card</Text>
-            </Pressable>
-          </View>
-        )}
+          {userCardsState.status === 'loading' && userCards.length === 0 ? (
+            <View style={styles.inlineLoading}>
+              <ActivityIndicator color={walletColors.title} />
+            </View>
+          ) : null}
 
-        {cards.length > 0 && (
-          <View style={styles.walletSection}>
-            <Text style={styles.sectionHint}>
-              {cards.length} {cards.length === 1 ? 'card' : 'cards'} · Tap a card to
-              bring it forward · Tap front card for details
-            </Text>
-            <WalletCardStack cards={cards} onCardPress={handleCardPress} />
-          </View>
-        )}
+          {userCards.length > 0 ? (
+            <>
+              <MyCardCarousel cards={userCards} onCardPress={handleMyCardPress} />
+              <View style={styles.myCardActions}>
+                <Pressable
+                  onPress={() => navigation.navigate('MyCardScan')}
+                  style={styles.secondaryButton}
+                >
+                  <Text style={styles.secondaryButtonText}>Scan my card</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => navigation.navigate('MyCardForm', { mode: 'create' })}
+                  style={styles.secondaryButton}
+                >
+                  <Text style={styles.secondaryButtonText}>Add manually</Text>
+                </Pressable>
+              </View>
+            </>
+          ) : null}
 
-        <Pressable onPress={() => void onSignOut()} style={styles.logoutButton}>
-          <Text style={styles.logoutText}>Log out</Text>
-        </Pressable>
+          {!bannerVisible && userCards.length === 0 && userCardsState.status !== 'loading' ? (
+            <View style={styles.emptyMyCards}>
+              <Text style={styles.emptyMyCardsText}>
+                Add a business card that represents you.
+              </Text>
+              <View style={styles.myCardActions}>
+                <Pressable
+                  onPress={() => navigation.navigate('MyCardScan')}
+                  style={styles.secondaryButton}
+                >
+                  <Text style={styles.secondaryButtonText}>Scan my card</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => navigation.navigate('MyCardForm', { mode: 'create' })}
+                  style={styles.secondaryButton}
+                >
+                  <Text style={styles.secondaryButtonText}>Add manually</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
+        </View>
+
+        <View style={styles.collectedSection}>
+          <Text style={styles.sectionTitle}>Collected</Text>
+
+          {state.status === 'loading' && cards.length === 0 && (
+            <View style={styles.centered}>
+              <ActivityIndicator size="large" color={walletColors.title} />
+              <Text style={styles.loadingText}>Loading your cards...</Text>
+            </View>
+          )}
+
+          {state.status === 'error' && (
+            <View style={styles.centered}>
+              <Text style={styles.errorText}>{state.message}</Text>
+              <Pressable onPress={() => void fetchCards()} style={styles.retryButton}>
+                <Text style={styles.retryText}>Try again</Text>
+              </Pressable>
+            </View>
+          )}
+
+          {state.status === 'success' && cards.length === 0 && (
+            <View style={styles.centered}>
+              <Text style={styles.emptyTitle}>No collected cards yet</Text>
+              <Text style={styles.emptyBody}>
+                Scan a business card to add your first contact card.
+              </Text>
+              <Pressable
+                onPress={() => navigation.navigate('Scan')}
+                style={styles.primaryButton}
+              >
+                <Text style={styles.primaryButtonText}>Scan a card</Text>
+              </Pressable>
+            </View>
+          )}
+
+          {cards.length > 0 && (
+            <View style={styles.walletSection}>
+              <Text style={styles.sectionHint}>
+                {cards.length} {cards.length === 1 ? 'card' : 'cards'} · Tap a card to bring it
+                forward · Tap front card for details
+              </Text>
+              <WalletCardStack cards={cards} onCardPress={handleCollectedCardPress} />
+            </View>
+          )}
+        </View>
+
       </ScrollView>
     </View>
   );
@@ -127,10 +224,16 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   title: {
+    flex: 1,
     fontSize: 34,
     fontWeight: '700',
     color: walletColors.title,
     letterSpacing: -0.5,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   addButton: {
     width: 44,
@@ -155,10 +258,62 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: 24,
     paddingBottom: 32,
+    gap: 28,
+  },
+  myCardsSection: {
+    gap: 14,
+  },
+  collectedSection: {
+    gap: 14,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: walletColors.title,
+  },
+  sectionAction: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: walletColors.subtitle,
+  },
+  inlineLoading: {
+    paddingVertical: 24,
+    alignItems: 'center',
+  },
+  myCardActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  secondaryButton: {
+    borderWidth: 1,
+    borderColor: walletColors.title,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  secondaryButtonText: {
+    color: walletColors.title,
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  emptyMyCards: {
+    gap: 12,
+    paddingVertical: 8,
+  },
+  emptyMyCardsText: {
+    color: walletColors.subtitle,
+    fontSize: 15,
+    lineHeight: 22,
   },
   walletSection: {
     gap: 16,
-    paddingBottom: 24,
+    paddingBottom: 8,
     overflow: 'visible',
   },
   sectionHint: {
@@ -167,7 +322,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   centered: {
-    minHeight: 320,
+    minHeight: 240,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 16,
@@ -217,16 +372,5 @@ const styles = StyleSheet.create({
     color: walletColors.addButtonText,
     fontWeight: '700',
     fontSize: 15,
-  },
-  logoutButton: {
-    alignSelf: 'center',
-    marginTop: 28,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
-  logoutText: {
-    color: walletColors.subtitle,
-    fontSize: 14,
-    fontWeight: '600',
   },
 });

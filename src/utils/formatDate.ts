@@ -21,3 +21,13 @@ export function getInitials(name: string): string {
   }
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
+
+export function getEmailInitials(email: string | null | undefined): string {
+  if (!email) {
+    return '?';
+  }
+
+  const localPart = email.split('@')[0] ?? email;
+  const normalized = localPart.replace(/[^a-zA-Z0-9]/g, ' ').trim();
+  return getInitials(normalized || email);
+}

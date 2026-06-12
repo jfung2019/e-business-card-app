@@ -11,9 +11,11 @@ export class ApiClientError extends Error {
   }
 }
 
+type ApiMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+
 async function apiRequest<TResponse>(
   path: string,
-  options: { method: 'GET' | 'POST'; body?: unknown },
+  options: { method: ApiMethod; body?: unknown },
 ): Promise<TResponse> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -50,6 +52,10 @@ async function apiRequest<TResponse>(
       throw new ApiClientError(detail, response.status);
     }
 
+    if (response.status === 204) {
+      return undefined as TResponse;
+    }
+
     return (await response.json()) as TResponse;
   } catch (error) {
     if (error instanceof ApiClientError) {
@@ -73,4 +79,22 @@ export async function apiPost<TResponse>(
   body: unknown,
 ): Promise<TResponse> {
   return apiRequest<TResponse>(path, { method: 'POST', body });
+}
+
+export async function apiPut<TResponse>(
+  path: string,
+  body: unknown,
+): Promise<TResponse> {
+  return apiRequest<TResponse>(path, { method: 'PUT', body });
+}
+
+export async function apiPatch<TResponse>(
+  path: string,
+  body: unknown,
+): Promise<TResponse> {
+  return apiRequest<TResponse>(path, { method: 'PATCH', body });
+}
+
+export async function apiDelete(path: string): Promise<void> {
+  await apiRequest<void>(path, { method: 'DELETE' });
 }
