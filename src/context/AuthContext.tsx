@@ -30,7 +30,20 @@ export function AuthProvider({
   const [initializing, setInitializing] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
+
+    const initTimeout = setTimeout(() => {
+      if (!cancelled) {
+        setInitializing(false);
+      }
+    }, 10_000);
+
     const unsubscribe = auth().onAuthStateChanged(async (nextUser) => {
+      if (cancelled) {
+        return;
+      }
+
+      clearTimeout(initTimeout);
       setUser(nextUser);
       setInitializing(false);
 
@@ -39,7 +52,12 @@ export function AuthProvider({
         console.log('Token for testing:', token);
       }
     });
-    return unsubscribe;
+
+    return () => {
+      cancelled = true;
+      clearTimeout(initTimeout);
+      unsubscribe();
+    };
   }, []);
 
   useEffect(() => {

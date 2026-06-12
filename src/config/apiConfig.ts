@@ -10,4 +10,4 @@ const DEV_API_HOST =
 
 export const API_BASE_URL = DEV_API_HOST;
 export const API_V1_PREFIX = '/api/v1';
-export const REQUEST_TIMEOUT_MS = 45_000;
+export const REQUEST_TIMEOUT_MS = 15_000;
