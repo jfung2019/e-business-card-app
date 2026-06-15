@@ -140,7 +140,7 @@ Restart the PC, then rebuild. Alternatively move the repo to a shorter path such
 1. App opens → sign in or create an account
 2. **Take Photo** or **Choose Image**
 3. Select/capture a business card image
-4. On-device OCR extracts text → shows **Raw OCR**
+4. On-device OCR extracts text → shows **Raw OCR** (ML Kit **Chinese** script — see `src/services/ocr.ts`)
 5. App calls `POST /api/v1/cards/process` (with Firebase ID token)
 6. **Contact** + **Additional Details** appear
 7. Confirm in MongoDB Compass: `e_business_card` → `captured_cards` (`owner_user_id` = Firebase UID)
@@ -154,6 +154,8 @@ Restart the PC, then rebuild. Alternatively move the repo to a shorter path such
 | Network error | Check API URL, docker running, cleartext traffic on Android |
 | 502 from API | OpenRouter model blocked — use `deepseek/deepseek-chat` in `.env` |
 | No text detected | Brighter photo, flat card, less blur |
+| Chinese missing from Raw OCR | Rebuild native app after OCR changes; try better lighting |
+| English-only card scans poorly | Chinese script is optimized for 中文; switch to `TextRecognitionScript.LATIN` for EN-only cards |
 | Camera won't open | Grant camera permission in device settings |
 | Physical device can't reach API | Same Wi‑Fi as PC; use LAN IP not localhost |
 | Build fails: path too long (Windows) | Enable `LongPathsEnabled` in registry and restart PC |

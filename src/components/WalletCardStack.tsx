@@ -12,7 +12,7 @@ import { WALLET_SPRING } from '../theme/walletAnimations';
 import type { CapturedCard } from '../types/card';
 import {
   getWalletStackHeight,
-  WALLET_CARD_PEEK_HEIGHT,
+  WALLET_CARD_STACK_STEP,
   WalletCard,
 } from './WalletCard';
 
@@ -37,22 +37,17 @@ function AnimatedCardSlot({
   onPress,
 }: AnimatedCardSlotProps): React.JSX.Element {
   const isFront = index === totalCards - 1;
-  const targetTop = index * WALLET_CARD_PEEK_HEIGHT;
+  const targetTop = index * WALLET_CARD_STACK_STEP;
 
   const top = useSharedValue(targetTop);
-  const scale = useSharedValue(isFront ? 1 : 0.985);
 
   useEffect(() => {
     cancelAnimation(top);
-    cancelAnimation(scale);
-
     top.value = withSpring(targetTop, WALLET_SPRING);
-    scale.value = withSpring(isFront ? 1 : 0.985, WALLET_SPRING);
-  }, [index, totalCards, targetTop, isFront, top, scale]);
+  }, [index, totalCards, targetTop, top]);
 
   const slotStyle = useAnimatedStyle(() => ({
     top: top.value,
-    transform: [{ scale: scale.value }],
   }));
 
   return (
@@ -67,7 +62,6 @@ function AnimatedCardSlot({
       <WalletCard
         card={card}
         paletteIndex={paletteIndex}
-        isFront={isFront}
         onPress={onPress}
       />
     </Animated.View>

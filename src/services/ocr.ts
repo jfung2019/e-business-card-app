@@ -1,5 +1,7 @@
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
-import TextRecognition from '@react-native-ml-kit/text-recognition';
+import TextRecognition, {
+  TextRecognitionScript,
+} from '@react-native-ml-kit/text-recognition';
 
 export type OcrSource = 'camera' | 'gallery';
 
@@ -32,7 +34,8 @@ export async function extractTextFromImage(source: OcrSource): Promise<string> {
     throw new Error('No image selected.');
   }
 
-  const recognized = await TextRecognition.recognize(uri);
+  // Chinese script (Simplified + Traditional). Use LATIN for English-only cards if needed.
+  const recognized = await TextRecognition.recognize(uri, TextRecognitionScript.CHINESE);
   const lines = recognized.blocks.map((block) => block.text.trim()).filter(Boolean);
 
   if (lines.length === 0) {

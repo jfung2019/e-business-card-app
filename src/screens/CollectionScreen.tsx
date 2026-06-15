@@ -161,7 +161,7 @@ export function CollectionScreen(): React.JSX.Element {
         </View>
 
         <View style={styles.collectedSection}>
-          <Text style={styles.sectionTitle}>Collected</Text>
+          <Text style={styles.sectionTitle}>Collected ({cards.length})</Text>
 
           {state.status === 'loading' && cards.length === 0 && (
             <View style={styles.centered}>
@@ -196,10 +196,6 @@ export function CollectionScreen(): React.JSX.Element {
 
           {cards.length > 0 && (
             <View style={styles.walletSection}>
-              <Text style={styles.sectionHint}>
-                {cards.length} {cards.length === 1 ? 'card' : 'cards'} · Tap a card to bring it
-                forward · Tap front card for details
-              </Text>
               <WalletCardStack cards={cards} onCardPress={handleCollectedCardPress} />
             </View>
           )}
@@ -315,11 +311,6 @@ const styles = StyleSheet.create({
     gap: 16,
     paddingBottom: 8,
     overflow: 'visible',
-  },
-  sectionHint: {
-    color: walletColors.subtitle,
-    fontSize: 14,
-    fontWeight: '500',
   },
   centered: {
     minHeight: 240,
