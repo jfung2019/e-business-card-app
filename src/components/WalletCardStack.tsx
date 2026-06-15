@@ -19,6 +19,7 @@ import {
 interface WalletCardStackProps {
   cards: CapturedCard[];
   onCardPress: (card: CapturedCard) => void;
+  onWalletDisplayChange?: (cardId: string, walletDisplay: 'photo' | 'classic') => void;
 }
 
 interface AnimatedCardSlotProps {
@@ -27,6 +28,7 @@ interface AnimatedCardSlotProps {
   totalCards: number;
   paletteIndex: number;
   onPress: () => void;
+  onWalletDisplayChange?: (cardId: string, walletDisplay: 'photo' | 'classic') => void;
 }
 
 function AnimatedCardSlot({
@@ -35,6 +37,7 @@ function AnimatedCardSlot({
   totalCards,
   paletteIndex,
   onPress,
+  onWalletDisplayChange,
 }: AnimatedCardSlotProps): React.JSX.Element {
   const isFront = index === totalCards - 1;
   const targetTop = index * WALLET_CARD_STACK_STEP;
@@ -63,6 +66,7 @@ function AnimatedCardSlot({
         card={card}
         paletteIndex={paletteIndex}
         onPress={onPress}
+        onWalletDisplayChange={onWalletDisplayChange}
       />
     </Animated.View>
   );
@@ -89,6 +93,7 @@ function mergeStackOrder(previous: string[], cards: CapturedCard[]): string[] {
 export function WalletCardStack({
   cards,
   onCardPress,
+  onWalletDisplayChange,
 }: WalletCardStackProps): React.JSX.Element {
   const defaultOrder = useMemo(() => buildDefaultOrder(cards), [cards]);
   const [stackOrder, setStackOrder] = useState<string[]>(defaultOrder);
@@ -122,7 +127,7 @@ export function WalletCardStack({
   };
 
   return (
-    <View style={[styles.stack, { height: getWalletStackHeight(orderedCards.length) }]}>
+    <View style={[styles.stack, { height: getWalletStackHeight(orderedCards) }]}>
       {orderedCards.map((card, index) => (
         <AnimatedCardSlot
           key={card._id}
@@ -131,6 +136,7 @@ export function WalletCardStack({
           totalCards={orderedCards.length}
           paletteIndex={getCardPaletteIndex(card._id, cards)}
           onPress={() => handlePress(card, index)}
+          onWalletDisplayChange={onWalletDisplayChange}
         />
       ))}
     </View>

@@ -9,12 +9,16 @@ export interface CoreFields {
   website?: string | null;
 }
 
+export type WalletDisplay = 'photo' | 'classic';
+
 export interface CapturedCard {
   _id: string;
   owner_user_id: string;
   scanned_at: string;
   core_fields: CoreFields;
   custom_fields: Record<string, string>;
+  scan_image_url?: string | null;
+  wallet_display?: WalletDisplay;
 }
 
 export interface ProcessCardRequest {

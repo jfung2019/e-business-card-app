@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { CustomFieldsList } from '../components/CustomFieldsList';
+import { ScanImage } from '../components/ScanImage';
 import type { MainStackParamList } from '../navigation/AppNavigator';
 import { luxuryColors } from '../theme/luxury';
 import type { CoreFields } from '../types/card';
@@ -20,10 +21,18 @@ const CORE_FIELD_LABELS: Array<{ key: keyof CoreFields; label: string }> = [
 
 export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element {
   const { card } = route.params;
-  const { core_fields, custom_fields, scanned_at } = card;
+  const { core_fields, custom_fields, scanned_at, scan_image_url } = card;
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+      {scan_image_url ? (
+        <ScanImage
+          scanImageUrl={scan_image_url}
+          style={styles.scanImage}
+          resizeMode="contain"
+        />
+      ) : null}
+
       <View style={styles.headerCard}>
         <Text style={styles.eyebrow}>CONTACT DETAILS</Text>
         <Text style={styles.name}>{core_fields.name}</Text>
@@ -66,6 +75,12 @@ const styles = StyleSheet.create({
     padding: 20,
     gap: 16,
     paddingBottom: 32,
+  },
+  scanImage: {
+    width: '100%',
+    aspectRatio: 1.586,
+    borderRadius: 16,
+    backgroundColor: luxuryColors.surface,
   },
   headerCard: {
     backgroundColor: luxuryColors.surfaceElevated,

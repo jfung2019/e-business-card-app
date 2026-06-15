@@ -23,7 +23,8 @@ npm install
 OCR packages are already in `package.json`:
 - `react-native-image-picker`
 - `@react-native-ml-kit/text-recognition`
-- `@react-native-firebase/app` + `@react-native-firebase/auth`
+- `@react-native-firebase/app` + `@react-native-firebase/auth` (login only; scan images go to API GridFS)
+- `react-native-document-scanner-plugin` (camera scan crop/align)
 - `@react-navigation/native` + `@react-navigation/native-stack`
 
 ---
@@ -44,6 +45,8 @@ OCR packages are already in `package.json`:
    - Set in API `.env`: `FIREBASE_CREDENTIALS_PATH=./firebase-service-account.json`
 
 After adding `google-services.json`, rebuild the Android app (`npm run android`).
+
+Scanned card photos are uploaded with `POST /api/v1/cards/process` and stored in **MongoDB GridFS** on the API server. No Firebase Storage or billing required.
 
 ---
 
