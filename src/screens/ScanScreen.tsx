@@ -1,8 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Button,
-  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,96 +10,109 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import { CoreFieldsCard } from '../components/CoreFieldsCard';
-import { CustomFieldsList } from '../components/CustomFieldsList';
+import { ScanSuccessPanel } from '../components/ScanSuccessPanel';
 import { useProcessCard } from '../hooks/useProcessCard';
 import type { MainStackParamList } from '../navigation/AppNavigator';
-import { extractTextFromImage, type OcrSource } from '../services/ocr';
+import { scanBusinessCard, type OcrSource } from '../services/ocr';
 import { luxuryColors } from '../theme/luxury';
 
 type ScanNavigation = NativeStackNavigationProp<MainStackParamList, 'Scan'>;
 
 export function ScanScreen(): React.JSX.Element {
   const navigation = useNavigation<ScanNavigation>();
-  const { state, capturedCard, submitOcrText, reset } = useProcessCard();
-  const [rawPreview, setRawPreview] = useState<string>('');
-  const [previewUri, setPreviewUri] = useState<string | null>(null);
-  const [ocrError, setOcrError] = useState<string | null>(null);
+  const { state, capturedCard, submitScan, reset } = useProcessCard();
+  const [scanError, setScanError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (state.status === 'success') {
-      navigation.navigate('CardDetail', { card: state.card });
-      reset();
-    }
-  }, [navigation, reset, state]);
+  const isSuccess = state.status === 'success' && capturedCard !== null;
+  const isBusy = state.status === 'loading';
 
   const handleScan = async (source: OcrSource) => {
     reset();
-    setRawPreview('');
-    setPreviewUri(null);
-    setOcrError(null);
+    setScanError(null);
 
-    let ocrText: string;
     try {
-      ocrText = await extractTextFromImage(source);
+      const result = await scanBusinessCard(source);
+      if (!result) {
+        return;
+      }
+
+      await submitScan({
+        ocrText: result.ocrText,
+        imageUri: result.imageUri,
+        imageBase64: result.imageBase64,
+      });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Failed to read text from image.';
-      if (message !== 'No image selected.') {
-        setOcrError(message);
-      }
+      setScanError(message);
+    }
+  };
+
+  const handleDone = () => {
+    reset();
+    setScanError(null);
+    navigation.navigate('Collection');
+  };
+
+  const handleViewDetails = () => {
+    if (!capturedCard) {
       return;
     }
-
-    setRawPreview(ocrText);
-    await submitOcrText(ocrText);
+    const card = capturedCard;
+    reset();
+    setScanError(null);
+    navigation.navigate('CardDetail', { card });
   };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      {/* <Text style={styles.title}>Scan Business Card</Text> */}
-      <Text style={styles.subtitle}>
-        Take a photo or pick an image. On-device OCR extracts text, then the API parses it.
-      </Text>
+      {!isSuccess && (
+        <>
+          <Text style={styles.subtitle}>
+            Scan with the document camera for auto crop and align, or pick from gallery.
+            OCR runs on-device; the photo is saved on the API server (MongoDB GridFS).
+          </Text>
 
-      <View style={styles.buttonRow}>
-        <View style={styles.button}>
-          <Button title="Take Photo" onPress={() => handleScan('camera')} />
-        </View>
-        <View style={styles.button}>
-          <Button title="Choose Image" onPress={() => handleScan('gallery')} />
-        </View>
-      </View>
+          <View style={styles.buttonRow}>
+            <View style={styles.button}>
+              <Button
+                title="Scan Card"
+                onPress={() => void handleScan('camera')}
+                disabled={isBusy}
+              />
+            </View>
+            <View style={styles.button}>
+              <Button
+                title="Choose Image"
+                onPress={() => void handleScan('gallery')}
+                disabled={isBusy}
+              />
+            </View>
+          </View>
+        </>
+      )}
 
-      {state.status === 'loading' && (
+      {isBusy && (
         <View style={styles.feedback}>
-          <ActivityIndicator size="large" />
-          <Text style={styles.feedbackText}>Reading card and parsing details...</Text>
+          <ActivityIndicator size="large" color={luxuryColors.gold} />
+          <Text style={styles.feedbackText}>
+            Uploading scan and parsing contact details...
+          </Text>
         </View>
       )}
 
-      {ocrError && <Text style={styles.errorText}>{ocrError}</Text>}
+      {scanError && <Text style={styles.errorText}>{scanError}</Text>}
 
       {state.status === 'error' && (
         <Text style={styles.errorText}>{state.message}</Text>
       )}
 
-      {previewUri && (
-        <Image source={{ uri: previewUri }} style={styles.previewImage} resizeMode="contain" />
-      )}
-
-      {rawPreview.length > 0 && (
-        <View style={styles.rawPreview}>
-          <Text style={styles.rawPreviewTitle}>Raw OCR</Text>
-          <Text style={styles.rawPreviewBody}>{rawPreview}</Text>
-        </View>
-      )}
-
-      {capturedCard && (
-        <View style={styles.result}>
-          <CoreFieldsCard fields={capturedCard.core_fields} />
-          <CustomFieldsList customFields={capturedCard.custom_fields} />
-        </View>
+      {isSuccess && capturedCard && (
+        <ScanSuccessPanel
+          card={capturedCard}
+          onDone={handleDone}
+          onViewDetails={handleViewDetails}
+        />
       )}
     </ScrollView>
   );
@@ -108,18 +120,15 @@ export function ScanScreen(): React.JSX.Element {
 
 const styles = StyleSheet.create({
   container: {
+    flexGrow: 1,
     padding: 20,
     gap: 16,
     backgroundColor: luxuryColors.background,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#111827',
+    justifyContent: 'center',
   },
   subtitle: {
     fontSize: 14,
-    color: '#6B7280',
+    color: luxuryColors.creamMuted,
     lineHeight: 20,
   },
   buttonRow: {
@@ -131,39 +140,18 @@ const styles = StyleSheet.create({
   },
   feedback: {
     alignItems: 'center',
-    gap: 8,
-    paddingVertical: 12,
+    gap: 12,
+    paddingVertical: 24,
   },
   feedbackText: {
-    color: '#4B5563',
+    color: luxuryColors.creamMuted,
+    textAlign: 'center',
+    fontSize: 15,
+    lineHeight: 22,
   },
   errorText: {
-    color: '#B91C1C',
+    color: luxuryColors.error,
     fontWeight: '600',
-  },
-  previewImage: {
-    width: '100%',
-    height: 180,
-    borderRadius: 8,
-    backgroundColor: '#F3F4F6',
-  },
-  rawPreview: {
-    backgroundColor: '#EEF2FF',
-    borderRadius: 8,
-    padding: 12,
-    gap: 4,
-  },
-  rawPreviewTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#4338CA',
-    textTransform: 'uppercase',
-  },
-  rawPreviewBody: {
-    fontSize: 13,
-    color: '#1F2937',
-  },
-  result: {
-    marginTop: 8,
+    textAlign: 'center',
   },
 });

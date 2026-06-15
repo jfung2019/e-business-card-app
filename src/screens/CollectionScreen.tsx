@@ -31,7 +31,7 @@ export function CollectionScreen(): React.JSX.Element {
   const navigation = useNavigation<CollectionNavigation>();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
-  const { state, cards, fetchCards } = useCards();
+  const { state, cards, fetchCards, setCardWalletDisplay } = useCards();
   const {
     state: userCardsState,
     cards: userCards,
@@ -196,7 +196,13 @@ export function CollectionScreen(): React.JSX.Element {
 
           {cards.length > 0 && (
             <View style={styles.walletSection}>
-              <WalletCardStack cards={cards} onCardPress={handleCollectedCardPress} />
+              <WalletCardStack
+                cards={cards}
+                onCardPress={handleCollectedCardPress}
+                onWalletDisplayChange={(cardId, walletDisplay) => {
+                  void setCardWalletDisplay(cardId, walletDisplay);
+                }}
+              />
             </View>
           )}
         </View>
