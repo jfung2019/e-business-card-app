@@ -80,12 +80,3 @@ export async function scanBusinessCard(
   const imageBase64 = embeddedBase64 ?? (await readImageAsBase64(imageUri));
   return { imageUri, imageBase64, ocrText };
 }
-
-/** @deprecated Use scanBusinessCard — kept for my-card scan until that flow is updated. */
-export async function extractTextFromImage(source: OcrSource): Promise<string> {
-  const result = await scanBusinessCard(source);
-  if (!result) {
-    throw new Error('No image selected.');
-  }
-  return result.ocrText;
-}

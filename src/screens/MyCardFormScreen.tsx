@@ -77,6 +77,8 @@ export function MyCardFormScreen(): React.JSX.Element {
     design_type: 'preset',
     is_primary: isPrimary,
     sort_order: card?.sort_order ?? 0,
+    scan_image_url: card?.scan_image_url,
+    wallet_display: card?.wallet_display,
     created_at: card?.created_at ?? '',
     updated_at: card?.updated_at ?? '',
   };

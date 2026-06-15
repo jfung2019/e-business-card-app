@@ -36,6 +36,7 @@ export function CollectionScreen(): React.JSX.Element {
     state: userCardsState,
     cards: userCards,
     fetchUserCards,
+    setCardWalletDisplay: setUserCardWalletDisplay,
   } = useUserCards();
   const { visible: bannerVisible, dismiss: dismissBanner } = useMyCardsBanner(
     userCards.length > 0,
@@ -119,7 +120,13 @@ export function CollectionScreen(): React.JSX.Element {
 
           {userCards.length > 0 ? (
             <>
-              <MyCardCarousel cards={userCards} onCardPress={handleMyCardPress} />
+              <MyCardCarousel
+                cards={userCards}
+                onCardPress={handleMyCardPress}
+                onWalletDisplayChange={(cardId, walletDisplay) => {
+                  void setUserCardWalletDisplay(cardId, walletDisplay);
+                }}
+              />
               <View style={styles.myCardActions}>
                 <Pressable
                   onPress={() => navigation.navigate('MyCardScan')}

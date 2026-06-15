@@ -109,7 +109,7 @@ export function ScanScreen(): React.JSX.Element {
 
       {isSuccess && capturedCard && (
         <ScanSuccessPanel
-          card={capturedCard}
+          coreFields={capturedCard.core_fields}
           onDone={handleDone}
           onViewDetails={handleViewDetails}
         />

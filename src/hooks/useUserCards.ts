@@ -6,9 +6,10 @@ import {
   listUserCards,
   reorderUserCards,
   updateUserCard,
+  updateUserCardWalletDisplay,
 } from '../api/userCards';
 import { ApiClientError } from '../api/client';
-import type { UserCard, UserCardDraft, UserCardListState } from '../types/userCard';
+import type { UserCard, UserCardDraft, UserCardListState, WalletDisplay } from '../types/userCard';
 
 interface UseUserCardsResult {
   state: UserCardListState;
@@ -18,6 +19,7 @@ interface UseUserCardsResult {
   editUserCard: (cardId: string, draft: Partial<UserCardDraft>) => Promise<UserCard>;
   removeUserCard: (cardId: string) => Promise<void>;
   reorderCards: (orderedIds: string[]) => Promise<UserCard[]>;
+  setCardWalletDisplay: (cardId: string, walletDisplay: WalletDisplay) => Promise<void>;
 }
 
 export function useUserCards(): UseUserCardsResult {
@@ -78,6 +80,44 @@ export function useUserCards(): UseUserCardsResult {
     return reordered;
   }, []);
 
+  const setCardWalletDisplay = useCallback(
+    async (cardId: string, walletDisplay: WalletDisplay) => {
+      let previousCards: UserCard[] | undefined;
+
+      setState(previous => {
+        if (previous.status === 'success') {
+          previousCards = previous.cards;
+          return {
+            status: 'success',
+            cards: previous.cards.map(card =>
+              card._id === cardId ? { ...card, wallet_display: walletDisplay } : card,
+            ),
+          };
+        }
+        return previous;
+      });
+
+      try {
+        const updated = await updateUserCardWalletDisplay(cardId, walletDisplay);
+        setState(previous => {
+          if (previous.status !== 'success') {
+            return previous;
+          }
+          return {
+            status: 'success',
+            cards: previous.cards.map(card => (card._id === cardId ? updated : card)),
+          };
+        });
+      } catch (error) {
+        if (previousCards) {
+          setState({ status: 'success', cards: previousCards });
+        }
+        throw error;
+      }
+    },
+    [],
+  );
+
   return {
     state,
     cards,
@@ -86,5 +126,6 @@ export function useUserCards(): UseUserCardsResult {
     editUserCard,
     removeUserCard,
     reorderCards,
+    setCardWalletDisplay,
   };
 }

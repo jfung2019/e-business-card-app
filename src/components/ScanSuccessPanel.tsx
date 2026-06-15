@@ -8,16 +8,18 @@ import {
 } from 'react-native';
 
 import { luxuryColors } from '../theme/luxury';
-import type { CapturedCard } from '../types/card';
+import type { CoreFields } from '../types/card';
 
 interface ScanSuccessPanelProps {
-  card: CapturedCard;
+  coreFields: CoreFields;
+  title?: string;
   onDone: () => void;
   onViewDetails: () => void;
 }
 
 export function ScanSuccessPanel({
-  card,
+  coreFields,
+  title = 'Card added!',
   onDone,
   onViewDetails,
 }: ScanSuccessPanelProps): React.JSX.Element {
@@ -46,7 +48,7 @@ export function ScanSuccessPanel({
     ]).start();
   }, [opacity, scale, slideY]);
 
-  const subtitle = [card.core_fields.name, card.core_fields.company_name]
+  const subtitle = [coreFields.name, coreFields.company_name]
     .filter(Boolean)
     .join(' · ');
 
@@ -64,7 +66,7 @@ export function ScanSuccessPanel({
         <Text style={styles.checkmark}>✓</Text>
       </Animated.View>
 
-      <Text style={styles.title}>Card added!</Text>
+      <Text style={styles.title}>{title}</Text>
       {subtitle.length > 0 ? (
         <Text style={styles.subtitle} numberOfLines={2}>
           {subtitle}

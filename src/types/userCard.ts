@@ -1,6 +1,7 @@
 import type { CoreFields } from './card';
 
 export type DesignType = 'preset' | 'custom';
+export type WalletDisplay = 'photo' | 'classic';
 
 export interface UserCard {
   _id: string;
@@ -12,6 +13,8 @@ export interface UserCard {
   custom_background_url?: string | null;
   is_primary: boolean;
   sort_order: number;
+  scan_image_url?: string | null;
+  wallet_display?: WalletDisplay;
   created_at: string;
   updated_at: string;
 }
