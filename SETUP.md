@@ -67,26 +67,45 @@ Inside `<application>` tag add `android:usesCleartextTraffic="true"` (required f
 
 ---
 
-## Step 4 — iOS permissions (Mac only)
+## Step 4 — iOS setup (Mac only)
 
-Edit `ios/e-business-card-mobile/Info.plist` (or the app target folder under `ios/`):
+The `ios/` folder is already in Git. You **edit** `Info.plist` in the repo — you do not download it from Apple.
 
-```xml
-<key>NSCameraUsageDescription</key>
-<string>Scan business cards with the camera</string>
-<key>NSPhotoLibraryUsageDescription</key>
-<string>Pick a business card photo from your library</string>
+| File | In Git? | Where |
+|------|---------|--------|
+| `ios/EBusinessCard/Info.plist` | ✅ Yes | App permissions & display name — already configured |
+| `ios/GoogleService-Info.plist` | ❌ No (secret) | Download from [Firebase Console](https://console.firebase.google.com/) |
+
+### Firebase iOS app
+
+1. Firebase Console → project **mega-e-business-card** → **Add app** → **iOS**
+2. Bundle ID: **`com.megaannumai.ebusinesscard`** (must match Xcode)
+3. Download **`GoogleService-Info.plist`**
+4. Save to:
+   ```
+   ios/GoogleService-Info.plist
+   ```
+5. On Mac, open `ios/EBusinessCard.xcworkspace` in Xcode and drag the plist into the **EBusinessCard** target (if not picked up automatically)
+
+See `ios/GoogleService-Info.plist.example` for the expected shape.
+
+### Build on Mac
+
+```bash
+git clone https://github.com/jfung2019/e-business-card-app.git e-business-card-mobile
+cd e-business-card-mobile
+npm install
+cd ios && pod install && cd ..
+
+# Copy GoogleService-Info.plist (see above)
+
+npm start          # Terminal 1
+npm run ios        # Terminal 2 — simulator
 ```
 
-For iOS simulator HTTP to localhost, add to Info.plist:
+`Info.plist` already includes camera/photo permissions and `NSAllowsLocalNetworking` for local API dev.
 
-```xml
-<key>NSAppTransportSecurity</key>
-<dict>
-  <key>NSAllowsLocalNetworking</key>
-  <true/>
-</dict>
-```
+For **TestFlight**, deploy the API to a public HTTPS URL and update `src/config/apiConfig.ts`.
 
 ---
 
