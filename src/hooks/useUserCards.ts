@@ -9,7 +9,13 @@ import {
   updateUserCardWalletDisplay,
 } from '../api/userCards';
 import { ApiClientError } from '../api/client';
-import type { UserCard, UserCardDraft, UserCardListState, WalletDisplay } from '../types/userCard';
+import type {
+  PhotoFace,
+  UserCard,
+  UserCardDraft,
+  UserCardListState,
+  WalletDisplay,
+} from '../types/userCard';
 
 interface UseUserCardsResult {
   state: UserCardListState;
@@ -20,6 +26,7 @@ interface UseUserCardsResult {
   removeUserCard: (cardId: string) => Promise<void>;
   reorderCards: (orderedIds: string[]) => Promise<UserCard[]>;
   setCardWalletDisplay: (cardId: string, walletDisplay: WalletDisplay) => Promise<void>;
+  setCardPhotoFace: (cardId: string, photoFace: PhotoFace) => Promise<void>;
 }
 
 export function useUserCards(): UseUserCardsResult {
@@ -98,7 +105,7 @@ export function useUserCards(): UseUserCardsResult {
       });
 
       try {
-        const updated = await updateUserCardWalletDisplay(cardId, walletDisplay);
+        const updated = await updateUserCardWalletDisplay(cardId, { walletDisplay });
         setState(previous => {
           if (previous.status !== 'success') {
             return previous;
@@ -118,6 +125,41 @@ export function useUserCards(): UseUserCardsResult {
     [],
   );
 
+  const setCardPhotoFace = useCallback(async (cardId: string, photoFace: PhotoFace) => {
+    let previousCards: UserCard[] | undefined;
+
+    setState(previous => {
+      if (previous.status === 'success') {
+        previousCards = previous.cards;
+        return {
+          status: 'success',
+          cards: previous.cards.map(card =>
+            card._id === cardId ? { ...card, photo_face: photoFace } : card,
+          ),
+        };
+      }
+      return previous;
+    });
+
+    try {
+      const updated = await updateUserCardWalletDisplay(cardId, { photoFace });
+      setState(previous => {
+        if (previous.status !== 'success') {
+          return previous;
+        }
+        return {
+          status: 'success',
+          cards: previous.cards.map(card => (card._id === cardId ? updated : card)),
+        };
+      });
+    } catch (error) {
+      if (previousCards) {
+        setState({ status: 'success', cards: previousCards });
+      }
+      throw error;
+    }
+  }, []);
+
   return {
     state,
     cards,
@@ -127,5 +169,6 @@ export function useUserCards(): UseUserCardsResult {
     removeUserCard,
     reorderCards,
     setCardWalletDisplay,
+    setCardPhotoFace,
   };
 }

@@ -78,7 +78,11 @@ export function MyCardFormScreen(): React.JSX.Element {
     is_primary: isPrimary,
     sort_order: card?.sort_order ?? 0,
     scan_image_url: card?.scan_image_url,
-    wallet_display: card?.wallet_display,
+    scan_image_front_url: card?.scan_image_front_url,
+    scan_image_back_url: card?.scan_image_back_url,
+    // In form mode, prioritize template preview so design selection is immediately visible.
+    wallet_display: 'classic',
+    photo_face: card?.photo_face ?? 'front',
     created_at: card?.created_at ?? '',
     updated_at: card?.updated_at ?? '',
   };

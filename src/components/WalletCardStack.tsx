@@ -9,7 +9,7 @@ import Animated, {
 
 import { getCardPaletteIndex } from '../theme/wallet';
 import { WALLET_SPRING } from '../theme/walletAnimations';
-import type { CapturedCard } from '../types/card';
+import type { CapturedCard, PhotoFace } from '../types/card';
 import {
   getWalletStackHeight,
   WALLET_CARD_STACK_STEP,
@@ -20,6 +20,7 @@ interface WalletCardStackProps {
   cards: CapturedCard[];
   onCardPress: (card: CapturedCard) => void;
   onWalletDisplayChange?: (cardId: string, walletDisplay: 'photo' | 'classic') => void;
+  onPhotoFaceChange?: (cardId: string, photoFace: PhotoFace) => void;
 }
 
 interface AnimatedCardSlotProps {
@@ -29,6 +30,7 @@ interface AnimatedCardSlotProps {
   paletteIndex: number;
   onPress: () => void;
   onWalletDisplayChange?: (cardId: string, walletDisplay: 'photo' | 'classic') => void;
+  onPhotoFaceChange?: (cardId: string, photoFace: PhotoFace) => void;
 }
 
 function AnimatedCardSlot({
@@ -38,6 +40,7 @@ function AnimatedCardSlot({
   paletteIndex,
   onPress,
   onWalletDisplayChange,
+  onPhotoFaceChange,
 }: AnimatedCardSlotProps): React.JSX.Element {
   const isFront = index === totalCards - 1;
   const targetTop = index * WALLET_CARD_STACK_STEP;
@@ -67,6 +70,7 @@ function AnimatedCardSlot({
         paletteIndex={paletteIndex}
         onPress={onPress}
         onWalletDisplayChange={onWalletDisplayChange}
+        onPhotoFaceChange={onPhotoFaceChange}
       />
     </Animated.View>
   );
@@ -94,6 +98,7 @@ export function WalletCardStack({
   cards,
   onCardPress,
   onWalletDisplayChange,
+  onPhotoFaceChange,
 }: WalletCardStackProps): React.JSX.Element {
   const defaultOrder = useMemo(() => buildDefaultOrder(cards), [cards]);
   const [stackOrder, setStackOrder] = useState<string[]>(defaultOrder);
@@ -137,6 +142,7 @@ export function WalletCardStack({
           paletteIndex={getCardPaletteIndex(card._id, cards)}
           onPress={() => handlePress(card, index)}
           onWalletDisplayChange={onWalletDisplayChange}
+          onPhotoFaceChange={onPhotoFaceChange}
         />
       ))}
     </View>

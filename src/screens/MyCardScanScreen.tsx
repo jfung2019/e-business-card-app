@@ -22,13 +22,22 @@ export function MyCardScanScreen(): React.JSX.Element {
   const navigation = useNavigation<ScanNavigation>();
   const { state, userCard, submitScan, reset } = useProcessUserCard();
   const [scanError, setScanError] = useState<string | null>(null);
+  const [frontOcrText, setFrontOcrText] = useState<string | null>(null);
+  const [frontImageBase64, setFrontImageBase64] = useState<string | null>(null);
+  const [awaitingBackCapture, setAwaitingBackCapture] = useState(false);
+  const [submissionVariant, setSubmissionVariant] = useState<'frontOnly' | 'frontAndBack'>(
+    'frontOnly',
+  );
 
   const isSuccess = state.status === 'success' && userCard !== null;
   const isBusy = state.status === 'loading';
 
-  const handleScan = async (source: OcrSource) => {
+  const handleScanFront = async (source: OcrSource) => {
     reset();
     setScanError(null);
+    setAwaitingBackCapture(false);
+    setFrontOcrText(null);
+    setFrontImageBase64(null);
 
     try {
       const result = await scanBusinessCard(source);
@@ -36,11 +45,9 @@ export function MyCardScanScreen(): React.JSX.Element {
         return;
       }
 
-      await submitScan({
-        ocrText: result.ocrText,
-        imageBase64: result.imageBase64,
-        isPrimary: true,
-      });
+      setFrontOcrText(result.ocrText);
+      setFrontImageBase64(result.imageBase64);
+      setAwaitingBackCapture(true);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Failed to read text from image.';
@@ -48,9 +55,51 @@ export function MyCardScanScreen(): React.JSX.Element {
     }
   };
 
+  const finalizeSubmission = async (backImageBase64?: string) => {
+    if (!frontOcrText || !frontImageBase64) {
+      setScanError('Front card image is missing. Please scan the front again.');
+      setAwaitingBackCapture(false);
+      return;
+    }
+
+    setSubmissionVariant(backImageBase64 ? 'frontAndBack' : 'frontOnly');
+    await submitScan({
+      ocrText: frontOcrText,
+      imageBase64: frontImageBase64,
+      backImageBase64,
+      isPrimary: true,
+    });
+    setAwaitingBackCapture(false);
+    setFrontOcrText(null);
+    setFrontImageBase64(null);
+  };
+
+  const handleScanBack = async (source: OcrSource) => {
+    setScanError(null);
+    try {
+      const result = await scanBusinessCard(source);
+      if (!result) {
+        return;
+      }
+      await finalizeSubmission(result.imageBase64);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to capture the back image.';
+      setScanError(message);
+    }
+  };
+
+  const handleSkipBack = () => {
+    void finalizeSubmission();
+  };
+
   const handleDone = () => {
     reset();
     setScanError(null);
+    setFrontOcrText(null);
+    setFrontImageBase64(null);
+    setAwaitingBackCapture(false);
+    setSubmissionVariant('frontOnly');
     navigation.navigate('Collection');
   };
 
@@ -61,12 +110,16 @@ export function MyCardScanScreen(): React.JSX.Element {
     const card = userCard;
     reset();
     setScanError(null);
+    setFrontOcrText(null);
+    setFrontImageBase64(null);
+    setAwaitingBackCapture(false);
+    setSubmissionVariant('frontOnly');
     navigation.navigate('MyCardForm', { mode: 'edit', card });
   };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      {!isSuccess && (
+      {!isSuccess && !awaitingBackCapture && (
         <>
           <Text style={styles.subtitle}>
             Scan your business card with the document camera for auto crop and align, or pick
@@ -77,14 +130,14 @@ export function MyCardScanScreen(): React.JSX.Element {
             <View style={styles.button}>
               <Button
                 title="Scan Card"
-                onPress={() => void handleScan('camera')}
+                onPress={() => void handleScanFront('camera')}
                 disabled={isBusy}
               />
             </View>
             <View style={styles.button}>
               <Button
                 title="Choose Image"
-                onPress={() => void handleScan('gallery')}
+                onPress={() => void handleScanFront('gallery')}
                 disabled={isBusy}
               />
             </View>
@@ -92,11 +145,39 @@ export function MyCardScanScreen(): React.JSX.Element {
         </>
       )}
 
+      {!isSuccess && awaitingBackCapture && !isBusy && (
+        <>
+          <Text style={styles.captureReadyText}>Front captured successfully</Text>
+          <Text style={styles.subtitle}>
+            Front captured. Capture the back side now (optional), or skip and save front only.
+          </Text>
+          <View style={styles.buttonRow}>
+            <View style={styles.button}>
+              <Button
+                title="Scan Back"
+                onPress={() => void handleScanBack('camera')}
+                disabled={isBusy}
+              />
+            </View>
+            <View style={styles.button}>
+              <Button
+                title="Choose Back Image"
+                onPress={() => void handleScanBack('gallery')}
+                disabled={isBusy}
+              />
+            </View>
+          </View>
+          <Button title="Skip Back and Save" onPress={handleSkipBack} disabled={isBusy} />
+        </>
+      )}
+
       {isBusy && (
         <View style={styles.feedback}>
           <ActivityIndicator size="large" color={walletColors.title} />
           <Text style={styles.feedbackText}>
-            Uploading scan and parsing your card details...
+            {submissionVariant === 'frontAndBack'
+              ? 'Uploading front and back scans, then parsing your card details...'
+              : 'Uploading front scan and parsing your card details...'}
           </Text>
         </View>
       )}
@@ -151,5 +232,11 @@ const styles = StyleSheet.create({
     color: '#B91C1C',
     fontWeight: '600',
     textAlign: 'center',
+  },
+  captureReadyText: {
+    color: walletColors.title,
+    fontWeight: '700',
+    textAlign: 'center',
+    letterSpacing: 0.3,
   },
 });

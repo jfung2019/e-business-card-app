@@ -1,13 +1,14 @@
 import React from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 
-import type { UserCard, WalletDisplay } from '../types/userCard';
+import type { PhotoFace, UserCard, WalletDisplay } from '../types/userCard';
 import { getMyCardDisplayHeight, MY_CARD_HEIGHT, MY_CARD_WIDTH, MyCardFace } from './MyCardFace';
 
 interface MyCardCarouselProps {
   cards: UserCard[];
   onCardPress: (card: UserCard) => void;
   onWalletDisplayChange?: (cardId: string, walletDisplay: WalletDisplay) => void;
+  onPhotoFaceChange?: (cardId: string, photoFace: PhotoFace) => void;
 }
 
 const CARD_SPACING = 16;
@@ -16,6 +17,7 @@ export function MyCardCarousel({
   cards,
   onCardPress,
   onWalletDisplayChange,
+  onPhotoFaceChange,
 }: MyCardCarouselProps): React.JSX.Element {
   const carouselHeight = Math.max(
     ...cards.map(getMyCardDisplayHeight),
@@ -38,6 +40,7 @@ export function MyCardCarousel({
             card={item}
             onPress={() => onCardPress(item)}
             onWalletDisplayChange={onWalletDisplayChange}
+            onPhotoFaceChange={onPhotoFaceChange}
           />
         </View>
       )}

@@ -2,6 +2,7 @@ import type { CoreFields } from './card';
 
 export type DesignType = 'preset' | 'custom';
 export type WalletDisplay = 'photo' | 'classic';
+export type PhotoFace = 'front' | 'back';
 
 export interface UserCard {
   _id: string;
@@ -14,7 +15,10 @@ export interface UserCard {
   is_primary: boolean;
   sort_order: number;
   scan_image_url?: string | null;
+  scan_image_front_url?: string | null;
+  scan_image_back_url?: string | null;
   wallet_display?: WalletDisplay;
+  photo_face?: PhotoFace;
   created_at: string;
   updated_at: string;
 }

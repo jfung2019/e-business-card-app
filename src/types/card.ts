@@ -10,6 +10,7 @@ export interface CoreFields {
 }
 
 export type WalletDisplay = 'photo' | 'classic';
+export type PhotoFace = 'front' | 'back';
 
 export interface CapturedCard {
   _id: string;
@@ -18,7 +19,10 @@ export interface CapturedCard {
   core_fields: CoreFields;
   custom_fields: Record<string, string>;
   scan_image_url?: string | null;
+  scan_image_front_url?: string | null;
+  scan_image_back_url?: string | null;
   wallet_display?: WalletDisplay;
+  photo_face?: PhotoFace;
 }
 
 export interface ProcessCardRequest {

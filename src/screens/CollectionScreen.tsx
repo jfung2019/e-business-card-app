@@ -31,12 +31,13 @@ export function CollectionScreen(): React.JSX.Element {
   const navigation = useNavigation<CollectionNavigation>();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
-  const { state, cards, fetchCards, setCardWalletDisplay } = useCards();
+  const { state, cards, fetchCards, setCardWalletDisplay, setCardPhotoFace } = useCards();
   const {
     state: userCardsState,
     cards: userCards,
     fetchUserCards,
     setCardWalletDisplay: setUserCardWalletDisplay,
+    setCardPhotoFace: setUserCardPhotoFace,
   } = useUserCards();
   const { visible: bannerVisible, dismiss: dismissBanner } = useMyCardsBanner(
     userCards.length > 0,
@@ -126,6 +127,9 @@ export function CollectionScreen(): React.JSX.Element {
                 onWalletDisplayChange={(cardId, walletDisplay) => {
                   void setUserCardWalletDisplay(cardId, walletDisplay);
                 }}
+                onPhotoFaceChange={(cardId, photoFace) => {
+                  void setUserCardPhotoFace(cardId, photoFace);
+                }}
               />
               <View style={styles.myCardActions}>
                 <Pressable
@@ -208,6 +212,9 @@ export function CollectionScreen(): React.JSX.Element {
                 onCardPress={handleCollectedCardPress}
                 onWalletDisplayChange={(cardId, walletDisplay) => {
                   void setCardWalletDisplay(cardId, walletDisplay);
+                }}
+                onPhotoFaceChange={(cardId, photoFace) => {
+                  void setCardPhotoFace(cardId, photoFace);
                 }}
               />
             </View>

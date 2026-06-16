@@ -1,4 +1,4 @@
-import type { CapturedCard, WalletDisplay } from '../types/card';
+import type { CapturedCard, PhotoFace, WalletDisplay } from '../types/card';
 import { API_BASE_URL, API_V1_PREFIX } from '../config/apiConfig';
 import { getAccessToken } from './authToken';
 import { ApiClientError, apiDelete, apiGet, apiPatch } from './client';
@@ -22,6 +22,7 @@ export async function listCards(): Promise<CapturedCard[]> {
 export async function processCard(
   rawOcrText: string,
   imageBase64?: string,
+  backImageBase64?: string,
 ): Promise<CapturedCard> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), PROCESS_CARD_TIMEOUT_MS);
@@ -31,6 +32,9 @@ export async function processCard(
     formData.append('raw_ocr_text', rawOcrText.trim());
     if (imageBase64) {
       formData.append('scan_image_base64', imageBase64);
+    }
+    if (backImageBase64) {
+      formData.append('scan_image_back_base64', backImageBase64);
     }
 
     const token = await getAccessToken();
@@ -80,11 +84,18 @@ export async function processCard(
 
 export async function updateCardWalletDisplay(
   cardId: string,
-  walletDisplay: WalletDisplay,
+  payload: { walletDisplay?: WalletDisplay; photoFace?: PhotoFace },
 ): Promise<CapturedCard> {
+  const body: Record<string, string> = {};
+  if (payload.walletDisplay) {
+    body.wallet_display = payload.walletDisplay;
+  }
+  if (payload.photoFace) {
+    body.photo_face = payload.photoFace;
+  }
   const card = await apiPatch<CapturedCardApiPayload>(
     `${API_V1_PREFIX}/cards/${cardId}/wallet-display`,
-    { wallet_display: walletDisplay },
+    body,
   );
   return normalizeCapturedCard(card);
 }
