@@ -5,20 +5,18 @@ require Pod::Executable.execute_command('node', ['-p',
     {paths: [process.argv[1]]},
   )', __dir__]).strip
 
-platform :ios, min_ios_version_supported
+# ML Kit text recognition requires iOS 15.5+ (RN default is 15.1).
+platform :ios, '15.5'
 prepare_react_native_project!
 
 # Required by @react-native-firebase/* when using static libraries (default RN 0.86).
 $RNFirebaseAsStaticFramework = true
 
-linkage = ENV['USE_FRAMEWORKS']
-if linkage != nil
-  Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
-  use_frameworks! :linkage => linkage.to_sym
-end
-
 target 'EBusinessCard' do
   config = use_native_modules!
+
+  # Required by @react-native-firebase/* (see https://rnfirebase.io).
+  use_frameworks! :linkage => :static
 
   use_react_native!(
     :path => config[:reactNativePath],
@@ -33,5 +31,40 @@ target 'EBusinessCard' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+
+    # RNFirebase static frameworks import React-Core headers that are not modular.
+    installer.pods_project.targets.each do |target|
+      next unless target.name.start_with?('RNFB')
+
+      target.build_configurations.each do |config|
+        config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+      end
+    end
+
+    # CocoaPods/ML Kit still sets EXCLUDED_ARCHS=arm64 for simulator (legacy Intel
+    # workaround). On Apple Silicon, simulator must build arm64.
+    installer.pods_project.build_configurations.each do |config|
+      config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'i386'
+    end
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |config|
+        config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'i386'
+      end
+    end
+    installer.aggregate_targets.each do |aggregate_target|
+      aggregate_target.xcconfigs.each do |_config_name, config_file|
+        config_file.attributes['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'i386'
+      end
+    end
+
+    # Persist arch fix into generated xcconfigs (aggregate hook alone is not enough).
+    Dir.glob(File.join(__dir__, 'Pods/Target Support Files/Pods-EBusinessCard/*.xcconfig')).each do |xcconfig|
+      contents = File.read(xcconfig)
+      updated = contents.gsub(
+        'EXCLUDED_ARCHS[sdk=iphonesimulator*] = arm64',
+        'EXCLUDED_ARCHS[sdk=iphonesimulator*] = i386'
+      )
+      File.write(xcconfig, updated) if updated != contents
+    end
   end
 end

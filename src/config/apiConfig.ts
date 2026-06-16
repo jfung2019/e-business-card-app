@@ -7,7 +7,7 @@ import { Platform } from 'react-native';
  * Set USE_PROD_API = true to hit the deployed server from debug builds (emulator).
  * Set false to use local API (10.0.2.2 / localhost).
  */
-const USE_PROD_API = false;
+const USE_PROD_API = true;
 
 const PROD_API_BASE_URL = 'https://focms.megaannum.ai:8001';
 
