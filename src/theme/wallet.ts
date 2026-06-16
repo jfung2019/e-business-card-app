@@ -4,6 +4,11 @@ export const walletColors = {
   subtitle: '#6B6B6B',
   addButton: '#111111',
   addButtonText: '#FFFFFF',
+  surface: '#FFFFFF',
+  border: '#E5E5EA',
+  accent: '#C9A962',
+  accentMuted: '#8A7340',
+  error: '#B91C1C',
 } as const;
 
 export interface WalletCardPalette {

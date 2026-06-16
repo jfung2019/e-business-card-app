@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 
 import { useAuthenticatedImageSource } from '../utils/scanImage';
-import { luxuryColors } from '../theme/luxury';
+import { walletColors } from '../theme/wallet';
 
 interface ScanImageProps extends Omit<ImageProps, 'source'> {
   scanImageUrl: string | null | undefined;
@@ -30,7 +30,7 @@ export function ScanImage({
   if (!source) {
     return (
       <View style={[styles.placeholder, style]}>
-        <ActivityIndicator color={luxuryColors.gold} />
+        <ActivityIndicator color={walletColors.accent} />
       </View>
     );
   }
@@ -61,7 +61,7 @@ export function ScanImageBackground({
   if (!source) {
     return (
       <View style={[style, styles.placeholder]}>
-        <ActivityIndicator color={luxuryColors.gold} />
+        <ActivityIndicator color={walletColors.accent} />
         {children}
       </View>
     );
@@ -83,6 +83,6 @@ const styles = StyleSheet.create({
   placeholder: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#2A2A2A',
+    backgroundColor: walletColors.background,
   },
 });

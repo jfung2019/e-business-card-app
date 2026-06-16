@@ -14,7 +14,9 @@ export interface CardScanResult {
   ocrText: string;
 }
 
-async function pickGalleryImageUri(): Promise<{ uri: string; base64?: string } | null> {
+type PickedImage = { uri: string; base64?: string };
+
+async function pickGalleryImageUri(): Promise<PickedImage | null> {
   const result = await launchImageLibrary({
     mediaType: 'photo',
     quality: 0.9,
@@ -66,7 +68,7 @@ async function recognizeText(imageUri: string): Promise<string> {
 export async function scanBusinessCard(
   source: OcrSource,
 ): Promise<CardScanResult | null> {
-  const picked =
+  const picked: PickedImage | null =
     source === 'camera'
       ? await scanWithDocumentCamera().then((uri) => (uri ? { uri } : null))
       : await pickGalleryImageUri();

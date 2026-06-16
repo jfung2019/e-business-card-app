@@ -1,6 +1,8 @@
 import React from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 
+import { walletColors } from '../theme/wallet';
+
 interface CustomFieldsListProps {
   customFields: Record<string, string>;
 }
@@ -16,7 +18,7 @@ export function CustomFieldsList({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.sectionTitle}>Additional Details</Text>
+      <Text style={styles.sectionTitle}>Additional details</Text>
       <FlatList
         data={entries}
         keyExtractor={([key]) => key}
@@ -35,16 +37,19 @@ export function CustomFieldsList({
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: 16,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: walletColors.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: walletColors.border,
+    padding: 18,
     gap: 12,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: walletColors.accentMuted,
   },
   row: {
     gap: 4,
@@ -52,11 +57,12 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#6B7280',
+    color: walletColors.subtitle,
   },
   value: {
-    fontSize: 15,
-    color: '#111827',
+    fontSize: 16,
+    lineHeight: 22,
+    color: walletColors.title,
   },
   separator: {
     height: 12,

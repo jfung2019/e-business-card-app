@@ -1,7 +1,7 @@
 import type { CapturedCard, WalletDisplay } from '../types/card';
 import { API_BASE_URL, API_V1_PREFIX } from '../config/apiConfig';
 import { getAccessToken } from './authToken';
-import { ApiClientError, apiGet, apiPatch } from './client';
+import { ApiClientError, apiDelete, apiGet, apiPatch } from './client';
 
 const PROCESS_CARD_TIMEOUT_MS = 60_000;
 
@@ -87,4 +87,8 @@ export async function updateCardWalletDisplay(
     { wallet_display: walletDisplay },
   );
   return normalizeCapturedCard(card);
+}
+
+export async function deleteCard(cardId: string): Promise<void> {
+  await apiDelete(`${API_V1_PREFIX}/cards/${cardId}`);
 }

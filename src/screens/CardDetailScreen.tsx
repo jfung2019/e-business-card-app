@@ -1,141 +1,343 @@
-import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
+import { ApiClientError } from '../api/client';
+import { deleteCard } from '../api/cards';
 import { CustomFieldsList } from '../components/CustomFieldsList';
 import { ScanImage } from '../components/ScanImage';
 import type { MainStackParamList } from '../navigation/AppNavigator';
-import { luxuryColors } from '../theme/luxury';
+import { walletColors } from '../theme/wallet';
 import type { CoreFields } from '../types/card';
 import { formatScannedDate } from '../utils/formatDate';
 
 type CardDetailProps = NativeStackScreenProps<MainStackParamList, 'CardDetail'>;
+type CardDetailNavigation = NativeStackNavigationProp<MainStackParamList, 'CardDetail'>;
 
-const CORE_FIELD_LABELS: Array<{ key: keyof CoreFields; label: string }> = [
-  { key: 'name', label: 'Name' },
-  { key: 'company_name', label: 'Company' },
+const CONTACT_FIELD_LABELS: Array<{ key: keyof CoreFields; label: string }> = [
   { key: 'email', label: 'Email' },
   { key: 'phone', label: 'Phone' },
   { key: 'website', label: 'Website' },
 ];
 
+type QuickAction = {
+  key: string;
+  label: string;
+  onPress: () => void;
+};
+
+function buildSubtitle(coreFields: CoreFields): string {
+  return [coreFields.job_title, coreFields.company_name]
+    .filter((value): value is string => Boolean(value?.trim()))
+    .join(' · ');
+}
+
+function normalizeWebsite(url: string): string {
+  return url.startsWith('http') ? url : `https://${url}`;
+}
+
 export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element {
+  const navigation = useNavigation<CardDetailNavigation>();
   const { card } = route.params;
   const { core_fields, custom_fields, scanned_at, scan_image_url } = card;
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const subtitle = buildSubtitle(core_fields);
+
+  const quickActions: QuickAction[] = [];
+  if (core_fields.phone?.trim()) {
+    const phone = core_fields.phone.trim();
+    quickActions.push({
+      key: 'phone',
+      label: 'Call',
+      onPress: () => void Linking.openURL(`tel:${phone.replace(/\s/g, '')}`),
+    });
+  }
+  if (core_fields.email?.trim()) {
+    const email = core_fields.email.trim();
+    quickActions.push({
+      key: 'email',
+      label: 'Email',
+      onPress: () => void Linking.openURL(`mailto:${email}`),
+    });
+  }
+  if (core_fields.website?.trim()) {
+    const website = core_fields.website.trim();
+    quickActions.push({
+      key: 'website',
+      label: 'Website',
+      onPress: () => void Linking.openURL(normalizeWebsite(website)),
+    });
+  }
+
+  const handleDelete = () => {
+    Alert.alert('Delete card', 'Remove this contact from your collection?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          void (async () => {
+            setDeleting(true);
+            setError(null);
+            try {
+              await deleteCard(card._id);
+              navigation.navigate('Collection');
+            } catch (deleteError) {
+              const message =
+                deleteError instanceof ApiClientError
+                  ? deleteError.message
+                  : 'Unable to delete this card.';
+              setError(message);
+            } finally {
+              setDeleting(false);
+            }
+          })();
+        },
+      },
+    ]);
+  };
+
+  const openField = (key: keyof CoreFields, value: string) => {
+    if (key === 'phone') {
+      void Linking.openURL(`tel:${value.replace(/\s/g, '')}`);
+      return;
+    }
+    if (key === 'email') {
+      void Linking.openURL(`mailto:${value}`);
+      return;
+    }
+    if (key === 'website') {
+      void Linking.openURL(normalizeWebsite(value));
+    }
+  };
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       {scan_image_url ? (
-        <ScanImage
-          scanImageUrl={scan_image_url}
-          style={styles.scanImage}
-          resizeMode="contain"
-        />
+        <View style={styles.scanCard}>
+          <ScanImage
+            scanImageUrl={scan_image_url}
+            style={styles.scanImage}
+            resizeMode="contain"
+          />
+        </View>
       ) : null}
 
-      <View style={styles.headerCard}>
-        <Text style={styles.eyebrow}>CONTACT DETAILS</Text>
+      <View style={styles.heroCard}>
+        <Text style={styles.eyebrow}>Contact</Text>
         <Text style={styles.name}>{core_fields.name}</Text>
-        {core_fields.company_name ? (
-          <Text style={styles.company}>{core_fields.company_name}</Text>
-        ) : null}
-        <Text style={styles.meta}>Added {formatScannedDate(scanned_at)} · Scan</Text>
+        {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+        <Text style={styles.meta}>Added {formatScannedDate(scanned_at)}</Text>
       </View>
 
-      <View style={styles.section}>
-        {CORE_FIELD_LABELS.map(({ key, label }) => {
-          const value = core_fields[key];
-          if (!value) {
-            return null;
-          }
-          return (
-            <View key={key} style={styles.row}>
-              <Text style={styles.label}>{label}</Text>
-              <Text style={styles.value}>{value}</Text>
-            </View>
-          );
-        })}
-      </View>
-
-      {Object.keys(custom_fields).length > 0 && (
-        <View style={styles.customSection}>
-          <CustomFieldsList customFields={custom_fields} />
+      {quickActions.length > 0 ? (
+        <View style={styles.actionsRow}>
+          {quickActions.map(action => (
+            <Pressable
+              key={action.key}
+              onPress={action.onPress}
+              style={({ pressed }) => [
+                styles.actionButton,
+                pressed && styles.actionButtonPressed,
+              ]}
+            >
+              <Text style={styles.actionButtonText}>{action.label}</Text>
+            </Pressable>
+          ))}
         </View>
-      )}
+      ) : null}
+
+      {CONTACT_FIELD_LABELS.some(({ key }) => core_fields[key]) ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Contact details</Text>
+          {CONTACT_FIELD_LABELS.map(({ key, label }) => {
+            const value = core_fields[key];
+            if (!value) {
+              return null;
+            }
+            return (
+              <Pressable
+                key={key}
+                onPress={() => openField(key, value)}
+                style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+              >
+                <Text style={styles.label}>{label}</Text>
+                <Text style={[styles.value, styles.valueLink]}>{value}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
+
+      {Object.keys(custom_fields).length > 0 ? (
+        <CustomFieldsList customFields={custom_fields} />
+      ) : null}
+
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+      <Pressable
+        onPress={handleDelete}
+        disabled={deleting}
+        style={styles.deleteButton}
+      >
+        {deleting ? (
+          <ActivityIndicator color={walletColors.error} />
+        ) : (
+          <Text style={styles.deleteText}>Delete card</Text>
+        )}
+      </Pressable>
     </ScrollView>
   );
 }
 
+const cardShadow = {
+  shadowColor: '#000000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.06,
+  shadowRadius: 8,
+  elevation: 2,
+} as const;
+
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: luxuryColors.background,
+    backgroundColor: walletColors.background,
   },
   content: {
     padding: 20,
     gap: 16,
     paddingBottom: 32,
   },
+  scanCard: {
+    backgroundColor: walletColors.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: walletColors.border,
+    overflow: 'hidden',
+    ...cardShadow,
+  },
   scanImage: {
     width: '100%',
     aspectRatio: 1.586,
-    borderRadius: 16,
-    backgroundColor: luxuryColors.surface,
+    backgroundColor: walletColors.background,
   },
-  headerCard: {
-    backgroundColor: luxuryColors.surfaceElevated,
-    borderRadius: 18,
+  heroCard: {
+    backgroundColor: walletColors.surface,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: luxuryColors.border,
+    borderColor: walletColors.border,
     padding: 22,
     gap: 6,
+    borderTopWidth: 3,
+    borderTopColor: walletColors.accent,
+    ...cardShadow,
   },
   eyebrow: {
-    color: luxuryColors.gold,
+    color: walletColors.accentMuted,
     fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 2,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
   },
   name: {
-    color: luxuryColors.cream,
+    color: walletColors.title,
     fontSize: 28,
-    fontWeight: '600',
-    letterSpacing: 0.3,
+    fontWeight: '700',
+    letterSpacing: -0.3,
   },
-  company: {
-    color: luxuryColors.creamMuted,
+  subtitle: {
+    color: walletColors.subtitle,
     fontSize: 16,
+    lineHeight: 22,
   },
   meta: {
-    marginTop: 8,
-    color: luxuryColors.goldMuted,
-    fontSize: 12,
-    letterSpacing: 0.5,
+    marginTop: 6,
+    color: walletColors.subtitle,
+    fontSize: 13,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  actionButton: {
+    backgroundColor: walletColors.addButton,
+    borderRadius: 999,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+  },
+  actionButtonPressed: {
+    opacity: 0.88,
+  },
+  actionButtonText: {
+    color: walletColors.addButtonText,
+    fontSize: 14,
+    fontWeight: '600',
   },
   section: {
-    backgroundColor: luxuryColors.surface,
+    backgroundColor: walletColors.surface,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: luxuryColors.border,
+    borderColor: walletColors.border,
     padding: 18,
     gap: 14,
+    ...cardShadow,
   },
-  row: {
-    gap: 4,
-  },
-  label: {
-    color: luxuryColors.goldMuted,
+  sectionTitle: {
+    color: walletColors.accentMuted,
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 1.2,
     textTransform: 'uppercase',
   },
+  row: {
+    gap: 4,
+    borderRadius: 8,
+    paddingVertical: 2,
+  },
+  rowPressed: {
+    opacity: 0.7,
+  },
+  label: {
+    color: walletColors.subtitle,
+    fontSize: 12,
+    fontWeight: '600',
+  },
   value: {
-    color: luxuryColors.cream,
+    color: walletColors.title,
     fontSize: 16,
     lineHeight: 22,
   },
-  customSection: {
-    opacity: 0.95,
+  valueLink: {
+    color: walletColors.accentMuted,
+  },
+  errorText: {
+    color: walletColors.error,
+    textAlign: 'center',
+    fontSize: 14,
+  },
+  deleteButton: {
+    alignSelf: 'center',
+    paddingVertical: 8,
+    minHeight: 36,
+    justifyContent: 'center',
+  },
+  deleteText: {
+    color: walletColors.error,
+    fontWeight: '600',
+    fontSize: 16,
   },
 });
