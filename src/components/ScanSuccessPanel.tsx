@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import {
   Animated,
   Pressable,
@@ -7,7 +7,8 @@ import {
   View,
 } from 'react-native';
 
-import { luxuryColors } from '../theme/luxury';
+import { useAppTheme } from '../context/ThemeContext';
+import type { ScanThemeColors } from '../theme/appTheme';
 import type { CoreFields } from '../types/card';
 
 interface ScanSuccessPanelProps {
@@ -17,12 +18,83 @@ interface ScanSuccessPanelProps {
   onViewDetails: () => void;
 }
 
+function createStyles(scan: ScanThemeColors) {
+  return StyleSheet.create({
+    panel: {
+      alignItems: 'center',
+      gap: 14,
+      paddingVertical: 28,
+      paddingHorizontal: 24,
+      borderRadius: 20,
+      backgroundColor: scan.surfaceElevated,
+      borderWidth: 1,
+      borderColor: scan.border,
+    },
+    iconWrap: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      backgroundColor: 'rgba(201, 169, 98, 0.18)',
+      borderWidth: 2,
+      borderColor: scan.gold,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 4,
+    },
+    checkmark: {
+      color: scan.gold,
+      fontSize: 36,
+      fontWeight: '700',
+      lineHeight: 40,
+    },
+    title: {
+      color: scan.cream,
+      fontSize: 24,
+      fontWeight: '700',
+      letterSpacing: 0.2,
+    },
+    subtitle: {
+      color: scan.creamMuted,
+      fontSize: 15,
+      lineHeight: 22,
+      textAlign: 'center',
+    },
+    primaryButton: {
+      marginTop: 8,
+      width: '100%',
+      backgroundColor: scan.gold,
+      borderRadius: 999,
+      paddingVertical: 14,
+      alignItems: 'center',
+    },
+    primaryPressed: {
+      opacity: 0.9,
+      transform: [{ scale: 0.98 }],
+    },
+    primaryButtonText: {
+      color: scan.background,
+      fontSize: 16,
+      fontWeight: '700',
+    },
+    secondaryButton: {
+      paddingVertical: 6,
+    },
+    secondaryButtonText: {
+      color: scan.goldLight,
+      fontSize: 15,
+      fontWeight: '600',
+    },
+  });
+}
+
 export function ScanSuccessPanel({
   coreFields,
   title = 'Card added!',
   onDone,
   onViewDetails,
 }: ScanSuccessPanelProps): React.JSX.Element {
+  const { scan } = useAppTheme();
+  const styles = useMemo(() => createStyles(scan), [scan]);
   const scale = useRef(new Animated.Value(0.72)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   const slideY = useRef(new Animated.Value(16)).current;
@@ -86,70 +158,3 @@ export function ScanSuccessPanel({
     </Animated.View>
   );
 }
-
-const styles = StyleSheet.create({
-  panel: {
-    alignItems: 'center',
-    gap: 14,
-    paddingVertical: 28,
-    paddingHorizontal: 24,
-    borderRadius: 20,
-    backgroundColor: luxuryColors.surfaceElevated,
-    borderWidth: 1,
-    borderColor: luxuryColors.border,
-  },
-  iconWrap: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: 'rgba(201, 169, 98, 0.18)',
-    borderWidth: 2,
-    borderColor: luxuryColors.gold,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 4,
-  },
-  checkmark: {
-    color: luxuryColors.gold,
-    fontSize: 36,
-    fontWeight: '700',
-    lineHeight: 40,
-  },
-  title: {
-    color: luxuryColors.cream,
-    fontSize: 24,
-    fontWeight: '700',
-    letterSpacing: 0.2,
-  },
-  subtitle: {
-    color: luxuryColors.creamMuted,
-    fontSize: 15,
-    lineHeight: 22,
-    textAlign: 'center',
-  },
-  primaryButton: {
-    marginTop: 8,
-    width: '100%',
-    backgroundColor: luxuryColors.gold,
-    borderRadius: 999,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  primaryPressed: {
-    opacity: 0.9,
-    transform: [{ scale: 0.98 }],
-  },
-  primaryButtonText: {
-    color: luxuryColors.background,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  secondaryButton: {
-    paddingVertical: 6,
-  },
-  secondaryButtonText: {
-    color: luxuryColors.goldLight,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-});

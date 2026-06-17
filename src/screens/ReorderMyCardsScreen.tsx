@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -18,16 +18,76 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { MyCardFace } from '../components/MyCardFace';
 import { reorderUserCards } from '../api/userCards';
 import { ApiClientError } from '../api/client';
+import { useAppTheme } from '../context/ThemeContext';
 import type { MainStackParamList } from '../navigation/AppNavigator';
-import { walletColors } from '../theme/wallet';
+import type { WalletThemeColors } from '../theme/appTheme';
 import type { UserCard } from '../types/userCard';
 
 type ReorderRoute = RouteProp<MainStackParamList, 'ReorderMyCards'>;
 type ReorderNavigation = NativeStackNavigationProp<MainStackParamList, 'ReorderMyCards'>;
 
+function createStyles(wallet: WalletThemeColors) {
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: wallet.background,
+      padding: 20,
+      gap: 12,
+    },
+    hint: {
+      color: wallet.subtitle,
+      fontSize: 14,
+      lineHeight: 20,
+    },
+    list: {
+      gap: 12,
+      paddingBottom: 24,
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    rowActive: {
+      opacity: 0.9,
+    },
+    handle: {
+      fontSize: 22,
+      color: wallet.subtitle,
+      width: 24,
+      textAlign: 'center',
+    },
+    cardWrap: {
+      flex: 1,
+    },
+    errorText: {
+      color: wallet.error,
+      fontWeight: '600',
+      textAlign: 'center',
+    },
+    saveButton: {
+      backgroundColor: wallet.addButton,
+      borderRadius: 999,
+      paddingVertical: 14,
+      alignItems: 'center',
+      marginTop: 'auto',
+    },
+    saveButtonDisabled: {
+      opacity: 0.7,
+    },
+    saveButtonText: {
+      color: wallet.addButtonText,
+      fontWeight: '700',
+      fontSize: 16,
+    },
+  });
+}
+
 export function ReorderMyCardsScreen(): React.JSX.Element {
   const navigation = useNavigation<ReorderNavigation>();
   const route = useRoute<ReorderRoute>();
+  const { wallet } = useAppTheme();
+  const styles = useMemo(() => createStyles(wallet), [wallet]);
   const [cards, setCards] = useState(route.params.cards);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,7 +144,7 @@ export function ReorderMyCardsScreen(): React.JSX.Element {
         style={[styles.saveButton, saving && styles.saveButtonDisabled]}
       >
         {saving ? (
-          <ActivityIndicator color={walletColors.addButtonText} />
+          <ActivityIndicator color={wallet.addButtonText} />
         ) : (
           <Text style={styles.saveButtonText}>Save order</Text>
         )}
@@ -92,58 +152,3 @@ export function ReorderMyCardsScreen(): React.JSX.Element {
     </GestureHandlerRootView>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: walletColors.background,
-    padding: 20,
-    gap: 12,
-  },
-  hint: {
-    color: walletColors.subtitle,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  list: {
-    gap: 12,
-    paddingBottom: 24,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  rowActive: {
-    opacity: 0.9,
-  },
-  handle: {
-    fontSize: 22,
-    color: walletColors.subtitle,
-    width: 24,
-    textAlign: 'center',
-  },
-  cardWrap: {
-    flex: 1,
-  },
-  errorText: {
-    color: '#B91C1C',
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  saveButton: {
-    backgroundColor: walletColors.addButton,
-    borderRadius: 999,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 'auto',
-  },
-  saveButtonDisabled: {
-    opacity: 0.7,
-  },
-  saveButtonText: {
-    color: walletColors.addButtonText,
-    fontWeight: '700',
-    fontSize: 16,
-  },
-});

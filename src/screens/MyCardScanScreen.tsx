@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Button,
@@ -11,15 +11,64 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { ScanSuccessPanel } from '../components/ScanSuccessPanel';
+import { useAppTheme } from '../context/ThemeContext';
 import { useProcessUserCard } from '../hooks/useProcessUserCard';
 import type { MainStackParamList } from '../navigation/AppNavigator';
+import type { WalletThemeColors } from '../theme/appTheme';
 import { scanBusinessCard, type OcrSource } from '../services/ocr';
-import { walletColors } from '../theme/wallet';
 
 type ScanNavigation = NativeStackNavigationProp<MainStackParamList, 'MyCardScan'>;
 
+function createStyles(wallet: WalletThemeColors) {
+  return StyleSheet.create({
+    container: {
+      flexGrow: 1,
+      padding: 20,
+      gap: 16,
+      backgroundColor: wallet.background,
+      justifyContent: 'center',
+    },
+    subtitle: {
+      fontSize: 14,
+      color: wallet.subtitle,
+      lineHeight: 20,
+    },
+    buttonRow: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    button: {
+      flex: 1,
+    },
+    feedback: {
+      alignItems: 'center',
+      gap: 12,
+      paddingVertical: 24,
+    },
+    feedbackText: {
+      color: wallet.subtitle,
+      textAlign: 'center',
+      fontSize: 15,
+      lineHeight: 22,
+    },
+    errorText: {
+      color: wallet.error,
+      fontWeight: '600',
+      textAlign: 'center',
+    },
+    captureReadyText: {
+      color: wallet.title,
+      fontWeight: '700',
+      textAlign: 'center',
+      letterSpacing: 0.3,
+    },
+  });
+}
+
 export function MyCardScanScreen(): React.JSX.Element {
   const navigation = useNavigation<ScanNavigation>();
+  const { wallet } = useAppTheme();
+  const styles = useMemo(() => createStyles(wallet), [wallet]);
   const { state, userCard, submitScan, reset } = useProcessUserCard();
   const [scanError, setScanError] = useState<string | null>(null);
   const [frontOcrText, setFrontOcrText] = useState<string | null>(null);
@@ -173,7 +222,7 @@ export function MyCardScanScreen(): React.JSX.Element {
 
       {isBusy && (
         <View style={styles.feedback}>
-          <ActivityIndicator size="large" color={walletColors.title} />
+          <ActivityIndicator size="large" color={wallet.title} />
           <Text style={styles.feedbackText}>
             {submissionVariant === 'frontAndBack'
               ? 'Uploading front and back scans, then parsing your card details...'
@@ -196,47 +245,3 @@ export function MyCardScanScreen(): React.JSX.Element {
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    padding: 20,
-    gap: 16,
-    backgroundColor: walletColors.background,
-    justifyContent: 'center',
-  },
-  subtitle: {
-    fontSize: 14,
-    color: walletColors.subtitle,
-    lineHeight: 20,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  button: {
-    flex: 1,
-  },
-  feedback: {
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 24,
-  },
-  feedbackText: {
-    color: walletColors.subtitle,
-    textAlign: 'center',
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  errorText: {
-    color: '#B91C1C',
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  captureReadyText: {
-    color: walletColors.title,
-    fontWeight: '700',
-    textAlign: 'center',
-    letterSpacing: 0.3,
-  },
-});

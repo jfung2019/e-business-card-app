@@ -1,15 +1,54 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 
-import { walletColors } from '../theme/wallet';
+import { useAppTheme } from '../context/ThemeContext';
+import type { WalletThemeColors } from '../theme/appTheme';
 
 interface CustomFieldsListProps {
   customFields: Record<string, string>;
 }
 
+function createStyles(wallet: WalletThemeColors) {
+  return StyleSheet.create({
+    container: {
+      backgroundColor: wallet.surface,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: wallet.border,
+      padding: 18,
+      gap: 12,
+    },
+    sectionTitle: {
+      fontSize: 11,
+      fontWeight: '700',
+      letterSpacing: 1.2,
+      textTransform: 'uppercase',
+      color: wallet.accentMuted,
+    },
+    row: {
+      gap: 4,
+    },
+    label: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: wallet.subtitle,
+    },
+    value: {
+      fontSize: 16,
+      lineHeight: 22,
+      color: wallet.title,
+    },
+    separator: {
+      height: 12,
+    },
+  });
+}
+
 export function CustomFieldsList({
   customFields,
 }: CustomFieldsListProps): React.JSX.Element | null {
+  const { wallet } = useAppTheme();
+  const styles = useMemo(() => createStyles(wallet), [wallet]);
   const entries = Object.entries(customFields);
 
   if (entries.length === 0) {
@@ -34,37 +73,3 @@ export function CustomFieldsList({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: walletColors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: walletColors.border,
-    padding: 18,
-    gap: 12,
-  },
-  sectionTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-    color: walletColors.accentMuted,
-  },
-  row: {
-    gap: 4,
-  },
-  label: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: walletColors.subtitle,
-  },
-  value: {
-    fontSize: 16,
-    lineHeight: 22,
-    color: walletColors.title,
-  },
-  separator: {
-    height: 12,
-  },
-});

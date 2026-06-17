@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -18,7 +18,8 @@ import { deleteCard } from '../api/cards';
 import { CustomFieldsList } from '../components/CustomFieldsList';
 import { ScanImage } from '../components/ScanImage';
 import type { MainStackParamList } from '../navigation/AppNavigator';
-import { walletColors } from '../theme/wallet';
+import { useAppTheme } from '../context/ThemeContext';
+import type { WalletThemeColors } from '../theme/appTheme';
 import type { CoreFields } from '../types/card';
 import { formatScannedDate } from '../utils/formatDate';
 
@@ -49,6 +50,8 @@ function normalizeWebsite(url: string): string {
 
 export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element {
   const navigation = useNavigation<CardDetailNavigation>();
+  const { wallet } = useAppTheme();
+  const styles = useMemo(() => createStyles(wallet), [wallet]);
   const { card } = route.params;
   const { core_fields, custom_fields, scanned_at, scan_image_url } = card;
   const [deleting, setDeleting] = useState(false);
@@ -194,7 +197,7 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
         style={styles.deleteButton}
       >
         {deleting ? (
-          <ActivityIndicator color={walletColors.error} />
+          <ActivityIndicator color={wallet.error} />
         ) : (
           <Text style={styles.deleteText}>Delete card</Text>
         )}
@@ -202,7 +205,6 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
     </ScrollView>
   );
 }
-
 const cardShadow = {
   shadowColor: '#000000',
   shadowOffset: { width: 0, height: 2 },
@@ -211,10 +213,11 @@ const cardShadow = {
   elevation: 2,
 } as const;
 
-const styles = StyleSheet.create({
+const createStyles = (wallet: WalletThemeColors) =>
+  StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: walletColors.background,
+    backgroundColor: wallet.background,
   },
   content: {
     padding: 20,
@@ -222,50 +225,50 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   scanCard: {
-    backgroundColor: walletColors.surface,
+    backgroundColor: wallet.surface,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: walletColors.border,
+    borderColor: wallet.border,
     overflow: 'hidden',
     ...cardShadow,
   },
   scanImage: {
     width: '100%',
     aspectRatio: 1.586,
-    backgroundColor: walletColors.background,
+    backgroundColor: wallet.background,
   },
   heroCard: {
-    backgroundColor: walletColors.surface,
+    backgroundColor: wallet.surface,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: walletColors.border,
+    borderColor: wallet.border,
     padding: 22,
     gap: 6,
     borderTopWidth: 3,
-    borderTopColor: walletColors.accent,
+    borderTopColor: wallet.accent,
     ...cardShadow,
   },
   eyebrow: {
-    color: walletColors.accentMuted,
+    color: wallet.accentMuted,
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 1.5,
     textTransform: 'uppercase',
   },
   name: {
-    color: walletColors.title,
+    color: wallet.title,
     fontSize: 28,
     fontWeight: '700',
     letterSpacing: -0.3,
   },
   subtitle: {
-    color: walletColors.subtitle,
+    color: wallet.subtitle,
     fontSize: 16,
     lineHeight: 22,
   },
   meta: {
     marginTop: 6,
-    color: walletColors.subtitle,
+    color: wallet.subtitle,
     fontSize: 13,
   },
   actionsRow: {
@@ -274,7 +277,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   actionButton: {
-    backgroundColor: walletColors.addButton,
+    backgroundColor: wallet.addButton,
     borderRadius: 999,
     paddingHorizontal: 18,
     paddingVertical: 10,
@@ -283,21 +286,21 @@ const styles = StyleSheet.create({
     opacity: 0.88,
   },
   actionButtonText: {
-    color: walletColors.addButtonText,
+    color: wallet.addButtonText,
     fontSize: 14,
     fontWeight: '600',
   },
   section: {
-    backgroundColor: walletColors.surface,
+    backgroundColor: wallet.surface,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: walletColors.border,
+    borderColor: wallet.border,
     padding: 18,
     gap: 14,
     ...cardShadow,
   },
   sectionTitle: {
-    color: walletColors.accentMuted,
+    color: wallet.accentMuted,
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 1.2,
@@ -312,20 +315,20 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   label: {
-    color: walletColors.subtitle,
+    color: wallet.subtitle,
     fontSize: 12,
     fontWeight: '600',
   },
   value: {
-    color: walletColors.title,
+    color: wallet.title,
     fontSize: 16,
     lineHeight: 22,
   },
   valueLink: {
-    color: walletColors.accentMuted,
+    color: wallet.accentMuted,
   },
   errorText: {
-    color: walletColors.error,
+    color: wallet.error,
     textAlign: 'center',
     fontSize: 14,
   },
@@ -336,8 +339,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   deleteText: {
-    color: walletColors.error,
+    color: wallet.error,
     fontWeight: '600',
     fontSize: 16,
   },
 });
+

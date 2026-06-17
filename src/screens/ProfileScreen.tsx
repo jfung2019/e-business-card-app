@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -12,9 +12,10 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useAuth } from '../context/AuthContext';
+import { useAppTheme } from '../context/ThemeContext';
 import { useUserCards } from '../hooks/useUserCards';
 import type { MainStackParamList } from '../navigation/AppNavigator';
-import { walletColors } from '../theme/wallet';
+import type { WalletThemeColors } from '../theme/appTheme';
 import { getEmailInitials } from '../utils/formatDate';
 
 type ProfileNavigation = NativeStackNavigationProp<MainStackParamList, 'Profile'>;
@@ -39,11 +40,14 @@ function formatMemberSince(creationTime?: string): string | null {
   });
 }
 
+type ProfileStyles = ReturnType<typeof createStyles>;
+
 interface ProfileRowProps {
   label: string;
   hint?: string;
   onPress: () => void;
   destructive?: boolean;
+  styles: ProfileStyles;
 }
 
 function ProfileRow({
@@ -51,6 +55,7 @@ function ProfileRow({
   hint,
   onPress,
   destructive = false,
+  styles,
 }: ProfileRowProps): React.JSX.Element {
   return (
     <Pressable
@@ -68,9 +73,105 @@ function ProfileRow({
   );
 }
 
+function createStyles(wallet: WalletThemeColors) {
+  return StyleSheet.create({
+    container: {
+      padding: 24,
+      gap: 28,
+      backgroundColor: wallet.background,
+    },
+    hero: {
+      alignItems: 'center',
+      gap: 10,
+      paddingTop: 8,
+      paddingBottom: 8,
+    },
+    avatar: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      backgroundColor: wallet.addButton,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    avatarText: {
+      color: wallet.addButtonText,
+      fontSize: 28,
+      fontWeight: '700',
+      letterSpacing: 1,
+    },
+    email: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: wallet.title,
+      textAlign: 'center',
+    },
+    memberSince: {
+      fontSize: 14,
+      color: wallet.subtitle,
+    },
+    section: {
+      gap: 10,
+    },
+    sectionTitle: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: wallet.subtitle,
+      textTransform: 'uppercase',
+      letterSpacing: 0.8,
+    },
+    card: {
+      backgroundColor: wallet.surface,
+      borderRadius: 16,
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: wallet.border,
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      borderBottomWidth: 1,
+      borderBottomColor: wallet.border,
+    },
+    rowPressed: {
+      opacity: 0.7,
+    },
+    rowCopy: {
+      flex: 1,
+      gap: 2,
+      paddingRight: 12,
+    },
+    rowLabel: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: wallet.title,
+    },
+    rowLabelDestructive: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: wallet.error,
+    },
+    rowHint: {
+      fontSize: 13,
+      color: wallet.subtitle,
+      lineHeight: 18,
+    },
+    rowChevron: {
+      fontSize: 24,
+      color: wallet.subtitle,
+      fontWeight: '300',
+    },
+  });
+}
+
 export function ProfileScreen({ onSignOut }: ProfileScreenProps): React.JSX.Element {
   const navigation = useNavigation<ProfileNavigation>();
   const { user, sendPasswordReset } = useAuth();
+  const { wallet, isDark, toggleColorScheme } = useAppTheme();
+  const styles = useMemo(() => createStyles(wallet), [wallet]);
   const { cards: userCards, fetchUserCards } = useUserCards();
   const [signingOut, setSigningOut] = useState(false);
   const [sendingReset, setSendingReset] = useState(false);
@@ -152,12 +253,14 @@ export function ProfileScreen({ onSignOut }: ProfileScreenProps): React.JSX.Elem
         <Text style={styles.sectionTitle}>My cards</Text>
         <View style={styles.card}>
           <ProfileRow
+            styles={styles}
             label="Add business card"
             hint="Scan or enter your details"
             onPress={() => navigation.navigate('MyCardScan')}
           />
           {userCards.length > 0 ? (
             <ProfileRow
+              styles={styles}
               label="Manage e-business cards"
               hint={`${userCards.length} ${userCards.length === 1 ? 'card' : 'cards'} on your profile`}
               onPress={() => {
@@ -168,6 +271,7 @@ export function ProfileScreen({ onSignOut }: ProfileScreenProps): React.JSX.Elem
           ) : null}
           {userCards.length > 1 ? (
             <ProfileRow
+              styles={styles}
               label="Reorder business cards"
               hint="Drag to change order and primary card"
               onPress={() => navigation.navigate('ReorderMyCards', { cards: userCards })}
@@ -177,9 +281,22 @@ export function ProfileScreen({ onSignOut }: ProfileScreenProps): React.JSX.Elem
       </View>
 
       <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Appearance</Text>
+        <View style={styles.card}>
+          <ProfileRow
+            styles={styles}
+            label={isDark ? 'Dark mode' : 'Light mode'}
+            hint={isDark ? 'Tap to switch to light mode' : 'Tap to switch to dark mode'}
+            onPress={toggleColorScheme}
+          />
+        </View>
+      </View>
+
+      <View style={styles.section}>
         <Text style={styles.sectionTitle}>Account</Text>
         <View style={styles.card}>
           <ProfileRow
+            styles={styles}
             label={sendingReset ? 'Sending reset email...' : 'Change password'}
             hint="We will email you a reset link"
             onPress={() => {
@@ -195,7 +312,7 @@ export function ProfileScreen({ onSignOut }: ProfileScreenProps): React.JSX.Elem
           >
             <View style={styles.rowCopy}>
               {signingOut ? (
-                <ActivityIndicator color="#B91C1C" />
+                <ActivityIndicator color={wallet.error} />
               ) : (
                 <Text style={styles.rowLabelDestructive}>Log out</Text>
               )}
@@ -206,95 +323,3 @@ export function ProfileScreen({ onSignOut }: ProfileScreenProps): React.JSX.Elem
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    padding: 24,
-    gap: 28,
-    backgroundColor: walletColors.background,
-  },
-  hero: {
-    alignItems: 'center',
-    gap: 10,
-    paddingTop: 8,
-    paddingBottom: 8,
-  },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: walletColors.addButton,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    color: walletColors.addButtonText,
-    fontSize: 28,
-    fontWeight: '700',
-    letterSpacing: 1,
-  },
-  email: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: walletColors.title,
-    textAlign: 'center',
-  },
-  memberSince: {
-    fontSize: 14,
-    color: walletColors.subtitle,
-  },
-  section: {
-    gap: 10,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: walletColors.subtitle,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  rowPressed: {
-    backgroundColor: '#F9FAFB',
-  },
-  rowCopy: {
-    flex: 1,
-    gap: 2,
-    paddingRight: 12,
-  },
-  rowLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: walletColors.title,
-  },
-  rowLabelDestructive: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#B91C1C',
-  },
-  rowHint: {
-    fontSize: 13,
-    color: walletColors.subtitle,
-    lineHeight: 18,
-  },
-  rowChevron: {
-    fontSize: 24,
-    color: walletColors.subtitle,
-    fontWeight: '300',
-  },
-});

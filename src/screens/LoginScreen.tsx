@@ -1,19 +1,21 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Button,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '../context/AuthContext';
+import { useAppTheme } from '../context/ThemeContext';
+import type { AppThemeColors } from '../theme/appTheme';
 
 type AuthMode = 'signIn' | 'signUp';
 
@@ -43,8 +45,145 @@ function getAuthErrorMessage(error: unknown): string {
   return 'Something went wrong. Please try again.';
 }
 
+function createStyles(colors: AppThemeColors) {
+  return StyleSheet.create({
+    flex: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    themeToggle: {
+      alignSelf: 'flex-end',
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 999,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      backgroundColor: colors.surface,
+      marginBottom: 8,
+    },
+    themeToggleText: {
+      color: colors.textMuted,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    container: {
+      flexGrow: 1,
+      justifyContent: 'center',
+      padding: 24,
+      gap: 16,
+    },
+    title: {
+      fontSize: 28,
+      fontWeight: '700',
+      color: colors.text,
+      textAlign: 'center',
+    },
+    subtitle: {
+      fontSize: 14,
+      color: colors.textMuted,
+      lineHeight: 20,
+      textAlign: 'center',
+      marginBottom: 8,
+    },
+    field: {
+      gap: 6,
+    },
+    label: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: Platform.OS === 'ios' ? 12 : 10,
+      fontSize: 16,
+      color: colors.text,
+      backgroundColor: colors.surface,
+    },
+    link: {
+      color: colors.link,
+      fontWeight: '600',
+      fontSize: 14,
+    },
+    errorText: {
+      color: colors.error,
+      fontWeight: '600',
+    },
+    loader: {
+      marginVertical: 8,
+    },
+    primaryButton: {
+      width: '100%',
+      backgroundColor: colors.primary,
+      borderRadius: 999,
+      paddingVertical: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    primaryButtonPressed: {
+      opacity: 0.9,
+      transform: [{ scale: 0.98 }],
+    },
+    primaryButtonText: {
+      color: colors.primaryText,
+      fontSize: 16,
+      fontWeight: '700',
+    },
+    toggle: {
+      alignItems: 'center',
+      marginTop: 4,
+    },
+    toggleText: {
+      color: colors.link,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    dividerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      marginTop: 4,
+    },
+    dividerLine: {
+      flex: 1,
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: colors.border,
+    },
+    dividerText: {
+      color: colors.textMuted,
+      fontSize: 13,
+      fontWeight: '500',
+    },
+    googleButton: {
+      width: '100%',
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 999,
+      paddingVertical: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.googleButtonBg,
+      opacity: 0.85,
+    },
+    googleButtonPressed: {
+      opacity: 0.7,
+    },
+    googleButtonText: {
+      color: colors.googleButtonText,
+      fontSize: 15,
+      fontWeight: '600',
+    },
+  });
+}
+
 export function LoginScreen(): React.JSX.Element {
+  const insets = useSafeAreaInsets();
   const { signIn, signUp, sendPasswordReset } = useAuth();
+  const { colors, colorScheme, toggleColorScheme } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [mode, setMode] = useState<AuthMode>('signIn');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -100,11 +239,30 @@ export function LoginScreen(): React.JSX.Element {
     setMode((current) => (current === 'signIn' ? 'signUp' : 'signIn'));
   };
 
+  const submitLabel = mode === 'signIn' ? 'Sign In' : 'Create Account';
+  const themeToggleLabel = colorScheme === 'light' ? 'Dark mode' : 'Light mode';
+
   return (
     <KeyboardAvoidingView
       style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <ScrollView
+        contentContainerStyle={[
+          styles.container,
+          { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 24 },
+        ]}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Pressable
+          onPress={toggleColorScheme}
+          style={styles.themeToggle}
+          accessibilityRole="button"
+          accessibilityLabel={themeToggleLabel}
+        >
+          <Text style={styles.themeToggleText}>{themeToggleLabel}</Text>
+        </Pressable>
+
         <Text style={styles.title}>E-Business Card</Text>
         <Text style={styles.subtitle}>
           {mode === 'signIn'
@@ -120,6 +278,7 @@ export function LoginScreen(): React.JSX.Element {
             autoCorrect={false}
             keyboardType="email-address"
             placeholder="you@example.com"
+            placeholderTextColor={colors.placeholder}
             style={styles.input}
             value={email}
             onChangeText={setEmail}
@@ -133,6 +292,7 @@ export function LoginScreen(): React.JSX.Element {
             autoComplete="password"
             secureTextEntry
             placeholder="••••••••"
+            placeholderTextColor={colors.placeholder}
             style={styles.input}
             value={password}
             onChangeText={setPassword}
@@ -140,103 +300,61 @@ export function LoginScreen(): React.JSX.Element {
         </View>
 
         {mode === 'signIn' && (
-          <TouchableOpacity onPress={handleForgotPassword} disabled={loading}>
+          <Pressable onPress={handleForgotPassword} disabled={loading}>
             <Text style={styles.link}>Forgot password?</Text>
-          </TouchableOpacity>
+          </Pressable>
         )}
 
-        {error && <Text style={styles.errorText}>{error}</Text>}
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         {loading ? (
-          <ActivityIndicator size="large" style={styles.loader} />
+          <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
         ) : (
-          <Button
-            title={mode === 'signIn' ? 'Sign In' : 'Create Account'}
+          <Pressable
             onPress={handleSubmit}
-          />
+            style={({ pressed }) => [
+              styles.primaryButton,
+              pressed && styles.primaryButtonPressed,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={submitLabel}
+          >
+            <Text style={styles.primaryButtonText}>{submitLabel}</Text>
+          </Pressable>
         )}
 
-        <TouchableOpacity onPress={toggleMode} disabled={loading} style={styles.toggle}>
+        <Pressable
+          onPress={toggleMode}
+          disabled={loading}
+          style={styles.toggle}
+          accessibilityRole="button"
+        >
           <Text style={styles.toggleText}>
             {mode === 'signIn'
               ? "Don't have an account? Create one"
               : 'Already have an account? Sign in'}
           </Text>
-        </TouchableOpacity>
+        </Pressable>
 
-        <View style={styles.googlePlaceholder}>
-          <Button title="Google Sign-In (coming soon)" disabled onPress={() => undefined} />
+        <View style={styles.dividerRow}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>or</Text>
+          <View style={styles.dividerLine} />
         </View>
+
+        <Pressable
+          disabled
+          style={({ pressed }) => [
+            styles.googleButton,
+            pressed && styles.googleButtonPressed,
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel="Google Sign-In coming soon"
+          accessibilityState={{ disabled: true }}
+        >
+          <Text style={styles.googleButtonText}>Google Sign-In (coming soon)</Text>
+        </Pressable>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  flex: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  container: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    padding: 24,
-    gap: 16,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#111827',
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#6B7280',
-    lineHeight: 20,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  field: {
-    gap: 6,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#374151',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-    color: '#111827',
-    backgroundColor: '#FFFFFF',
-  },
-  link: {
-    color: '#2563EB',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  errorText: {
-    color: '#B91C1C',
-    fontWeight: '600',
-  },
-  loader: {
-    marginVertical: 8,
-  },
-  toggle: {
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  toggleText: {
-    color: '#2563EB',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  googlePlaceholder: {
-    marginTop: 8,
-    opacity: 0.6,
-  },
-});

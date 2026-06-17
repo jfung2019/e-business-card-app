@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -11,8 +11,8 @@ import {
   type ViewStyle,
 } from 'react-native';
 
+import { useAppTheme } from '../context/ThemeContext';
 import { useAuthenticatedImageSource } from '../utils/scanImage';
-import { walletColors } from '../theme/wallet';
 
 interface ScanImageProps extends Omit<ImageProps, 'source'> {
   scanImageUrl: string | null | undefined;
@@ -23,14 +23,24 @@ export function ScanImage({
   style,
   ...imageProps
 }: ScanImageProps): React.JSX.Element | null {
+  const { wallet } = useAppTheme();
   const source = useAuthenticatedImageSource(scanImageUrl);
+  const placeholderStyle = useMemo(
+    () => ({
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      backgroundColor: wallet.background,
+    }),
+    [wallet.background],
+  );
+
   if (!scanImageUrl) {
     return null;
   }
   if (!source) {
     return (
-      <View style={[styles.placeholder, style]}>
-        <ActivityIndicator color={walletColors.accent} />
+      <View style={[placeholderStyle, style]}>
+        <ActivityIndicator color={wallet.accent} />
       </View>
     );
   }
@@ -53,15 +63,25 @@ export function ScanImageBackground({
   resizeMode = 'cover',
   children,
 }: ScanImageBackgroundProps): React.JSX.Element | null {
+  const { wallet } = useAppTheme();
   const source = useAuthenticatedImageSource(scanImageUrl);
+  const placeholderStyle = useMemo(
+    () => ({
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      backgroundColor: wallet.background,
+    }),
+    [wallet.background],
+  );
+
   if (!scanImageUrl) {
     return null;
   }
 
   if (!source) {
     return (
-      <View style={[style, styles.placeholder]}>
-        <ActivityIndicator color={walletColors.accent} />
+      <View style={[style, placeholderStyle]}>
+        <ActivityIndicator color={wallet.accent} />
         {children}
       </View>
     );
@@ -78,11 +98,3 @@ export function ScanImageBackground({
     </ImageBackground>
   );
 }
-
-const styles = StyleSheet.create({
-  placeholder: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: walletColors.background,
-  },
-});

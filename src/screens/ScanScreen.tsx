@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Button,
@@ -11,15 +11,64 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { ScanSuccessPanel } from '../components/ScanSuccessPanel';
+import { useAppTheme } from '../context/ThemeContext';
 import { useProcessCard } from '../hooks/useProcessCard';
 import type { MainStackParamList } from '../navigation/AppNavigator';
+import type { ScanThemeColors } from '../theme/appTheme';
 import { scanBusinessCard, type OcrSource } from '../services/ocr';
-import { luxuryColors } from '../theme/luxury';
 
 type ScanNavigation = NativeStackNavigationProp<MainStackParamList, 'Scan'>;
 
+function createStyles(scan: ScanThemeColors) {
+  return StyleSheet.create({
+    container: {
+      flexGrow: 1,
+      padding: 20,
+      gap: 16,
+      backgroundColor: scan.background,
+      justifyContent: 'center',
+    },
+    subtitle: {
+      fontSize: 14,
+      color: scan.creamMuted,
+      lineHeight: 20,
+    },
+    buttonRow: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    button: {
+      flex: 1,
+    },
+    feedback: {
+      alignItems: 'center',
+      gap: 12,
+      paddingVertical: 24,
+    },
+    feedbackText: {
+      color: scan.creamMuted,
+      textAlign: 'center',
+      fontSize: 15,
+      lineHeight: 22,
+    },
+    errorText: {
+      color: scan.error,
+      fontWeight: '600',
+      textAlign: 'center',
+    },
+    captureReadyText: {
+      color: scan.gold,
+      fontWeight: '700',
+      textAlign: 'center',
+      letterSpacing: 0.3,
+    },
+  });
+}
+
 export function ScanScreen(): React.JSX.Element {
   const navigation = useNavigation<ScanNavigation>();
+  const { scan } = useAppTheme();
+  const styles = useMemo(() => createStyles(scan), [scan]);
   const { state, capturedCard, submitScan, reset } = useProcessCard();
   const [scanError, setScanError] = useState<string | null>(null);
   const [frontOcrText, setFrontOcrText] = useState<string | null>(null);
@@ -172,7 +221,7 @@ export function ScanScreen(): React.JSX.Element {
 
       {isBusy && (
         <View style={styles.feedback}>
-          <ActivityIndicator size="large" color={luxuryColors.gold} />
+          <ActivityIndicator size="large" color={scan.gold} />
           <Text style={styles.feedbackText}>
             {submissionVariant === 'frontAndBack'
               ? 'Uploading front and back scans, then parsing contact details...'
@@ -197,47 +246,3 @@ export function ScanScreen(): React.JSX.Element {
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    padding: 20,
-    gap: 16,
-    backgroundColor: luxuryColors.background,
-    justifyContent: 'center',
-  },
-  subtitle: {
-    fontSize: 14,
-    color: luxuryColors.creamMuted,
-    lineHeight: 20,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  button: {
-    flex: 1,
-  },
-  feedback: {
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 24,
-  },
-  feedbackText: {
-    color: luxuryColors.creamMuted,
-    textAlign: 'center',
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  errorText: {
-    color: luxuryColors.error,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  captureReadyText: {
-    color: luxuryColors.gold,
-    fontWeight: '700',
-    textAlign: 'center',
-    letterSpacing: 0.3,
-  },
-});

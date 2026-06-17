@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -21,13 +21,16 @@ import { useCards } from '../hooks/useCards';
 import { useMyCardsBanner } from '../hooks/useMyCardsBanner';
 import { useUserCards } from '../hooks/useUserCards';
 import type { MainStackParamList } from '../navigation/AppNavigator';
-import { walletColors } from '../theme/wallet';
+import { useAppTheme } from '../context/ThemeContext';
+import type { WalletThemeColors } from '../theme/appTheme';
 import type { CapturedCard } from '../types/card';
 import type { UserCard } from '../types/userCard';
 
 type CollectionNavigation = NativeStackNavigationProp<MainStackParamList, 'Collection'>;
 
 export function CollectionScreen(): React.JSX.Element {
+  const { wallet } = useAppTheme();
+  const styles = useMemo(() => createStyles(wallet), [wallet]);
   const navigation = useNavigation<CollectionNavigation>();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
@@ -90,7 +93,7 @@ export function CollectionScreen(): React.JSX.Element {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={() => void refreshAll()}
-            tintColor={walletColors.title}
+            tintColor={wallet.title}
           />
         }
       >
@@ -115,7 +118,7 @@ export function CollectionScreen(): React.JSX.Element {
 
           {userCardsState.status === 'loading' && userCards.length === 0 ? (
             <View style={styles.inlineLoading}>
-              <ActivityIndicator color={walletColors.title} />
+              <ActivityIndicator color={wallet.title} />
             </View>
           ) : null}
 
@@ -176,7 +179,7 @@ export function CollectionScreen(): React.JSX.Element {
 
           {state.status === 'loading' && cards.length === 0 && (
             <View style={styles.centered}>
-              <ActivityIndicator size="large" color={walletColors.title} />
+              <ActivityIndicator size="large" color={wallet.title} />
               <Text style={styles.loadingText}>Loading your cards...</Text>
             </View>
           )}
@@ -226,10 +229,11 @@ export function CollectionScreen(): React.JSX.Element {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (wallet: WalletThemeColors) =>
+  StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: walletColors.background,
+    backgroundColor: wallet.background,
   },
   header: {
     flexDirection: 'row',
@@ -243,7 +247,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 34,
     fontWeight: '700',
-    color: walletColors.title,
+    color: wallet.title,
     letterSpacing: -0.5,
   },
   headerActions: {
@@ -255,7 +259,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: walletColors.addButton,
+    backgroundColor: wallet.addButton,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -264,7 +268,7 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.96 }],
   },
   addButtonText: {
-    color: walletColors.addButtonText,
+    color: wallet.addButtonText,
     fontSize: 28,
     fontWeight: '400',
     lineHeight: 30,
@@ -290,12 +294,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: walletColors.title,
+    color: wallet.title,
   },
   sectionAction: {
     fontSize: 14,
     fontWeight: '600',
-    color: walletColors.subtitle,
+    color: wallet.subtitle,
   },
   inlineLoading: {
     paddingVertical: 24,
@@ -308,13 +312,13 @@ const styles = StyleSheet.create({
   },
   secondaryButton: {
     borderWidth: 1,
-    borderColor: walletColors.title,
+    borderColor: wallet.title,
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
   secondaryButtonText: {
-    color: walletColors.title,
+    color: wallet.title,
     fontWeight: '600',
     fontSize: 14,
   },
@@ -323,7 +327,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   emptyMyCardsText: {
-    color: walletColors.subtitle,
+    color: wallet.subtitle,
     fontSize: 15,
     lineHeight: 22,
   },
@@ -340,11 +344,11 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   loadingText: {
-    color: walletColors.subtitle,
+    color: wallet.subtitle,
     fontSize: 15,
   },
   errorText: {
-    color: '#B91C1C',
+    color: wallet.error,
     fontSize: 15,
     textAlign: 'center',
     fontWeight: '600',
@@ -352,35 +356,35 @@ const styles = StyleSheet.create({
   retryButton: {
     marginTop: 8,
     borderWidth: 1,
-    borderColor: walletColors.title,
+    borderColor: wallet.title,
     borderRadius: 999,
     paddingHorizontal: 20,
     paddingVertical: 10,
   },
   retryText: {
-    color: walletColors.title,
+    color: wallet.title,
     fontWeight: '600',
   },
   emptyTitle: {
-    color: walletColors.title,
+    color: wallet.title,
     fontSize: 22,
     fontWeight: '700',
   },
   emptyBody: {
-    color: walletColors.subtitle,
+    color: wallet.subtitle,
     fontSize: 15,
     textAlign: 'center',
     lineHeight: 22,
   },
   primaryButton: {
     marginTop: 8,
-    backgroundColor: walletColors.addButton,
+    backgroundColor: wallet.addButton,
     borderRadius: 999,
     paddingHorizontal: 24,
     paddingVertical: 12,
   },
   primaryButtonText: {
-    color: walletColors.addButtonText,
+    color: wallet.addButtonText,
     fontWeight: '700',
     fontSize: 15,
   },

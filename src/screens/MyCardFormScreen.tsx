@@ -17,9 +17,10 @@ import { DesignPicker } from '../components/DesignPicker';
 import { MyCardFace } from '../components/MyCardFace';
 import { createUserCard, deleteUserCard, updateUserCard } from '../api/userCards';
 import { ApiClientError } from '../api/client';
+import { useAppTheme } from '../context/ThemeContext';
 import type { MainStackParamList } from '../navigation/AppNavigator';
 import { DEFAULT_CARD_DESIGN_ID } from '../theme/cardDesigns';
-import { walletColors } from '../theme/wallet';
+import type { WalletThemeColors } from '../theme/appTheme';
 import type { CoreFields } from '../types/card';
 import type { UserCard, UserCardDraft } from '../types/userCard';
 
@@ -40,10 +41,85 @@ function buildDraft(
   };
 }
 
+function createStyles(wallet: WalletThemeColors) {
+  return StyleSheet.create({
+    container: {
+      padding: 20,
+      gap: 20,
+      backgroundColor: wallet.background,
+    },
+    previewWrap: {
+      alignItems: 'center',
+    },
+    form: {
+      gap: 14,
+    },
+    field: {
+      gap: 6,
+    },
+    label: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: wallet.subtitle,
+      textTransform: 'uppercase',
+    },
+    input: {
+      backgroundColor: wallet.surface,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: wallet.border,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      fontSize: 16,
+      color: wallet.title,
+    },
+    primaryToggle: {
+      alignSelf: 'flex-start',
+      paddingVertical: 8,
+    },
+    primaryToggleText: {
+      color: wallet.title,
+      fontWeight: '700',
+      fontSize: 15,
+    },
+    errorText: {
+      color: wallet.error,
+      fontWeight: '600',
+    },
+    saveButton: {
+      backgroundColor: wallet.addButton,
+      borderRadius: 999,
+      paddingVertical: 14,
+      alignItems: 'center',
+    },
+    saveButtonDisabled: {
+      opacity: 0.7,
+    },
+    saveButtonText: {
+      color: wallet.addButtonText,
+      fontWeight: '700',
+      fontSize: 16,
+    },
+    deleteButton: {
+      alignSelf: 'center',
+      paddingVertical: 8,
+    },
+    deleteText: {
+      color: wallet.error,
+      fontWeight: '600',
+    },
+  });
+}
+
 export function MyCardFormScreen(): React.JSX.Element {
   const navigation = useNavigation<FormNavigation>();
   const route = useRoute<FormRoute>();
-  const { mode, card, parsedPreview } = route.params;
+  const { wallet } = useAppTheme();
+  const styles = useMemo(() => createStyles(wallet), [wallet]);
+  const params = route.params;
+  const mode = params.mode;
+  const card = mode === 'edit' ? params.card : undefined;
+  const parsedPreview = mode === 'create' ? params.parsedPreview : undefined;
 
   const initialFields = useMemo<CoreFields>(() => {
     if (card) {
@@ -188,7 +264,7 @@ export function MyCardFormScreen(): React.JSX.Element {
               onChangeText={value => updateField(key, value)}
               style={styles.input}
               placeholder={label}
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={wallet.subtitle}
               autoCapitalize={key === 'email' ? 'none' : 'words'}
               keyboardType={
                 key === 'email' ? 'email-address' : key === 'phone' ? 'phone-pad' : 'default'
@@ -215,7 +291,7 @@ export function MyCardFormScreen(): React.JSX.Element {
         style={[styles.saveButton, saving && styles.saveButtonDisabled]}
       >
         {saving ? (
-          <ActivityIndicator color={walletColors.addButtonText} />
+          <ActivityIndicator color={wallet.addButtonText} />
         ) : (
           <Text style={styles.saveButtonText}>
             {mode === 'edit' ? 'Save changes' : 'Save card'}
@@ -231,71 +307,3 @@ export function MyCardFormScreen(): React.JSX.Element {
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    padding: 20,
-    gap: 20,
-    backgroundColor: walletColors.background,
-  },
-  previewWrap: {
-    alignItems: 'center',
-  },
-  form: {
-    gap: 14,
-  },
-  field: {
-    gap: 6,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: walletColors.subtitle,
-    textTransform: 'uppercase',
-  },
-  input: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: walletColors.title,
-  },
-  primaryToggle: {
-    alignSelf: 'flex-start',
-    paddingVertical: 8,
-  },
-  primaryToggleText: {
-    color: walletColors.title,
-    fontWeight: '700',
-    fontSize: 15,
-  },
-  errorText: {
-    color: '#B91C1C',
-    fontWeight: '600',
-  },
-  saveButton: {
-    backgroundColor: walletColors.addButton,
-    borderRadius: 999,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  saveButtonDisabled: {
-    opacity: 0.7,
-  },
-  saveButtonText: {
-    color: walletColors.addButtonText,
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  deleteButton: {
-    alignSelf: 'center',
-    paddingVertical: 8,
-  },
-  deleteText: {
-    color: '#B91C1C',
-    fontWeight: '600',
-  },
-});
