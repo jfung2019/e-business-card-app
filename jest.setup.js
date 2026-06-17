@@ -1,3 +1,5 @@
+/* global jest */
+
 jest.mock('@react-native-firebase/app', () => ({
   __esModule: true,
   default: jest.fn(() => ({})),

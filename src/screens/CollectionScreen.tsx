@@ -71,19 +71,16 @@ export function CollectionScreen(): React.JSX.Element {
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Text style={styles.title}>E-Business Cards</Text>
+        <View style={styles.headerCopy}>
+          <Text style={styles.eyebrow}>Wallet</Text>
+          <Text style={styles.title}>E-Business Cards</Text>
+          <Text style={styles.subtitle}>Your cards and collected contacts in one place.</Text>
+        </View>
         <View style={styles.headerActions}>
           <ProfileAvatarButton
             email={user?.email}
             onPress={() => navigation.navigate('Profile')}
           />
-          <Pressable
-            onPress={() => navigation.navigate('Scan')}
-            style={({ pressed }) => [styles.addButton, pressed && styles.addButtonPressed]}
-            accessibilityLabel="Scan a collected card"
-          >
-            <Text style={styles.addButtonText}>+</Text>
-          </Pressable>
         </View>
       </View>
 
@@ -153,8 +150,9 @@ export function CollectionScreen(): React.JSX.Element {
 
           {!bannerVisible && userCards.length === 0 && userCardsState.status !== 'loading' ? (
             <View style={styles.emptyMyCards}>
+              <Text style={styles.emptyMyCardsTitle}>Create the card you share</Text>
               <Text style={styles.emptyMyCardsText}>
-                Add a business card that represents you.
+                Scan your printed card for a quick start, or enter your details manually.
               </Text>
               <View style={styles.myCardActions}>
                 <Pressable
@@ -175,7 +173,23 @@ export function CollectionScreen(): React.JSX.Element {
         </View>
 
         <View style={styles.collectedSection}>
-          <Text style={styles.sectionTitle}>Collected ({cards.length})</Text>
+          <View style={styles.sectionHeader}>
+            <View>
+              <Text style={styles.sectionTitle}>Collected</Text>
+              <Text style={styles.sectionSubtitle}>
+                {cards.length === 0
+                  ? 'Cards you scan from other people will appear here.'
+                  : `${cards.length} saved ${cards.length === 1 ? 'contact' : 'contacts'}`}
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => navigation.navigate('Scan')}
+              style={({ pressed }) => [styles.pillButton, pressed && styles.addButtonPressed]}
+              accessibilityLabel="Scan a collected business card"
+            >
+              <Text style={styles.pillButtonText}>Scan card</Text>
+            </Pressable>
+          </View>
 
           {state.status === 'loading' && cards.length === 0 && (
             <View style={styles.centered}>
@@ -195,9 +209,10 @@ export function CollectionScreen(): React.JSX.Element {
 
           {state.status === 'success' && cards.length === 0 && (
             <View style={styles.centered}>
+              <Text style={styles.emptyIcon}>▣</Text>
               <Text style={styles.emptyTitle}>No collected cards yet</Text>
               <Text style={styles.emptyBody}>
-                Scan a business card to add your first contact card.
+                Scan a business card to save the photo, contact details, and quick actions.
               </Text>
               <Pressable
                 onPress={() => navigation.navigate('Scan')}
@@ -237,42 +252,43 @@ const createStyles = (wallet: WalletThemeColors) =>
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     paddingHorizontal: 24,
     paddingTop: 8,
     paddingBottom: 20,
+    gap: 16,
+  },
+  headerCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  eyebrow: {
+    color: wallet.accentMuted,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
   },
   title: {
-    flex: 1,
-    fontSize: 34,
+    fontSize: 32,
     fontWeight: '700',
     color: wallet.title,
     letterSpacing: -0.5,
+  },
+  subtitle: {
+    color: wallet.subtitle,
+    fontSize: 14,
+    lineHeight: 20,
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },
-  addButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: wallet.addButton,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   addButtonPressed: {
     opacity: 0.85,
     transform: [{ scale: 0.96 }],
-  },
-  addButtonText: {
-    color: wallet.addButtonText,
-    fontSize: 28,
-    fontWeight: '400',
-    lineHeight: 30,
-    marginTop: -2,
   },
   scrollContent: {
     flexGrow: 1,
@@ -295,6 +311,12 @@ const createStyles = (wallet: WalletThemeColors) =>
     fontSize: 20,
     fontWeight: '700',
     color: wallet.title,
+  },
+  sectionSubtitle: {
+    marginTop: 3,
+    color: wallet.subtitle,
+    fontSize: 13,
+    lineHeight: 18,
   },
   sectionAction: {
     fontSize: 14,
@@ -323,8 +345,17 @@ const createStyles = (wallet: WalletThemeColors) =>
     fontSize: 14,
   },
   emptyMyCards: {
-    gap: 12,
-    paddingVertical: 8,
+    gap: 10,
+    padding: 16,
+    borderRadius: 18,
+    backgroundColor: wallet.surface,
+    borderWidth: 1,
+    borderColor: wallet.border,
+  },
+  emptyMyCardsTitle: {
+    color: wallet.title,
+    fontSize: 17,
+    fontWeight: '700',
   },
   emptyMyCardsText: {
     color: wallet.subtitle,
@@ -342,6 +373,15 @@ const createStyles = (wallet: WalletThemeColors) =>
     justifyContent: 'center',
     paddingHorizontal: 16,
     gap: 12,
+    backgroundColor: wallet.surface,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: wallet.border,
+  },
+  emptyIcon: {
+    color: wallet.accentMuted,
+    fontSize: 32,
+    lineHeight: 36,
   },
   loadingText: {
     color: wallet.subtitle,
@@ -387,5 +427,16 @@ const createStyles = (wallet: WalletThemeColors) =>
     color: wallet.addButtonText,
     fontWeight: '700',
     fontSize: 15,
+  },
+  pillButton: {
+    borderRadius: 999,
+    backgroundColor: wallet.addButton,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  pillButtonText: {
+    color: wallet.addButtonText,
+    fontSize: 13,
+    fontWeight: '700',
   },
 });

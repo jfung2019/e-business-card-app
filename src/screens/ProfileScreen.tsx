@@ -77,14 +77,17 @@ function createStyles(wallet: WalletThemeColors) {
   return StyleSheet.create({
     container: {
       padding: 24,
-      gap: 28,
+      gap: 22,
       backgroundColor: wallet.background,
     },
     hero: {
       alignItems: 'center',
       gap: 10,
-      paddingTop: 8,
-      paddingBottom: 8,
+      padding: 22,
+      backgroundColor: wallet.surface,
+      borderRadius: 22,
+      borderWidth: 1,
+      borderColor: wallet.border,
     },
     avatar: {
       width: 80,
@@ -110,6 +113,33 @@ function createStyles(wallet: WalletThemeColors) {
       fontSize: 14,
       color: wallet.subtitle,
     },
+    statsRow: {
+      flexDirection: 'row',
+      gap: 10,
+      width: '100%',
+      marginTop: 8,
+    },
+    statCard: {
+      flex: 1,
+      backgroundColor: wallet.background,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: wallet.border,
+      padding: 12,
+      gap: 2,
+      alignItems: 'center',
+    },
+    statValue: {
+      color: wallet.title,
+      fontSize: 18,
+      fontWeight: '700',
+    },
+    statLabel: {
+      color: wallet.subtitle,
+      fontSize: 12,
+      fontWeight: '600',
+      textAlign: 'center',
+    },
     section: {
       gap: 10,
     },
@@ -132,7 +162,7 @@ function createStyles(wallet: WalletThemeColors) {
       alignItems: 'center',
       justifyContent: 'space-between',
       paddingHorizontal: 16,
-      paddingVertical: 14,
+      paddingVertical: 15,
       borderBottomWidth: 1,
       borderBottomColor: wallet.border,
     },
@@ -247,6 +277,18 @@ export function ProfileScreen({ onSignOut }: ProfileScreenProps): React.JSX.Elem
         {memberSince ? (
           <Text style={styles.memberSince}>Member since {memberSince}</Text>
         ) : null}
+        <View style={styles.statsRow}>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{userCards.length}</Text>
+            <Text style={styles.statLabel}>
+              {userCards.length === 1 ? 'profile card' : 'profile cards'}
+            </Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{isDark ? 'Dark' : 'Light'}</Text>
+            <Text style={styles.statLabel}>appearance</Text>
+          </View>
+        </View>
       </View>
 
       <View style={styles.section}>
@@ -255,7 +297,7 @@ export function ProfileScreen({ onSignOut }: ProfileScreenProps): React.JSX.Elem
           <ProfileRow
             styles={styles}
             label="Add business card"
-            hint="Scan or enter your details"
+            hint="Scan front/back or enter your details manually"
             onPress={() => navigation.navigate('MyCardScan')}
           />
           {userCards.length > 0 ? (
@@ -286,7 +328,7 @@ export function ProfileScreen({ onSignOut }: ProfileScreenProps): React.JSX.Elem
           <ProfileRow
             styles={styles}
             label={isDark ? 'Dark mode' : 'Light mode'}
-            hint={isDark ? 'Tap to switch to light mode' : 'Tap to switch to dark mode'}
+            hint={isDark ? 'Currently using dark theme' : 'Currently using light theme'}
             onPress={toggleColorScheme}
           />
         </View>

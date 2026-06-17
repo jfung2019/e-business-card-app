@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   scanPhoto: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     width: '100%',
     height: '100%',
   },

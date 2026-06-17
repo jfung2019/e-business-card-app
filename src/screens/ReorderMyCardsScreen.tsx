@@ -32,7 +32,28 @@ function createStyles(wallet: WalletThemeColors) {
       flex: 1,
       backgroundColor: wallet.background,
       padding: 20,
-      gap: 12,
+      gap: 16,
+    },
+    introCard: {
+      backgroundColor: wallet.surface,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: wallet.border,
+      padding: 16,
+      gap: 6,
+    },
+    eyebrow: {
+      color: wallet.accentMuted,
+      fontSize: 11,
+      fontWeight: '700',
+      letterSpacing: 1.2,
+      textTransform: 'uppercase',
+    },
+    title: {
+      color: wallet.title,
+      fontSize: 24,
+      fontWeight: '700',
+      letterSpacing: -0.2,
     },
     hint: {
       color: wallet.subtitle,
@@ -47,18 +68,51 @@ function createStyles(wallet: WalletThemeColors) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 12,
+      backgroundColor: wallet.surface,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: wallet.border,
+      padding: 10,
     },
     rowActive: {
       opacity: 0.9,
     },
     handle: {
-      fontSize: 22,
-      color: wallet.subtitle,
-      width: 24,
+      fontSize: 20,
+      color: wallet.title,
+      width: 34,
+      height: 48,
+      borderRadius: 17,
+      backgroundColor: wallet.background,
       textAlign: 'center',
+      lineHeight: 48,
+      overflow: 'hidden',
     },
     cardWrap: {
       flex: 1,
+      gap: 8,
+    },
+    rowMeta: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: 10,
+    },
+    cardName: {
+      color: wallet.title,
+      fontSize: 14,
+      fontWeight: '700',
+      flex: 1,
+    },
+    primaryBadge: {
+      color: wallet.addButtonText,
+      backgroundColor: wallet.addButton,
+      borderRadius: 999,
+      overflow: 'hidden',
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      fontSize: 11,
+      fontWeight: '700',
     },
     errorText: {
       color: wallet.error,
@@ -118,6 +172,14 @@ export function ReorderMyCardsScreen(): React.JSX.Element {
       >
         <Text style={styles.handle}>≡</Text>
         <View style={styles.cardWrap}>
+          <View style={styles.rowMeta}>
+            <Text style={styles.cardName} numberOfLines={1}>
+              {item.core_fields.name || 'Untitled card'}
+            </Text>
+            {cards[0]?._id === item._id ? (
+              <Text style={styles.primaryBadge}>Primary</Text>
+            ) : null}
+          </View>
           <MyCardFace card={item} compact />
         </View>
       </Pressable>
@@ -126,7 +188,13 @@ export function ReorderMyCardsScreen(): React.JSX.Element {
 
   return (
     <GestureHandlerRootView style={styles.screen}>
-      <Text style={styles.hint}>Long-press and drag to reorder. The first card becomes primary.</Text>
+      <View style={styles.introCard}>
+        <Text style={styles.eyebrow}>Card order</Text>
+        <Text style={styles.title}>Choose what people see first</Text>
+        <Text style={styles.hint}>
+          Long-press the handle and drag to reorder. The first card becomes your primary card.
+        </Text>
+      </View>
 
       <DraggableFlatList
         data={cards}

@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Button,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -24,9 +24,29 @@ function createStyles(wallet: WalletThemeColors) {
     container: {
       flexGrow: 1,
       padding: 20,
-      gap: 16,
+      gap: 18,
       backgroundColor: wallet.background,
-      justifyContent: 'center',
+    },
+    heroCard: {
+      backgroundColor: wallet.surface,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: wallet.border,
+      padding: 20,
+      gap: 8,
+    },
+    eyebrow: {
+      color: wallet.accentMuted,
+      fontSize: 11,
+      fontWeight: '700',
+      letterSpacing: 1.2,
+      textTransform: 'uppercase',
+    },
+    title: {
+      color: wallet.title,
+      fontSize: 26,
+      fontWeight: '700',
+      letterSpacing: -0.3,
     },
     subtitle: {
       fontSize: 14,
@@ -39,6 +59,68 @@ function createStyles(wallet: WalletThemeColors) {
     },
     button: {
       flex: 1,
+      borderRadius: 999,
+      paddingVertical: 13,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: wallet.addButton,
+    },
+    buttonSecondary: {
+      backgroundColor: wallet.surface,
+      borderWidth: 1,
+      borderColor: wallet.border,
+    },
+    buttonPressed: {
+      opacity: 0.86,
+      transform: [{ scale: 0.98 }],
+    },
+    buttonText: {
+      color: wallet.addButtonText,
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    buttonTextSecondary: {
+      color: wallet.title,
+    },
+    stepCard: {
+      backgroundColor: wallet.surface,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: wallet.border,
+      padding: 16,
+      gap: 10,
+    },
+    stepRow: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    stepNumber: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      textAlign: 'center',
+      lineHeight: 24,
+      overflow: 'hidden',
+      backgroundColor: wallet.addButton,
+      color: wallet.addButtonText,
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    stepCopy: {
+      flex: 1,
+      gap: 2,
+    },
+    stepTitle: {
+      color: wallet.title,
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    skipButton: {
+      borderRadius: 999,
+      paddingVertical: 13,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: wallet.border,
     },
     feedback: {
       alignItems: 'center',
@@ -166,57 +248,98 @@ export function MyCardScanScreen(): React.JSX.Element {
     navigation.navigate('MyCardForm', { mode: 'edit', card });
   };
 
+  const renderActionButton = (
+    label: string,
+    onPress: () => void,
+    variant: 'primary' | 'secondary' = 'primary',
+  ) => (
+    <Pressable
+      onPress={onPress}
+      disabled={isBusy}
+      style={({ pressed }) => [
+        styles.button,
+        variant === 'secondary' && styles.buttonSecondary,
+        pressed && styles.buttonPressed,
+        isBusy && { opacity: 0.6 },
+      ]}
+    >
+      <Text
+        style={[
+          styles.buttonText,
+          variant === 'secondary' && styles.buttonTextSecondary,
+        ]}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       {!isSuccess && !awaitingBackCapture && (
         <>
-          <Text style={styles.subtitle}>
-            Scan your business card with the document camera for auto crop and align, or pick
-            from gallery. Your photo and details are saved on the API server.
-          </Text>
+          <View style={styles.heroCard}>
+            <Text style={styles.eyebrow}>My card scanner</Text>
+            <Text style={styles.title}>Turn your card into a digital profile</Text>
+            <Text style={styles.subtitle}>
+              Capture the front first. We will extract the details, keep the original image,
+              and let you review before sharing.
+            </Text>
+          </View>
+
+          <View style={styles.stepCard}>
+            <View style={styles.stepRow}>
+              <Text style={styles.stepNumber}>1</Text>
+              <View style={styles.stepCopy}>
+                <Text style={styles.stepTitle}>Front side</Text>
+                <Text style={styles.subtitle}>Use the camera for auto crop or choose a clear image.</Text>
+              </View>
+            </View>
+            <View style={styles.stepRow}>
+              <Text style={styles.stepNumber}>2</Text>
+              <View style={styles.stepCopy}>
+                <Text style={styles.stepTitle}>Back side optional</Text>
+                <Text style={styles.subtitle}>Add a back photo if your card has extra design or details.</Text>
+              </View>
+            </View>
+          </View>
 
           <View style={styles.buttonRow}>
-            <View style={styles.button}>
-              <Button
-                title="Scan Card"
-                onPress={() => void handleScanFront('camera')}
-                disabled={isBusy}
-              />
-            </View>
-            <View style={styles.button}>
-              <Button
-                title="Choose Image"
-                onPress={() => void handleScanFront('gallery')}
-                disabled={isBusy}
-              />
-            </View>
+            {renderActionButton('Scan front', () => void handleScanFront('camera'))}
+            {renderActionButton(
+              'Choose image',
+              () => void handleScanFront('gallery'),
+              'secondary',
+            )}
           </View>
         </>
       )}
 
       {!isSuccess && awaitingBackCapture && !isBusy && (
         <>
-          <Text style={styles.captureReadyText}>Front captured successfully</Text>
-          <Text style={styles.subtitle}>
-            Front captured. Capture the back side now (optional), or skip and save front only.
-          </Text>
-          <View style={styles.buttonRow}>
-            <View style={styles.button}>
-              <Button
-                title="Scan Back"
-                onPress={() => void handleScanBack('camera')}
-                disabled={isBusy}
-              />
-            </View>
-            <View style={styles.button}>
-              <Button
-                title="Choose Back Image"
-                onPress={() => void handleScanBack('gallery')}
-                disabled={isBusy}
-              />
-            </View>
+          <View style={styles.heroCard}>
+            <Text style={styles.captureReadyText}>Front captured successfully</Text>
+            <Text style={styles.title}>Add the back side?</Text>
+            <Text style={styles.subtitle}>
+              This step is optional. Capture the back if it has extra details, QR codes, or
+              a design you want to preserve.
+            </Text>
           </View>
-          <Button title="Skip Back and Save" onPress={handleSkipBack} disabled={isBusy} />
+          <View style={styles.buttonRow}>
+            {renderActionButton('Scan back', () => void handleScanBack('camera'))}
+            {renderActionButton(
+              'Choose back',
+              () => void handleScanBack('gallery'),
+              'secondary',
+            )}
+          </View>
+          <Pressable
+            onPress={handleSkipBack}
+            disabled={isBusy}
+            style={({ pressed }) => [styles.skipButton, pressed && styles.buttonPressed]}
+          >
+            <Text style={styles.buttonTextSecondary}>Skip back and save</Text>
+          </Pressable>
         </>
       )}
 

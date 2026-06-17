@@ -59,7 +59,7 @@ function createStyles(colors: AppThemeColors) {
       paddingHorizontal: 12,
       paddingVertical: 6,
       backgroundColor: colors.surface,
-      marginBottom: 8,
+      marginBottom: 28,
     },
     themeToggleText: {
       color: colors.textMuted,
@@ -70,20 +70,63 @@ function createStyles(colors: AppThemeColors) {
       flexGrow: 1,
       justifyContent: 'center',
       padding: 24,
-      gap: 16,
+      gap: 14,
+    },
+    brandBlock: {
+      alignItems: 'center',
+      gap: 14,
+      marginBottom: 4,
+    },
+    cardMark: {
+      width: 132,
+      height: 78,
+      borderRadius: 18,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 14,
+      justifyContent: 'space-between',
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.08,
+      shadowRadius: 18,
+      elevation: 4,
+    },
+    cardMarkAccent: {
+      width: 34,
+      height: 5,
+      borderRadius: 999,
+      backgroundColor: colors.primary,
+    },
+    cardMarkLine: {
+      width: '78%',
+      height: 6,
+      borderRadius: 999,
+      backgroundColor: colors.border,
+    },
+    cardMarkLineShort: {
+      width: '48%',
+      height: 6,
+      borderRadius: 999,
+      backgroundColor: colors.border,
     },
     title: {
-      fontSize: 28,
+      fontSize: 30,
       fontWeight: '700',
       color: colors.text,
       textAlign: 'center',
+      letterSpacing: -0.4,
     },
     subtitle: {
       fontSize: 14,
       color: colors.textMuted,
       lineHeight: 20,
       textAlign: 'center',
-      marginBottom: 8,
+      marginBottom: 10,
+    },
+    formCard: {
+      gap: 14,
+      marginTop: 4,
     },
     field: {
       gap: 6,
@@ -96,15 +139,45 @@ function createStyles(colors: AppThemeColors) {
     input: {
       borderWidth: 1,
       borderColor: colors.border,
-      borderRadius: 10,
-      paddingHorizontal: 12,
-      paddingVertical: Platform.OS === 'ios' ? 12 : 10,
+      borderRadius: 12,
+      paddingHorizontal: 14,
+      paddingVertical: Platform.OS === 'ios' ? 13 : 11,
       fontSize: 16,
       color: colors.text,
       backgroundColor: colors.surface,
     },
+    passwordInputWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 12,
+      backgroundColor: colors.surface,
+      paddingRight: 12,
+    },
+    passwordInput: {
+      flex: 1,
+      paddingHorizontal: 14,
+      paddingVertical: Platform.OS === 'ios' ? 13 : 11,
+      fontSize: 16,
+      color: colors.text,
+    },
+    passwordToggle: {
+      paddingHorizontal: 4,
+      paddingVertical: 8,
+    },
+    passwordToggleText: {
+      color: colors.primary,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    helperText: {
+      color: colors.textMuted,
+      fontSize: 12,
+      lineHeight: 17,
+    },
     link: {
-      color: colors.link,
+      color: colors.primary,
       fontWeight: '600',
       fontSize: 14,
     },
@@ -119,9 +192,10 @@ function createStyles(colors: AppThemeColors) {
       width: '100%',
       backgroundColor: colors.primary,
       borderRadius: 999,
-      paddingVertical: 14,
+      paddingVertical: 15,
       alignItems: 'center',
       justifyContent: 'center',
+      marginTop: 2,
     },
     primaryButtonPressed: {
       opacity: 0.9,
@@ -137,43 +211,8 @@ function createStyles(colors: AppThemeColors) {
       marginTop: 4,
     },
     toggleText: {
-      color: colors.link,
+      color: colors.primary,
       fontSize: 14,
-      fontWeight: '600',
-    },
-    dividerRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-      marginTop: 4,
-    },
-    dividerLine: {
-      flex: 1,
-      height: StyleSheet.hairlineWidth,
-      backgroundColor: colors.border,
-    },
-    dividerText: {
-      color: colors.textMuted,
-      fontSize: 13,
-      fontWeight: '500',
-    },
-    googleButton: {
-      width: '100%',
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: 999,
-      paddingVertical: 14,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: colors.googleButtonBg,
-      opacity: 0.85,
-    },
-    googleButtonPressed: {
-      opacity: 0.7,
-    },
-    googleButtonText: {
-      color: colors.googleButtonText,
-      fontSize: 15,
       fontWeight: '600',
     },
   });
@@ -187,6 +226,7 @@ export function LoginScreen(): React.JSX.Element {
   const [mode, setMode] = useState<AuthMode>('signIn');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -195,6 +235,10 @@ export function LoginScreen(): React.JSX.Element {
     const trimmedEmail = email.trim();
     if (!trimmedEmail || !password) {
       setError('Email and password are required.');
+      return;
+    }
+    if (mode === 'signUp' && password.length < 6) {
+      setError('Password must be at least 6 characters.');
       return;
     }
 
@@ -236,6 +280,7 @@ export function LoginScreen(): React.JSX.Element {
 
   const toggleMode = () => {
     setError(null);
+    setPasswordVisible(false);
     setMode((current) => (current === 'signIn' ? 'signUp' : 'signIn'));
   };
 
@@ -263,65 +308,94 @@ export function LoginScreen(): React.JSX.Element {
           <Text style={styles.themeToggleText}>{themeToggleLabel}</Text>
         </Pressable>
 
-        <Text style={styles.title}>E-Business Card</Text>
-        <Text style={styles.subtitle}>
-          {mode === 'signIn'
-            ? 'Sign in to scan and save business cards.'
-            : 'Create an account to get started.'}
-        </Text>
+        <View style={styles.brandBlock}>
+          <View style={styles.cardMark}>
+            <View style={styles.cardMarkAccent} />
+            <View>
+              <View style={styles.cardMarkLine} />
+              <View style={[styles.cardMarkLineShort, { marginTop: 7 }]} />
+            </View>
+          </View>
 
-        <View style={styles.field}>
-          <Text style={styles.label}>Email</Text>
-          <TextInput
-            autoCapitalize="none"
-            autoComplete="email"
-            autoCorrect={false}
-            keyboardType="email-address"
-            placeholder="you@example.com"
-            placeholderTextColor={colors.placeholder}
-            style={styles.input}
-            value={email}
-            onChangeText={setEmail}
-          />
+          <View>
+            <Text style={styles.title}>E-Business Card</Text>
+            <Text style={styles.subtitle}>
+              {mode === 'signIn'
+                ? 'Sign in to scan and save business cards.'
+                : 'Create an account to get started.'}
+            </Text>
+          </View>
         </View>
 
-        <View style={styles.field}>
-          <Text style={styles.label}>Password</Text>
-          <TextInput
-            autoCapitalize="none"
-            autoComplete="password"
-            secureTextEntry
-            placeholder="••••••••"
-            placeholderTextColor={colors.placeholder}
-            style={styles.input}
-            value={password}
-            onChangeText={setPassword}
-          />
+        <View style={styles.formCard}>
+          <View style={styles.field}>
+            <Text style={styles.label}>Email</Text>
+            <TextInput
+              autoCapitalize="none"
+              autoComplete="email"
+              autoCorrect={false}
+              keyboardType="email-address"
+              placeholder="you@example.com"
+              placeholderTextColor={colors.placeholder}
+              style={styles.input}
+              value={email}
+              onChangeText={setEmail}
+            />
+          </View>
+
+          <View style={styles.field}>
+            <Text style={styles.label}>Password</Text>
+            <View style={styles.passwordInputWrap}>
+              <TextInput
+                autoCapitalize="none"
+                autoComplete={mode === 'signIn' ? 'current-password' : 'new-password'}
+                secureTextEntry={!passwordVisible}
+                placeholder="••••••••"
+                placeholderTextColor={colors.placeholder}
+                style={styles.passwordInput}
+                value={password}
+                onChangeText={setPassword}
+              />
+              <Pressable
+                onPress={() => setPasswordVisible((visible) => !visible)}
+                style={styles.passwordToggle}
+                accessibilityRole="button"
+                accessibilityLabel={passwordVisible ? 'Hide password' : 'Show password'}
+              >
+                <Text style={styles.passwordToggleText}>
+                  {passwordVisible ? 'Hide' : 'Show'}
+                </Text>
+              </Pressable>
+            </View>
+            {mode === 'signUp' ? (
+              <Text style={styles.helperText}>Use at least 6 characters.</Text>
+            ) : null}
+          </View>
+
+          {mode === 'signIn' && (
+            <Pressable onPress={handleForgotPassword} disabled={loading}>
+              <Text style={styles.link}>Forgot password?</Text>
+            </Pressable>
+          )}
+
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+          {loading ? (
+            <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
+          ) : (
+            <Pressable
+              onPress={handleSubmit}
+              style={({ pressed }) => [
+                styles.primaryButton,
+                pressed && styles.primaryButtonPressed,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={submitLabel}
+            >
+              <Text style={styles.primaryButtonText}>{submitLabel}</Text>
+            </Pressable>
+          )}
         </View>
-
-        {mode === 'signIn' && (
-          <Pressable onPress={handleForgotPassword} disabled={loading}>
-            <Text style={styles.link}>Forgot password?</Text>
-          </Pressable>
-        )}
-
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-        {loading ? (
-          <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
-        ) : (
-          <Pressable
-            onPress={handleSubmit}
-            style={({ pressed }) => [
-              styles.primaryButton,
-              pressed && styles.primaryButtonPressed,
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel={submitLabel}
-          >
-            <Text style={styles.primaryButtonText}>{submitLabel}</Text>
-          </Pressable>
-        )}
 
         <Pressable
           onPress={toggleMode}
@@ -334,25 +408,6 @@ export function LoginScreen(): React.JSX.Element {
               ? "Don't have an account? Create one"
               : 'Already have an account? Sign in'}
           </Text>
-        </Pressable>
-
-        <View style={styles.dividerRow}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>or</Text>
-          <View style={styles.dividerLine} />
-        </View>
-
-        <Pressable
-          disabled
-          style={({ pressed }) => [
-            styles.googleButton,
-            pressed && styles.googleButtonPressed,
-          ]}
-          accessibilityRole="button"
-          accessibilityLabel="Google Sign-In coming soon"
-          accessibilityState={{ disabled: true }}
-        >
-          <Text style={styles.googleButtonText}>Google Sign-In (coming soon)</Text>
         </Pressable>
       </ScrollView>
     </KeyboardAvoidingView>

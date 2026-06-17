@@ -27,6 +27,31 @@ import type { UserCard, UserCardDraft } from '../types/userCard';
 type FormRoute = RouteProp<MainStackParamList, 'MyCardForm'>;
 type FormNavigation = NativeStackNavigationProp<MainStackParamList, 'MyCardForm'>;
 
+const FIELD_SECTIONS: Array<{
+  title: string;
+  helper: string;
+  fields: Array<[keyof CoreFields, string, string]>;
+}> = [
+  {
+    title: 'Identity',
+    helper: 'This is the first thing people see when they open your card.',
+    fields: [
+      ['name', 'Name *', 'Your full name'],
+      ['company_name', 'Company', 'Company or organization'],
+      ['job_title', 'Job title', 'Role, team, or title'],
+    ],
+  },
+  {
+    title: 'Contact',
+    helper: 'Add the ways you want people to reach you.',
+    fields: [
+      ['email', 'Email', 'name@example.com'],
+      ['phone', 'Phone', '+1 555 123 4567'],
+      ['website', 'Website', 'example.com'],
+    ],
+  },
+];
+
 function buildDraft(
   fields: CoreFields,
   designId: string,
@@ -45,14 +70,61 @@ function createStyles(wallet: WalletThemeColors) {
   return StyleSheet.create({
     container: {
       padding: 20,
-      gap: 20,
+      gap: 18,
       backgroundColor: wallet.background,
+    },
+    introCard: {
+      backgroundColor: wallet.surface,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: wallet.border,
+      padding: 18,
+      gap: 6,
+    },
+    eyebrow: {
+      color: wallet.accentMuted,
+      fontSize: 11,
+      fontWeight: '700',
+      letterSpacing: 1.2,
+      textTransform: 'uppercase',
+    },
+    title: {
+      color: wallet.title,
+      fontSize: 24,
+      fontWeight: '700',
+      letterSpacing: -0.2,
+    },
+    helperText: {
+      color: wallet.subtitle,
+      fontSize: 14,
+      lineHeight: 20,
     },
     previewWrap: {
       alignItems: 'center',
+      gap: 10,
+    },
+    previewLabel: {
+      color: wallet.subtitle,
+      fontSize: 12,
+      fontWeight: '700',
+      letterSpacing: 1,
+      textTransform: 'uppercase',
     },
     form: {
       gap: 14,
+    },
+    sectionCard: {
+      backgroundColor: wallet.surface,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: wallet.border,
+      padding: 16,
+      gap: 14,
+    },
+    sectionTitle: {
+      color: wallet.title,
+      fontSize: 18,
+      fontWeight: '700',
     },
     field: {
       gap: 6,
@@ -64,7 +136,7 @@ function createStyles(wallet: WalletThemeColors) {
       textTransform: 'uppercase',
     },
     input: {
-      backgroundColor: wallet.surface,
+      backgroundColor: wallet.background,
       borderRadius: 12,
       borderWidth: 1,
       borderColor: wallet.border,
@@ -74,13 +146,22 @@ function createStyles(wallet: WalletThemeColors) {
       color: wallet.title,
     },
     primaryToggle: {
-      alignSelf: 'flex-start',
-      paddingVertical: 8,
+      backgroundColor: wallet.surface,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: wallet.border,
+      padding: 16,
+      gap: 4,
     },
     primaryToggleText: {
       color: wallet.title,
       fontWeight: '700',
       fontSize: 15,
+    },
+    primaryToggleHint: {
+      color: wallet.subtitle,
+      fontSize: 13,
+      lineHeight: 18,
     },
     errorText: {
       color: wallet.error,
@@ -240,36 +321,54 @@ export function MyCardFormScreen(): React.JSX.Element {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      <View style={styles.introCard}>
+        <Text style={styles.eyebrow}>{mode === 'edit' ? 'Edit card' : 'New card'}</Text>
+        <Text style={styles.title}>
+          {mode === 'edit' ? 'Keep your details current' : 'Build your shareable card'}
+        </Text>
+        <Text style={styles.helperText}>
+          {mode === 'edit'
+            ? 'Update the details, design, and primary-card setting shown in your wallet.'
+            : 'Start with the essentials. You can come back later to adjust the design or details.'}
+        </Text>
+      </View>
+
       <View style={styles.previewWrap}>
+        <Text style={styles.previewLabel}>Live preview</Text>
         <MyCardFace card={previewCard} compact />
       </View>
 
       <DesignPicker selectedDesignId={designId} onSelect={setDesignId} />
 
       <View style={styles.form}>
-        {(
-          [
-            ['name', 'Name *'],
-            ['company_name', 'Company'],
-            ['job_title', 'Job title'],
-            ['email', 'Email'],
-            ['phone', 'Phone'],
-            ['website', 'Website'],
-          ] as Array<[keyof CoreFields, string]>
-        ).map(([key, label]) => (
-          <View key={key} style={styles.field}>
-            <Text style={styles.label}>{label}</Text>
-            <TextInput
-              value={fields[key] ?? ''}
-              onChangeText={value => updateField(key, value)}
-              style={styles.input}
-              placeholder={label}
-              placeholderTextColor={wallet.subtitle}
-              autoCapitalize={key === 'email' ? 'none' : 'words'}
-              keyboardType={
-                key === 'email' ? 'email-address' : key === 'phone' ? 'phone-pad' : 'default'
-              }
-            />
+        {FIELD_SECTIONS.map(section => (
+          <View key={section.title} style={styles.sectionCard}>
+            <View>
+              <Text style={styles.sectionTitle}>{section.title}</Text>
+              <Text style={styles.helperText}>{section.helper}</Text>
+            </View>
+            {section.fields.map(([key, label, placeholder]) => (
+              <View key={key} style={styles.field}>
+                <Text style={styles.label}>{label}</Text>
+                <TextInput
+                  value={fields[key] ?? ''}
+                  onChangeText={value => updateField(key, value)}
+                  style={styles.input}
+                  placeholder={placeholder}
+                  placeholderTextColor={wallet.subtitle}
+                  autoCapitalize={key === 'email' || key === 'website' ? 'none' : 'words'}
+                  keyboardType={
+                    key === 'email'
+                      ? 'email-address'
+                      : key === 'phone'
+                        ? 'phone-pad'
+                        : key === 'website'
+                          ? 'url'
+                          : 'default'
+                  }
+                />
+              </View>
+            ))}
           </View>
         ))}
       </View>
@@ -279,7 +378,12 @@ export function MyCardFormScreen(): React.JSX.Element {
         style={styles.primaryToggle}
       >
         <Text style={styles.primaryToggleText}>
-          {isPrimary ? '★ Primary card' : 'Set as primary card'}
+          {isPrimary ? 'Primary card selected' : 'Set as primary card'}
+        </Text>
+        <Text style={styles.primaryToggleHint}>
+          {isPrimary
+            ? 'This card appears first in your wallet and profile.'
+            : 'Make this the first card people see when you share your profile.'}
         </Text>
       </Pressable>
 

@@ -5,7 +5,6 @@ import {
   ImageBackground,
   type ImageProps,
   type ImageStyle,
-  StyleSheet,
   type StyleProp,
   View,
   type ViewStyle,

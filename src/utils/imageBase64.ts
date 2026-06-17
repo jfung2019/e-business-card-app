@@ -6,7 +6,7 @@ export function arrayBufferToBase64(buffer: ArrayBuffer): string {
     const chunk = bytes.subarray(offset, offset + chunkSize);
     binary += String.fromCharCode(...chunk);
   }
-  return globalThis.btoa(binary);
+  return (globalThis as unknown as { btoa: (input: string) => string }).btoa(binary);
 }
 
 export async function readImageAsBase64(localUri: string): Promise<string> {

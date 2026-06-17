@@ -53,11 +53,22 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
   const { wallet } = useAppTheme();
   const styles = useMemo(() => createStyles(wallet), [wallet]);
   const { card } = route.params;
-  const { core_fields, custom_fields, scanned_at, scan_image_url } = card;
+  const {
+    core_fields,
+    custom_fields,
+    scanned_at,
+    scan_image_url,
+    scan_image_front_url,
+    scan_image_back_url,
+  } = card;
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const subtitle = buildSubtitle(core_fields);
+  const scanImages = [
+    { label: scan_image_back_url ? 'Front scan' : 'Original scan', url: scan_image_front_url ?? scan_image_url },
+    { label: 'Back scan', url: scan_image_back_url },
+  ].filter((image): image is { label: string; url: string } => Boolean(image.url));
 
   const quickActions: QuickAction[] = [];
   if (core_fields.phone?.trim()) {
@@ -129,13 +140,19 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      {scan_image_url ? (
-        <View style={styles.scanCard}>
-          <ScanImage
-            scanImageUrl={scan_image_url}
-            style={styles.scanImage}
-            resizeMode="contain"
-          />
+      {scanImages.length > 0 ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Original scans</Text>
+          {scanImages.map(image => (
+            <View key={image.label} style={styles.scanCard}>
+              <Text style={styles.scanLabel}>{image.label}</Text>
+              <ScanImage
+                scanImageUrl={image.url}
+                style={styles.scanImage}
+                resizeMode="contain"
+              />
+            </View>
+          ))}
         </View>
       ) : null}
 
@@ -226,11 +243,20 @@ const createStyles = (wallet: WalletThemeColors) =>
   },
   scanCard: {
     backgroundColor: wallet.surface,
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: wallet.border,
     overflow: 'hidden',
-    ...cardShadow,
+  },
+  scanLabel: {
+    color: wallet.subtitle,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 8,
+    textTransform: 'uppercase',
   },
   scanImage: {
     width: '100%',
