@@ -1,6 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
 import {
-  Animated,
   Pressable,
   StyleSheet,
   Text,
@@ -14,14 +13,13 @@ import {
   showsUserCardPhoto,
   userCardHasScanImage,
 } from '../utils/walletDisplay';
-import { ScanImage } from './ScanImage';
+import { CardPhotoFlip } from './CardPhotoFlip';
 
 export const MY_CARD_WIDTH = 300;
 export const MY_CARD_HEIGHT = 176;
 const SCAN_CARD_ASPECT_RATIO = 1.586;
 export const MY_CARD_SCAN_HEIGHT = Math.round(MY_CARD_WIDTH / SCAN_CARD_ASPECT_RATIO);
 const CARD_BORDER_RADIUS = 22;
-const FACE_FLIP_MS = 240;
 
 interface MyCardFaceProps {
   card: UserCard;
@@ -149,11 +147,6 @@ function MyCardFaceContent({
   const hasBackPhoto = Boolean(card.scan_image_back_url);
   const frontPhotoUrl = card.scan_image_front_url ?? card.scan_image_url;
   const backPhotoUrl = card.scan_image_back_url;
-  const [displayedFace, setDisplayedFace] = useState<PhotoFace>(photoFace);
-  const displayedFaceRef = useRef<PhotoFace>(photoFace);
-  const flipProgress = useRef(new Animated.Value(0)).current;
-  const activePhotoUrl =
-    displayedFace === 'back' && hasBackPhoto ? backPhotoUrl : frontPhotoUrl;
   const cardHeight = getMyCardDisplayHeight(card);
   const cardWidth = compact ? ('100%' as const) : MY_CARD_WIDTH;
 
@@ -171,79 +164,23 @@ function MyCardFaceContent({
     onPhotoFaceChange(card._id, photoFace === 'front' ? 'back' : 'front');
   };
 
-  useEffect(() => {
-    if (!showPhoto || !hasBackPhoto) {
-      displayedFaceRef.current = photoFace;
-      setDisplayedFace(photoFace);
-      flipProgress.setValue(0);
-      return;
-    }
-
-    if (photoFace === displayedFaceRef.current) {
-      return;
-    }
-
-    const animation = Animated.sequence([
-      Animated.timing(flipProgress, {
-        toValue: 1,
-        duration: FACE_FLIP_MS / 2,
-        useNativeDriver: true,
-      }),
-      Animated.timing(flipProgress, {
-        toValue: 2,
-        duration: FACE_FLIP_MS / 2,
-        useNativeDriver: true,
-      }),
-    ]);
-
-    animation.start(({ finished }) => {
-      if (finished) {
-        displayedFaceRef.current = photoFace;
-        setDisplayedFace(photoFace);
-        flipProgress.setValue(0);
-      }
-    });
-
-    const swapTimer = setTimeout(() => {
-      displayedFaceRef.current = photoFace;
-      setDisplayedFace(photoFace);
-    }, FACE_FLIP_MS / 2);
-
-    return () => {
-      clearTimeout(swapTimer);
-      animation.stop();
-      flipProgress.stopAnimation();
-      flipProgress.setValue(0);
-    };
-  }, [flipProgress, hasBackPhoto, photoFace, showPhoto]);
-
-  const flipTransform = {
-    transform: [
-      {
-        rotateY: flipProgress.interpolate({
-          inputRange: [0, 1, 2],
-          outputRange: ['0deg', '90deg', '180deg'],
-        }),
-      },
-      { perspective: 1000 },
-    ],
-  };
-
   return (
-    <Animated.View
+    <View
       style={[
         styles.cardShell,
         { width: cardWidth, height: cardHeight },
         !showPhoto && { backgroundColor: design.background },
-        showPhoto && hasBackPhoto && flipTransform,
       ]}
     >
       {showPhoto ? (
         <>
-          <ScanImage
-            scanImageUrl={activePhotoUrl}
+          <CardPhotoFlip
+            frontPhotoUrl={frontPhotoUrl}
+            backPhotoUrl={backPhotoUrl}
+            photoFace={photoFace}
             style={styles.scanPhoto}
             resizeMode="cover"
+            variant="image"
           />
           {hasBackPhoto ? (
             <Pressable
@@ -255,7 +192,7 @@ function MyCardFaceContent({
             >
               <Text style={[styles.flipIcon, styles.flipIconOnPhoto]}>⇆</Text>
               <Text style={styles.scanBadgeText}>
-                {displayedFace === 'front' ? 'Back' : 'Front'}
+                {photoFace === 'front' ? 'Back' : 'Front'}
               </Text>
             </Pressable>
           ) : null}
@@ -273,7 +210,7 @@ function MyCardFaceContent({
           onFlip={hasScan ? handleFlip : undefined}
         />
       )}
-    </Animated.View>
+    </View>
   );
 }
 

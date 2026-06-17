@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   Animated,
   Dimensions,
@@ -10,13 +10,12 @@ import {
 import { getWalletPalette, type WalletCardPalette } from '../theme/wallet';
 import type { CapturedCard, PhotoFace } from '../types/card';
 import { hasScanImage, nextWalletDisplay, showsWalletPhoto } from '../utils/walletDisplay';
-import { ScanImageBackground } from './ScanImage';
+import { CardPhotoFlip } from './CardPhotoFlip';
 
 const CARD_BORDER_RADIUS = 22;
 const SCAN_CARD_ASPECT_RATIO = 1.586;
 const WALLET_HORIZONTAL_PADDING = 48;
 const CROSSFADE_MS = 200;
-const FACE_FLIP_MS = 240;
 
 export const WALLET_CARD_FULL_HEIGHT = 196;
 export const WALLET_CARD_SCAN_HEIGHT = Math.round(
@@ -178,12 +177,7 @@ function WalletCardFace({
   const hasBackPhoto = Boolean(card.scan_image_back_url);
   const frontPhotoUrl = card.scan_image_front_url ?? card.scan_image_url;
   const backPhotoUrl = card.scan_image_back_url;
-  const [displayedFace, setDisplayedFace] = useState<PhotoFace>(photoFace);
-  const displayedFaceRef = useRef<PhotoFace>(photoFace);
-  const activePhotoUrl =
-    displayedFace === 'back' && hasBackPhoto ? backPhotoUrl : frontPhotoUrl;
   const photoOpacity = useRef(new Animated.Value(showPhoto ? 1 : 0)).current;
-  const flipProgress = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.timing(photoOpacity, {
@@ -197,64 +191,6 @@ function WalletCardFace({
     inputRange: [0, 1],
     outputRange: [1, 0],
   });
-
-  useEffect(() => {
-    if (!showPhoto || !hasBackPhoto) {
-      displayedFaceRef.current = photoFace;
-      setDisplayedFace(photoFace);
-      flipProgress.setValue(0);
-      return;
-    }
-
-    if (photoFace === displayedFaceRef.current) {
-      return;
-    }
-
-    const animation = Animated.sequence([
-      Animated.timing(flipProgress, {
-        toValue: 1,
-        duration: FACE_FLIP_MS / 2,
-        useNativeDriver: true,
-      }),
-      Animated.timing(flipProgress, {
-        toValue: 2,
-        duration: FACE_FLIP_MS / 2,
-        useNativeDriver: true,
-      }),
-    ]);
-
-    animation.start(({ finished }) => {
-      if (finished) {
-        displayedFaceRef.current = photoFace;
-        setDisplayedFace(photoFace);
-        flipProgress.setValue(0);
-      }
-    });
-
-    const swapTimer = setTimeout(() => {
-      displayedFaceRef.current = photoFace;
-      setDisplayedFace(photoFace);
-    }, FACE_FLIP_MS / 2);
-
-    return () => {
-      clearTimeout(swapTimer);
-      animation.stop();
-      flipProgress.stopAnimation();
-      flipProgress.setValue(0);
-    };
-  }, [flipProgress, hasBackPhoto, photoFace, showPhoto]);
-
-  const flipTransform = {
-    transform: [
-      {
-        rotateY: flipProgress.interpolate({
-          inputRange: [0, 1, 2],
-          outputRange: ['0deg', '90deg', '180deg'],
-        }),
-      },
-      { perspective: 1000 },
-    ],
-  };
 
   const handleFlip = (): void => {
     if (!hasScan || !onWalletDisplayChange) {
@@ -297,19 +233,21 @@ function WalletCardFace({
           pointerEvents={showPhoto ? 'auto' : 'none'}
           style={[styles.faceLayer, { opacity: photoOpacity }]}
         >
-          <Animated.View style={[styles.fill, hasBackPhoto && flipTransform]}>
-            <ScanImageBackground
-              scanImageUrl={activePhotoUrl}
+          <View style={styles.fill}>
+            <CardPhotoFlip
+              frontPhotoUrl={frontPhotoUrl}
+              backPhotoUrl={backPhotoUrl}
+              photoFace={photoFace}
               style={styles.fill}
               imageStyle={styles.scanImageFill}
               resizeMode="cover"
-            >
-              <WalletFlipBadge onFlip={handleFlip} variant="photo" />
-              {hasBackPhoto ? (
-                <WalletFaceBadge face={displayedFace} onFlipFace={handleFlipFace} />
-              ) : null}
-            </ScanImageBackground>
-          </Animated.View>
+              variant="background"
+            />
+            <WalletFlipBadge onFlip={handleFlip} variant="photo" />
+            {hasBackPhoto ? (
+              <WalletFaceBadge face={photoFace} onFlipFace={handleFlipFace} />
+            ) : null}
+          </View>
         </Animated.View>
 
         <Animated.View
@@ -451,6 +389,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 12,
     right: 12,
+    zIndex: 2,
   },
   faceBadge: {
     flexDirection: 'row',
@@ -463,6 +402,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 12,
     left: 12,
+    zIndex: 2,
   },
   faceBadgeText: {
     color: '#FFFFFF',

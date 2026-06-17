@@ -7,6 +7,51 @@ import { arrayBufferToBase64 } from './imageBase64';
 
 const imageSourceCache = new Map<string, ImageSourcePropType>();
 
+async function loadAuthenticatedImageSource(
+  uri: string,
+): Promise<ImageSourcePropType | null> {
+  const cached = imageSourceCache.get(uri);
+  if (cached) {
+    return cached;
+  }
+
+  try {
+    const token = await getAccessToken();
+    const response = await fetch(uri, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!response.ok) {
+      return null;
+    }
+
+    const contentType = response.headers.get('content-type') ?? 'image/jpeg';
+    const buffer = await response.arrayBuffer();
+    if (buffer.byteLength === 0) {
+      return null;
+    }
+
+    const base64 = arrayBufferToBase64(buffer);
+    const nextSource: ImageSourcePropType = {
+      uri: `data:${contentType};base64,${base64}`,
+    };
+    imageSourceCache.set(uri, nextSource);
+    return nextSource;
+  } catch {
+    return null;
+  }
+}
+
+/** Warm the scan image cache before a flip so both faces are ready. */
+export async function prefetchScanImage(
+  scanImageUrl: string | null | undefined,
+): Promise<void> {
+  const uri = resolveScanImageUri(scanImageUrl);
+  if (!uri || imageSourceCache.has(uri)) {
+    return;
+  }
+  await loadAuthenticatedImageSource(uri);
+}
+
 export function resolveScanImageUri(
   scanImageUrl: string | null | undefined,
 ): string | null {
@@ -46,31 +91,9 @@ export function useAuthenticatedImageSource(
     }
 
     void (async () => {
-      try {
-        const token = await getAccessToken();
-        const response = await fetch(uri, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
-        if (!response.ok || cancelled) {
-          return;
-        }
-
-        const contentType = response.headers.get('content-type') ?? 'image/jpeg';
-        const buffer = await response.arrayBuffer();
-        if (cancelled || buffer.byteLength === 0) {
-          return;
-        }
-
-        const base64 = arrayBufferToBase64(buffer);
-        const nextSource: ImageSourcePropType = {
-          uri: `data:${contentType};base64,${base64}`,
-        };
-        imageSourceCache.set(uri, nextSource);
+      const nextSource = await loadAuthenticatedImageSource(uri);
+      if (!cancelled) {
         setSource(nextSource);
-      } catch {
-        if (!cancelled) {
-          setSource(null);
-        }
       }
     })();
 
