@@ -248,23 +248,18 @@ export function ProfileScreen({ onSignOut }: ProfileScreenProps): React.JSX.Elem
   };
 
   const handleSignOut = () => {
-    Alert.alert('Log out', 'Sign out of E-Business Cards?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Log out',
-        style: 'destructive',
-        onPress: () => {
-          void (async () => {
-            setSigningOut(true);
-            try {
-              await onSignOut();
-            } finally {
-              setSigningOut(false);
-            }
-          })();
-        },
-      },
-    ]);
+    void (async () => {
+      setSigningOut(true);
+      try {
+        await onSignOut();
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Unable to sign out right now. Please try again.';
+        Alert.alert('Sign out failed', message);
+      } finally {
+        setSigningOut(false);
+      }
+    })();
   };
 
   return (

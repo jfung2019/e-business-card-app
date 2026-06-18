@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Linking,
   Pressable,
   ScrollView,
@@ -97,31 +96,22 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
   }
 
   const handleDelete = () => {
-    Alert.alert('Delete card', 'Remove this contact from your collection?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => {
-          void (async () => {
-            setDeleting(true);
-            setError(null);
-            try {
-              await deleteCard(card._id);
-              navigation.navigate('Collection');
-            } catch (deleteError) {
-              const message =
-                deleteError instanceof ApiClientError
-                  ? deleteError.message
-                  : 'Unable to delete this card.';
-              setError(message);
-            } finally {
-              setDeleting(false);
-            }
-          })();
-        },
-      },
-    ]);
+    void (async () => {
+      setDeleting(true);
+      setError(null);
+      try {
+        await deleteCard(card._id);
+        navigation.navigate('Collection');
+      } catch (deleteError) {
+        const message =
+          deleteError instanceof ApiClientError
+            ? deleteError.message
+            : 'Unable to delete this card.';
+        setError(message);
+      } finally {
+        setDeleting(false);
+      }
+    })();
   };
 
   const openField = (key: keyof CoreFields, value: string) => {

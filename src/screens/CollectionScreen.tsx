@@ -68,6 +68,14 @@ export function CollectionScreen(): React.JSX.Element {
     (state.status === 'loading' && cards.length > 0) ||
     (userCardsState.status === 'loading' && userCards.length > 0);
 
+  const handleShareMyCard = useCallback(() => {
+    const cardToShare = userCards.find(card => card.is_primary) ?? userCards[0];
+    if (!cardToShare) {
+      return;
+    }
+    navigation.navigate('ShareMyCard', { cardId: cardToShare._id });
+  }, [navigation, userCards]);
+
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
       <View style={styles.header}>
@@ -143,6 +151,12 @@ export function CollectionScreen(): React.JSX.Element {
                   style={styles.secondaryButton}
                 >
                   <Text style={styles.secondaryButtonText}>Add manually</Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleShareMyCard}
+                  style={styles.secondaryButton}
+                >
+                  <Text style={styles.secondaryButtonText}>Share my card</Text>
                 </Pressable>
               </View>
             </>

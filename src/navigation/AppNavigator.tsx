@@ -20,6 +20,7 @@ import { MyCardScanScreen } from '../screens/MyCardScanScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { ReorderMyCardsScreen } from '../screens/ReorderMyCardsScreen';
 import { ScanScreen } from '../screens/ScanScreen';
+import { ShareMyCardScreen } from '../screens/ShareMyCardScreen';
 import type { CapturedCard } from '../types/card';
 import type { ParsedUserCardPreview, UserCard } from '../types/userCard';
 
@@ -37,6 +38,7 @@ export type MainStackParamList = {
     | { mode: 'edit'; card: UserCard };
   ReorderMyCards: { cards: UserCard[] };
   Profile: undefined;
+  ShareMyCard: { cardId: string };
 };
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -98,6 +100,11 @@ function MainNavigator({
         name="ReorderMyCards"
         component={ReorderMyCardsScreen}
         options={{ title: 'Reorder Cards' }}
+      />
+      <MainStack.Screen
+        name="ShareMyCard"
+        component={ShareMyCardScreen}
+        options={{ title: 'Share My Card' }}
       />
     </MainStack.Navigator>
   );

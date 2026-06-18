@@ -1,4 +1,4 @@
-import { API_BASE_URL, API_V1_PREFIX } from '../config/apiConfig';
+import { API_BASE_URL, API_V1_PREFIX, SHARE_PUBLIC_BASE_URL } from '../config/apiConfig';
 import type {
   ParsedUserCardPreview,
   PhotoFace,
@@ -12,6 +12,14 @@ import { ApiClientError, apiDelete, apiGet, apiPatch, apiPost, apiPut } from './
 const PROCESS_USER_CARD_TIMEOUT_MS = 60_000;
 
 type UserCardApiPayload = UserCard & { id?: string };
+type UserCardShareLinkPayload = {
+  token: string;
+  card_id: string;
+  is_active: boolean;
+  share_url: string;
+  created_at: string;
+  updated_at: string;
+};
 
 function normalizeUserCard(card: UserCardApiPayload): UserCard {
   return {
@@ -140,4 +148,13 @@ export async function updateUserCardWalletDisplay(
     body,
   );
   return normalizeUserCard(card);
+}
+
+export async function createOrGetUserCardShareLink(cardId: string): Promise<string> {
+  const response = await apiPut<UserCardShareLinkPayload>(
+    `${API_V1_PREFIX}/user-cards/${cardId}/share-link`,
+    {},
+  );
+  const base = SHARE_PUBLIC_BASE_URL.replace(/\/$/, '');
+  return `${base}/${response.token}`;
 }
