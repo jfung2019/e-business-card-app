@@ -1,13 +1,12 @@
 import { Platform } from 'react-native';
 
 /**
- * Dev: emulator/simulator or LAN IP for a physical device on the same Wi‑Fi.
- * Release: same subdomain as CMS, different port (no extra DNS record).
+ * API host selection. Prod is the default for debug and release builds
+ * (emulator, simulator, and physical devices).
  *
- * Set USE_PROD_API = true to hit the deployed server from debug builds (emulator).
- * Set false to use local API (10.0.2.2 / localhost).
+ * Set USE_PROD_API = false only when testing against a local API on your machine.
  */
-const USE_PROD_API = false;
+const USE_PROD_API = true;
 
 const PROD_API_BASE_URL = 'https://focms.megaannum.ai:8001';
 const PROD_SHARE_PUBLIC_BASE_URL = 'https://focms.megaannum.ai:8001/c';
