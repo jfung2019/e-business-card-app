@@ -1,4 +1,8 @@
-import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
+import {
+  launchCamera,
+  launchImageLibrary,
+  type PhotoQuality,
+} from 'react-native-image-picker';
 import TextRecognition, {
   TextRecognitionScript,
 } from '@react-native-ml-kit/text-recognition';
@@ -87,7 +91,7 @@ async function withActivityRetry<T>(task: () => Promise<T>): Promise<T> {
 }
 
 const SCAN_IMAGE_MAX_EDGE_PX = 1600;
-const SCAN_IMAGE_JPEG_QUALITY = 0.65;
+const SCAN_IMAGE_JPEG_QUALITY: PhotoQuality = 0.7;
 
 async function pickGalleryImageUri(): Promise<PickedImage | null> {
   await runAfterInteractions();
