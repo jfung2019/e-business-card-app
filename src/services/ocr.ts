@@ -5,7 +5,7 @@ import TextRecognition, {
 import DocumentScanner from 'react-native-document-scanner-plugin';
 import { AppState, InteractionManager } from 'react-native';
 
-import { readImageAsBase64 } from '../utils/imageBase64';
+import { compressScanImageForUpload } from '../utils/compressScanImage';
 
 export type OcrSource = 'camera' | 'gallery';
 
@@ -86,12 +86,17 @@ async function withActivityRetry<T>(task: () => Promise<T>): Promise<T> {
   throw lastError;
 }
 
+const SCAN_IMAGE_MAX_EDGE_PX = 1600;
+const SCAN_IMAGE_JPEG_QUALITY = 0.65;
+
 async function pickGalleryImageUri(): Promise<PickedImage | null> {
   await runAfterInteractions();
   const result = await withActivityRetry(() =>
     launchImageLibrary({
       mediaType: 'photo',
-      quality: 0.9,
+      quality: SCAN_IMAGE_JPEG_QUALITY,
+      maxWidth: SCAN_IMAGE_MAX_EDGE_PX,
+      maxHeight: SCAN_IMAGE_MAX_EDGE_PX,
       selectionLimit: 1,
       includeBase64: true,
     }),
@@ -117,7 +122,9 @@ async function scanWithCameraFallback(): Promise<PickedImage | null> {
   const result = await withActivityRetry(() =>
     launchCamera({
       mediaType: 'photo',
-      quality: 0.9,
+      quality: SCAN_IMAGE_JPEG_QUALITY,
+      maxWidth: SCAN_IMAGE_MAX_EDGE_PX,
+      maxHeight: SCAN_IMAGE_MAX_EDGE_PX,
       includeBase64: true,
     }),
   );
@@ -140,7 +147,7 @@ async function scanWithDocumentCamera(): Promise<string | null> {
     const { scannedImages, status } = await withActivityRetry(() =>
       DocumentScanner.scanDocument({
         maxNumDocuments: 1,
-        croppedImageQuality: 90,
+        croppedImageQuality: 55,
       }),
     );
 
@@ -174,9 +181,23 @@ async function recognizeText(imageUri: string): Promise<string> {
   return lines.join('\n');
 }
 
+export function isNoTextDetectedError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.message.includes('No text detected on the image')
+  );
+}
+
+export interface ScanBusinessCardOptions {
+  /** When false, returns empty ocrText if no text is found (used for optional back scans). */
+  requireText?: boolean;
+}
+
 export async function scanBusinessCard(
   source: OcrSource,
+  options?: ScanBusinessCardOptions,
 ): Promise<CardScanResult | null> {
+  const requireText = options?.requireText !== false;
   const picked: PickedImage | null =
     source === 'camera'
       ? await scanWithDocumentCamera().then((uri) => (uri ? { uri } : null))
@@ -186,8 +207,17 @@ export async function scanBusinessCard(
     return null;
   }
 
-  const { uri: imageUri, base64: embeddedBase64 } = picked;
-  const ocrText = await recognizeText(imageUri);
-  const imageBase64 = embeddedBase64 ?? (await readImageAsBase64(imageUri));
+  const { uri: imageUri } = picked;
+  let ocrText = '';
+  try {
+    ocrText = await recognizeText(imageUri);
+  } catch (error) {
+    if (!requireText && isNoTextDetectedError(error)) {
+      ocrText = '';
+    } else {
+      throw error;
+    }
+  }
+  const imageBase64 = await compressScanImageForUpload(imageUri);
   return { imageUri, imageBase64, ocrText };
 }

@@ -16,6 +16,7 @@ import { useProcessCard } from '../hooks/useProcessCard';
 import type { MainStackParamList } from '../navigation/AppNavigator';
 import type { ScanThemeColors } from '../theme/appTheme';
 import { scanBusinessCard, type OcrSource } from '../services/ocr';
+import { mergeCardOcrText } from '../utils/mergeCardOcrText';
 
 type ScanNavigation = NativeStackNavigationProp<MainStackParamList, 'Scan'>;
 
@@ -104,7 +105,7 @@ export function ScanScreen(): React.JSX.Element {
     }
   };
 
-  const finalizeSubmission = async (backImageBase64?: string) => {
+  const finalizeSubmission = async (backImageBase64?: string, backOcrText?: string) => {
     if (!frontOcrText || !frontImageBase64) {
       setScanError('Front card image is missing. Please scan the front again.');
       setAwaitingBackCapture(false);
@@ -113,7 +114,7 @@ export function ScanScreen(): React.JSX.Element {
 
     setSubmissionVariant(backImageBase64 ? 'frontAndBack' : 'frontOnly');
     await submitScan({
-      ocrText: frontOcrText,
+      ocrText: mergeCardOcrText(frontOcrText, backOcrText),
       imageBase64: frontImageBase64,
       backImageBase64,
     });
@@ -125,11 +126,11 @@ export function ScanScreen(): React.JSX.Element {
   const handleScanBack = async (source: OcrSource) => {
     setScanError(null);
     try {
-      const result = await scanBusinessCard(source);
+      const result = await scanBusinessCard(source, { requireText: false });
       if (!result) {
         return;
       }
-      await finalizeSubmission(result.imageBase64);
+      await finalizeSubmission(result.imageBase64, result.ocrText);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Failed to capture the back image.';

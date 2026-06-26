@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { processUserCard } from '../api/userCards';
 import { ApiClientError } from '../api/client';
 import type { UserCard } from '../types/userCard';
+import { scanUploadErrorMessage } from '../utils/scanUploadErrors';
 
 export interface UserCardScanSubmission {
   ocrText: string;
@@ -26,6 +27,11 @@ interface UseProcessUserCardResult {
 }
 
 function normalizeScanErrorMessage(error: unknown): string {
+  const uploadMessage = scanUploadErrorMessage(error);
+  if (uploadMessage) {
+    return uploadMessage;
+  }
+
   const rawMessage =
     error instanceof ApiClientError
       ? error.message
