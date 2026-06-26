@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -291,22 +292,37 @@ export function MyCardFormScreen(): React.JSX.Element {
     if (!card) {
       return;
     }
-    void (async () => {
-      setSaving(true);
-      setError(null);
-      try {
-        await deleteUserCard(card._id);
-        navigation.navigate('Collection');
-      } catch (deleteError) {
-        const message =
-          deleteError instanceof ApiClientError
-            ? deleteError.message
-            : 'Unable to delete this card.';
-        setError(message);
-      } finally {
-        setSaving(false);
-      }
-    })();
+
+    const cardName = card.core_fields.name?.trim() || 'this card';
+    Alert.alert(
+      'Delete card',
+      `Remove ${cardName} from your cards? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              setSaving(true);
+              setError(null);
+              try {
+                await deleteUserCard(card._id);
+                navigation.navigate('Collection');
+              } catch (deleteError) {
+                const message =
+                  deleteError instanceof ApiClientError
+                    ? deleteError.message
+                    : 'Unable to delete this card.';
+                setError(message);
+              } finally {
+                setSaving(false);
+              }
+            })();
+          },
+        },
+      ],
+    );
   };
 
   return (

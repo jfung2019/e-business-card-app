@@ -13,6 +13,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { useAppTheme } from '../context/ThemeContext';
 import { CardDetailScreen } from '../screens/CardDetailScreen';
+import { CollectedCardsScreen } from '../screens/CollectedCardsScreen';
 import { CollectionScreen } from '../screens/CollectionScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { MyCardFormScreen } from '../screens/MyCardFormScreen';
@@ -30,6 +31,7 @@ export type AuthStackParamList = {
 
 export type MainStackParamList = {
   Collection: undefined;
+  CollectedCards: undefined;
   Scan: undefined;
   CardDetail: { card: CapturedCard };
   MyCardScan: undefined;
@@ -78,6 +80,11 @@ function MainNavigator({
       <MainStack.Screen name="Profile" options={{ title: 'Profile' }}>
         {() => <ProfileScreen onSignOut={onSignOut} />}
       </MainStack.Screen>
+      <MainStack.Screen
+        name="CollectedCards"
+        component={CollectedCardsScreen}
+        options={{ title: 'All Collected' }}
+      />
       <MainStack.Screen name="Scan" component={ScanScreen} options={{ title: 'Scan Card' }} />
       <MainStack.Screen
         name="CardDetail"

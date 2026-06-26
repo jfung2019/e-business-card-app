@@ -111,7 +111,7 @@ function createStyles(colors: AppThemeColors) {
       backgroundColor: colors.border,
     },
     title: {
-      fontSize: 30,
+      fontSize: 24,
       fontWeight: '700',
       color: colors.text,
       textAlign: 'center',

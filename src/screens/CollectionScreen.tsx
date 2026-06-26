@@ -16,6 +16,7 @@ import { MyCardCarousel } from '../components/MyCardCarousel';
 import { MyCardsBanner } from '../components/MyCardsBanner';
 import { ProfileAvatarButton } from '../components/ProfileAvatarButton';
 import { WalletCardStack } from '../components/WalletCardStack';
+import { COLLECTION_PREVIEW_LIMIT } from '../constants/collection';
 import { useAuth } from '../context/AuthContext';
 import { useCards } from '../hooks/useCards';
 import { useMyCardsBanner } from '../hooks/useMyCardsBanner';
@@ -75,6 +76,12 @@ export function CollectionScreen(): React.JSX.Element {
     }
     navigation.navigate('ShareMyCard', { cardId: cardToShare._id });
   }, [navigation, userCards]);
+
+  const previewCards = useMemo(
+    () => cards.slice(0, COLLECTION_PREVIEW_LIMIT),
+    [cards],
+  );
+  const hasMoreCollected = cards.length > COLLECTION_PREVIEW_LIMIT;
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
@@ -188,21 +195,30 @@ export function CollectionScreen(): React.JSX.Element {
 
         <View style={styles.collectedSection}>
           <View style={styles.sectionHeader}>
-            <View>
+            <View style={styles.sectionHeaderCopy}>
               <Text style={styles.sectionTitle}>Collected</Text>
               <Text style={styles.sectionSubtitle}>
                 {cards.length === 0
                   ? 'Cards you scan from other people will appear here.'
-                  : `${cards.length} saved ${cards.length === 1 ? 'contact' : 'contacts'}`}
+                  : hasMoreCollected
+                    ? `Showing ${COLLECTION_PREVIEW_LIMIT} most recent of ${cards.length} contacts`
+                    : `${cards.length} saved ${cards.length === 1 ? 'contact' : 'contacts'}`}
               </Text>
             </View>
-            <Pressable
-              onPress={() => navigation.navigate('Scan')}
-              style={({ pressed }) => [styles.pillButton, pressed && styles.addButtonPressed]}
-              accessibilityLabel="Scan a collected business card"
-            >
-              <Text style={styles.pillButtonText}>Scan card</Text>
-            </Pressable>
+            <View style={styles.sectionHeaderActions}>
+              {hasMoreCollected ? (
+                <Pressable onPress={() => navigation.navigate('CollectedCards')}>
+                  <Text style={styles.sectionAction}>See all</Text>
+                </Pressable>
+              ) : null}
+              <Pressable
+                onPress={() => navigation.navigate('Scan')}
+                style={({ pressed }) => [styles.pillButton, pressed && styles.addButtonPressed]}
+                accessibilityLabel="Scan a collected business card"
+              >
+                <Text style={styles.pillButtonText}>Scan card</Text>
+              </Pressable>
+            </View>
           </View>
 
           {state.status === 'loading' && cards.length === 0 && (
@@ -240,7 +256,7 @@ export function CollectionScreen(): React.JSX.Element {
           {cards.length > 0 && (
             <View style={styles.walletSection}>
               <WalletCardStack
-                cards={cards}
+                cards={previewCards}
                 onCardPress={handleCollectedCardPress}
                 onWalletDisplayChange={(cardId, walletDisplay) => {
                   void setCardWalletDisplay(cardId, walletDisplay);
@@ -249,6 +265,16 @@ export function CollectionScreen(): React.JSX.Element {
                   void setCardPhotoFace(cardId, photoFace);
                 }}
               />
+              {hasMoreCollected ? (
+                <Pressable
+                  onPress={() => navigation.navigate('CollectedCards')}
+                  style={styles.seeAllButton}
+                >
+                  <Text style={styles.seeAllButtonText}>
+                    See all {cards.length} contacts
+                  </Text>
+                </Pressable>
+              ) : null}
             </View>
           )}
         </View>
@@ -285,7 +311,7 @@ const createStyles = (wallet: WalletThemeColors) =>
     textTransform: 'uppercase',
   },
   title: {
-    fontSize: 32,
+    fontSize: 24,
     fontWeight: '700',
     color: wallet.title,
     letterSpacing: -0.5,
@@ -318,8 +344,17 @@ const createStyles = (wallet: WalletThemeColors) =>
   },
   sectionHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
+    gap: 12,
+  },
+  sectionHeaderCopy: {
+    flex: 1,
+    gap: 3,
+  },
+  sectionHeaderActions: {
+    alignItems: 'flex-end',
+    gap: 10,
   },
   sectionTitle: {
     fontSize: 20,
@@ -380,6 +415,20 @@ const createStyles = (wallet: WalletThemeColors) =>
     gap: 16,
     paddingBottom: 8,
     overflow: 'visible',
+  },
+  seeAllButton: {
+    alignSelf: 'center',
+    borderWidth: 1,
+    borderColor: wallet.border,
+    borderRadius: 999,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    backgroundColor: wallet.surface,
+  },
+  seeAllButtonText: {
+    color: wallet.title,
+    fontSize: 14,
+    fontWeight: '600',
   },
   centered: {
     minHeight: 240,
