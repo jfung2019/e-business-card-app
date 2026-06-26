@@ -143,7 +143,13 @@ export function SharedCardPreviewScreen({
     setError(null);
     try {
       const saved = await saveSharedCardToCollection(token);
-      navigation.replace('CardDetail', { card: saved });
+      navigation.reset({
+        index: 1,
+        routes: [
+          { name: 'Collection' },
+          { name: 'CardDetail', params: { card: saved } },
+        ],
+      });
     } catch (saveError) {
       const message =
         saveError instanceof ApiClientError
