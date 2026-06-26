@@ -1,16 +1,18 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, StyleSheet, Text, View } from 'react-native';
 
 import {
   DarkTheme,
   DefaultTheme,
   NavigationContainer,
+  createNavigationContainerRef,
 } from '@react-navigation/native';
 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { useAuth } from '../context/AuthContext';
+import { useShareLink } from '../context/ShareLinkContext';
 import { useAppTheme } from '../context/ThemeContext';
 import { CardDetailScreen } from '../screens/CardDetailScreen';
 import { CollectedCardsScreen } from '../screens/CollectedCardsScreen';
@@ -22,8 +24,10 @@ import { ProfileScreen } from '../screens/ProfileScreen';
 import { ReorderMyCardsScreen } from '../screens/ReorderMyCardsScreen';
 import { ScanScreen } from '../screens/ScanScreen';
 import { ShareMyCardScreen } from '../screens/ShareMyCardScreen';
+import { SharedCardPreviewScreen } from '../screens/SharedCardPreviewScreen';
 import type { CapturedCard } from '../types/card';
 import type { ParsedUserCardPreview, UserCard } from '../types/userCard';
+import { SHARE_PUBLIC_BASE_URL } from '../config/apiConfig';
 
 export type AuthStackParamList = {
   Login: undefined;
@@ -41,10 +45,17 @@ export type MainStackParamList = {
   ReorderMyCards: { cards: UserCard[] };
   Profile: undefined;
   ShareMyCard: { cardId: string };
+  SharedCardPreview: { token: string };
 };
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const MainStack = createNativeStackNavigator<MainStackParamList>();
+const navigationRef = createNavigationContainerRef<MainStackParamList>();
+
+const linkingPrefixes = [
+  SHARE_PUBLIC_BASE_URL.replace(/\/$/, ''),
+  'ebusinesscard://',
+];
 
 function AuthNavigator(): React.JSX.Element {
   return (
@@ -113,6 +124,11 @@ function MainNavigator({
         component={ShareMyCardScreen}
         options={{ title: 'Share My Card' }}
       />
+      <MainStack.Screen
+        name="SharedCardPreview"
+        component={SharedCardPreviewScreen}
+        options={{ title: 'Shared Card' }}
+      />
     </MainStack.Navigator>
   );
 }
@@ -145,9 +161,18 @@ function createLoadingStyles(wallet: ReturnType<typeof useAppTheme>['wallet']) {
   });
 }
 
+function navigateToSharedCardPreview(token: string): void {
+  if (!navigationRef.isReady()) {
+    return;
+  }
+  navigationRef.navigate('SharedCardPreview', { token });
+}
+
 export function AppNavigator(): React.JSX.Element {
   const { user, initializing, signOut } = useAuth();
+  const { pendingToken, setPendingToken, clearPendingToken, handleIncomingUrl } = useShareLink();
   const { isDark, wallet } = useAppTheme();
+  const handledInitialUrl = useRef(false);
 
   const navigationTheme = useMemo(
     () => ({
@@ -164,12 +189,64 @@ export function AppNavigator(): React.JSX.Element {
     [isDark, wallet],
   );
 
+  const linking = useMemo(
+    () => ({
+      prefixes: linkingPrefixes,
+      config: {
+        screens: {
+          SharedCardPreview: {
+            path: 'c/:token',
+          },
+        },
+      },
+    }),
+    [],
+  );
+
+  useEffect(() => {
+    const openSharedCardFromUrl = (url: string | null) => {
+      const token = handleIncomingUrl(url);
+      if (!token) {
+        return;
+      }
+      if (user) {
+        navigateToSharedCardPreview(token);
+        return;
+      }
+      void setPendingToken(token);
+    };
+
+    if (!handledInitialUrl.current) {
+      handledInitialUrl.current = true;
+      void Linking.getInitialURL().then(openSharedCardFromUrl);
+    }
+
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      openSharedCardFromUrl(url);
+    });
+
+    return () => subscription.remove();
+  }, [user, handleIncomingUrl, setPendingToken]);
+
+  useEffect(() => {
+    if (!user || !pendingToken) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      navigateToSharedCardPreview(pendingToken);
+      void clearPendingToken();
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [user, pendingToken, clearPendingToken]);
+
   if (initializing) {
     return <LoadingScreen />;
   }
 
   return (
-    <NavigationContainer theme={navigationTheme}>
+    <NavigationContainer ref={navigationRef} theme={navigationTheme} linking={user ? linking : undefined}>
       {user ? <MainNavigator onSignOut={signOut} /> : <AuthNavigator />}
     </NavigationContainer>
   );

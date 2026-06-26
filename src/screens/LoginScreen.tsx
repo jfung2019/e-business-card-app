@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '../context/AuthContext';
+import { useShareLink } from '../context/ShareLinkContext';
 import { useAppTheme } from '../context/ThemeContext';
 import type { AppThemeColors } from '../theme/appTheme';
 
@@ -124,6 +125,13 @@ function createStyles(colors: AppThemeColors) {
       textAlign: 'center',
       marginBottom: 10,
     },
+    shareHint: {
+      fontSize: 14,
+      color: colors.primary,
+      lineHeight: 20,
+      textAlign: 'center',
+      fontWeight: '600',
+    },
     formCard: {
       gap: 14,
       marginTop: 4,
@@ -221,6 +229,7 @@ function createStyles(colors: AppThemeColors) {
 export function LoginScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const { signIn, signUp, sendPasswordReset } = useAuth();
+  const { pendingToken } = useShareLink();
   const { colors, colorScheme, toggleColorScheme } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [mode, setMode] = useState<AuthMode>('signIn');
@@ -324,6 +333,9 @@ export function LoginScreen(): React.JSX.Element {
                 ? 'Sign in to scan and save business cards.'
                 : 'Create an account to get started.'}
             </Text>
+            {pendingToken ? (
+              <Text style={styles.shareHint}>Sign in to view the shared business card.</Text>
+            ) : null}
           </View>
         </View>
 

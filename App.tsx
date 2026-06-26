@@ -4,6 +4,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider } from './src/context/AuthContext';
+import { ShareLinkProvider } from './src/context/ShareLinkContext';
 import { ThemeProvider, useAppTheme } from './src/context/ThemeContext';
 import { AppNavigator } from './src/navigation/AppNavigator';
 
@@ -19,7 +20,9 @@ export default function App(): React.JSX.Element {
         <ThemeProvider>
           <ThemedStatusBar />
           <AuthProvider>
-            <AppNavigator />
+            <ShareLinkProvider>
+              <AppNavigator />
+            </ShareLinkProvider>
           </AuthProvider>
         </ThemeProvider>
       </SafeAreaProvider>
