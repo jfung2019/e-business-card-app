@@ -248,18 +248,29 @@ export function ProfileScreen({ onSignOut }: ProfileScreenProps): React.JSX.Elem
   };
 
   const handleSignOut = () => {
-    void (async () => {
-      setSigningOut(true);
-      try {
-        await onSignOut();
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : 'Unable to sign out right now. Please try again.';
-        Alert.alert('Sign out failed', message);
-      } finally {
-        setSigningOut(false);
-      }
-    })();
+    Alert.alert('Log out', 'Are you sure you want to log out of this account?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Log out',
+        style: 'destructive',
+        onPress: () => {
+          void (async () => {
+            setSigningOut(true);
+            try {
+              await onSignOut();
+            } catch (error) {
+              const message =
+                error instanceof Error
+                  ? error.message
+                  : 'Unable to sign out right now. Please try again.';
+              Alert.alert('Sign out failed', message);
+            } finally {
+              setSigningOut(false);
+            }
+          })();
+        },
+      },
+    ]);
   };
 
   return (

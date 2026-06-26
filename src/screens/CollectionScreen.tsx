@@ -194,31 +194,31 @@ export function CollectionScreen(): React.JSX.Element {
         </View>
 
         <View style={styles.collectedSection}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionHeaderCopy}>
+          <View style={styles.collectedSectionHeader}>
+            <View style={styles.sectionTitleRow}>
               <Text style={styles.sectionTitle}>Collected</Text>
-              <Text style={styles.sectionSubtitle}>
-                {cards.length === 0
-                  ? 'Cards you scan from other people will appear here.'
-                  : hasMoreCollected
-                    ? `Showing ${COLLECTION_PREVIEW_LIMIT} most recent of ${cards.length} contacts`
-                    : `${cards.length} saved ${cards.length === 1 ? 'contact' : 'contacts'}`}
-              </Text>
-            </View>
-            <View style={styles.sectionHeaderActions}>
-              {hasMoreCollected ? (
-                <Pressable onPress={() => navigation.navigate('CollectedCards')}>
-                  <Text style={styles.sectionAction}>See all</Text>
+              <View style={styles.sectionTitleActions}>
+                {hasMoreCollected ? (
+                  <Pressable onPress={() => navigation.navigate('CollectedCards')}>
+                    <Text style={styles.sectionAction}>See all</Text>
+                  </Pressable>
+                ) : null}
+                <Pressable
+                  onPress={() => navigation.navigate('Scan')}
+                  style={({ pressed }) => [styles.pillButton, pressed && styles.addButtonPressed]}
+                  accessibilityLabel="Scan a collected business card"
+                >
+                  <Text style={styles.pillButtonText}>Scan card</Text>
                 </Pressable>
-              ) : null}
-              <Pressable
-                onPress={() => navigation.navigate('Scan')}
-                style={({ pressed }) => [styles.pillButton, pressed && styles.addButtonPressed]}
-                accessibilityLabel="Scan a collected business card"
-              >
-                <Text style={styles.pillButtonText}>Scan card</Text>
-              </Pressable>
+              </View>
             </View>
+            <Text style={styles.sectionSubtitle}>
+              {cards.length === 0
+                ? 'Cards you scan from other people will appear here.'
+                : hasMoreCollected
+                  ? `Showing ${COLLECTION_PREVIEW_LIMIT} most recent of ${cards.length} contacts`
+                  : `${cards.length} saved ${cards.length === 1 ? 'contact' : 'contacts'}`}
+            </Text>
           </View>
 
           {state.status === 'loading' && cards.length === 0 && (
@@ -342,19 +342,25 @@ const createStyles = (wallet: WalletThemeColors) =>
   collectedSection: {
     gap: 14,
   },
-  sectionHeader: {
+  collectedSectionHeader: {
+    gap: 3,
+  },
+  sectionTitleRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
   },
-  sectionHeaderCopy: {
-    flex: 1,
-    gap: 3,
-  },
-  sectionHeaderActions: {
-    alignItems: 'flex-end',
+  sectionTitleActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
+    flexShrink: 0,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   sectionTitle: {
     fontSize: 20,
@@ -362,7 +368,6 @@ const createStyles = (wallet: WalletThemeColors) =>
     color: wallet.title,
   },
   sectionSubtitle: {
-    marginTop: 3,
     color: wallet.subtitle,
     fontSize: 13,
     lineHeight: 18,
