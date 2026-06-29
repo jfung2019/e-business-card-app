@@ -35,6 +35,11 @@ import { ShareMyCardScreen } from '../screens/ShareMyCardScreen';
 import { SharedCardPreviewScreen } from '../screens/SharedCardPreviewScreen';
 import type { CapturedCard } from '../types/card';
 import type { ParsedUserCardPreview, UserCard } from '../types/userCard';
+import { SHARE_PUBLIC_BASE_URL } from '../config/apiConfig';
+import {
+  flushPendingShareNavigation,
+  queueSharedCardNavigation,
+} from './shareLinkNavigation';
 
 export type AuthStackParamList = {
   Login: undefined;
@@ -57,9 +62,12 @@ export type MainStackParamList = {
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const MainStack = createNativeStackNavigator<MainStackParamList>();
-const navigationRef = createNavigationContainerRef<MainStackParamList>();
-const pendingNavTokenRef = { current: null as string | null };
-const pendingIncomingUrlRef = { current: null as string | null };
+export const navigationRef = createNavigationContainerRef<MainStackParamList>();
+
+const linkingPrefixes = [
+  SHARE_PUBLIC_BASE_URL.replace(/\/c\/?$/, ''),
+  'ebusinesscard://',
+];
 
 function AuthNavigator(): React.JSX.Element {
   return (
@@ -165,32 +173,12 @@ function createLoadingStyles(wallet: ReturnType<typeof useAppTheme>['wallet']) {
   });
 }
 
-function flushPendingNavigation(): void {
-  if (!pendingNavTokenRef.current || !navigationRef.isReady()) {
-    return;
-  }
-  const token = pendingNavTokenRef.current;
-  pendingNavTokenRef.current = null;
-  pendingIncomingUrlRef.current = null;
-  navigationRef.navigate('SharedCardPreview', { token });
-}
-
-function navigateToSharedCardPreview(token: string): void {
-  if (!navigationRef.isReady()) {
-    pendingNavTokenRef.current = token;
-    return;
-  }
-  pendingNavTokenRef.current = null;
-  pendingIncomingUrlRef.current = null;
-  navigationRef.navigate('SharedCardPreview', { token });
-}
-
 export function AppNavigator(): React.JSX.Element {
   const { user, initializing, signOut } = useAuth();
   const { pendingToken, setPendingToken, clearPendingToken, handleIncomingUrl } = useShareLink();
   const { isDark, wallet } = useAppTheme();
-  const handledInitialUrl = useRef(false);
-  const lastHandledResumeUrlRef = useRef<string | null>(null);
+  const userRef = useRef(user);
+  userRef.current = user;
 
   const navigationTheme = useMemo(
     () => ({
@@ -207,83 +195,88 @@ export function AppNavigator(): React.JSX.Element {
     [isDark, wallet],
   );
 
-  useEffect(() => {
-    const openSharedCardFromUrl = (
-      url: string | null,
-      source: 'event' | 'resume' = 'event',
-    ) => {
-      if (source === 'resume') {
-        if (!url || url === lastHandledResumeUrlRef.current) {
-          return;
-        }
-      }
+  const linking = useMemo(
+    () => ({
+      prefixes: linkingPrefixes,
+      config: {
+        screens: {
+          SharedCardPreview: {
+            path: 'c/:token',
+          },
+        },
+      },
+    }),
+    [],
+  );
 
+  const tryFlushPendingShare = useRef(() => {
+    if (flushPendingShareNavigation(navigationRef, Boolean(userRef.current))) {
+      void clearPendingToken();
+    }
+  });
+
+  tryFlushPendingShare.current = () => {
+    if (flushPendingShareNavigation(navigationRef, Boolean(userRef.current))) {
+      void clearPendingToken();
+    }
+  };
+
+  useEffect(() => {
+    const openSharedCardFromUrl = (url: string | null) => {
       const token = handleIncomingUrl(url);
       if (!token) {
         return;
       }
 
-      if (url) {
-        lastHandledResumeUrlRef.current = url;
-      }
-
-      if (user) {
-        if (source === 'event' && url) {
-          pendingIncomingUrlRef.current = url;
-        }
-        navigateToSharedCardPreview(token);
-        flushPendingNavigation();
+      if (!userRef.current) {
+        queueSharedCardNavigation(token);
+        void setPendingToken(token);
         return;
       }
-      void setPendingToken(token);
+
+      queueSharedCardNavigation(token);
+      tryFlushPendingShare.current();
     };
 
-    const retryPendingIncomingUrl = () => {
-      const pendingUrl = pendingIncomingUrlRef.current;
-      if (!pendingUrl) {
-        return;
-      }
-      openSharedCardFromUrl(pendingUrl, 'event');
-    };
+    let urlSubscription: { remove: () => void } | undefined;
 
-    if (!handledInitialUrl.current) {
-      handledInitialUrl.current = true;
-      void Linking.getInitialURL().then((url) => openSharedCardFromUrl(url, 'event'));
+    if (!user) {
+      void Linking.getInitialURL().then(openSharedCardFromUrl);
+      urlSubscription = Linking.addEventListener('url', ({ url }) => {
+        openSharedCardFromUrl(url);
+      });
     }
 
-    const urlSubscription = Linking.addEventListener('url', ({ url }) => {
-      openSharedCardFromUrl(url, 'event');
-    });
-
     const appStateSubscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState !== 'active') {
+      if (nextState !== 'active' || !userRef.current) {
         return;
       }
-      flushPendingNavigation();
-      retryPendingIncomingUrl();
+      tryFlushPendingShare.current();
       if (Platform.OS === 'android') {
-        void Linking.getInitialURL().then((url) => openSharedCardFromUrl(url, 'resume'));
+        void Linking.getInitialURL().then(openSharedCardFromUrl);
       }
     });
 
     return () => {
-      urlSubscription.remove();
+      urlSubscription?.remove();
       appStateSubscription.remove();
     };
   }, [user, handleIncomingUrl, setPendingToken]);
 
   useEffect(() => {
+    if (initializing) {
+      return;
+    }
+    tryFlushPendingShare.current();
+  }, [initializing, user]);
+
+  useEffect(() => {
     if (!user || !pendingToken) {
       return;
     }
-
-    const timer = setTimeout(() => {
-      navigateToSharedCardPreview(pendingToken);
-      void clearPendingToken();
-    }, 0);
-
-    return () => clearTimeout(timer);
-  }, [user, pendingToken, clearPendingToken]);
+    queueSharedCardNavigation(pendingToken);
+    tryFlushPendingShare.current();
+  }, [user, pendingToken]);
 
   if (initializing) {
     return <LoadingScreen />;
@@ -293,7 +286,8 @@ export function AppNavigator(): React.JSX.Element {
     <NavigationContainer
       ref={navigationRef}
       theme={navigationTheme}
-      onReady={flushPendingNavigation}
+      linking={user ? linking : undefined}
+      onReady={() => tryFlushPendingShare.current()}
     >
       {user ? <MainNavigator onSignOut={signOut} /> : <AuthNavigator />}
     </NavigationContainer>

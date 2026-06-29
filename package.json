@@ -5,6 +5,8 @@
   "scripts": {
     "android": "react-native run-android",
     "android:win": "powershell -ExecutionPolicy Bypass -File ./scripts/run-android-win.ps1",
+    "android:win:device": "powershell -ExecutionPolicy Bypass -File ./scripts/run-android-win.ps1 -Device",
+    "android:win:install": "powershell -ExecutionPolicy Bypass -File ./scripts/run-android-win.ps1 -InstallOnly",
     "ios": "react-native run-ios",
     "lint": "eslint .",
     "start": "react-native start",
