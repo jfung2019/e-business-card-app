@@ -6,9 +6,13 @@ import React, {
   useMemo,
   useState,
 } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import auth, { type FirebaseAuthTypes } from '@react-native-firebase/auth';
 
+import { deleteAccount as deleteAccountRequest } from '../api/account';
 import { setAccessTokenGetter } from '../api/authToken';
+
+const PENDING_SHARE_TOKEN_KEY = '@ebc/pendingShareToken';
 
 interface AuthContextValue {
   user: FirebaseAuthTypes.User | null;
@@ -17,6 +21,7 @@ interface AuthContextValue {
   signUp: (email: string, password: string) => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -86,6 +91,12 @@ export function AuthProvider({
     await auth().signOut();
   }, []);
 
+  const deleteAccount = useCallback(async () => {
+    await deleteAccountRequest();
+    await AsyncStorage.removeItem(PENDING_SHARE_TOKEN_KEY);
+    await auth().signOut();
+  }, []);
+
   const value = useMemo(
     () => ({
       user,
@@ -94,8 +105,9 @@ export function AuthProvider({
       signUp,
       sendPasswordReset,
       signOut,
+      deleteAccount,
     }),
-    [user, initializing, signIn, signUp, sendPasswordReset, signOut],
+    [user, initializing, signIn, signUp, sendPasswordReset, signOut, deleteAccount],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

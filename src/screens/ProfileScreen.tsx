@@ -169,6 +169,9 @@ function createStyles(wallet: WalletThemeColors) {
     rowPressed: {
       opacity: 0.7,
     },
+    rowLast: {
+      borderBottomWidth: 0,
+    },
     rowCopy: {
       flex: 1,
       gap: 2,
@@ -353,10 +356,16 @@ export function ProfileScreen({ onSignOut }: ProfileScreenProps): React.JSX.Elem
               }
             }}
           />
+          <ProfileRow
+            styles={styles}
+            label="Manage account"
+            hint="Account details and deletion"
+            onPress={() => navigation.navigate('ManageAccount')}
+          />
           <Pressable
             onPress={handleSignOut}
             disabled={signingOut}
-            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+            style={({ pressed }) => [styles.row, styles.rowLast, pressed && styles.rowPressed]}
           >
             <View style={styles.rowCopy}>
               {signingOut ? (

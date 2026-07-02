@@ -28,6 +28,7 @@ import { CollectionScreen } from '../screens/CollectionScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { MyCardFormScreen } from '../screens/MyCardFormScreen';
 import { MyCardScanScreen } from '../screens/MyCardScanScreen';
+import { ManageAccountScreen } from '../screens/ManageAccountScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { ReorderMyCardsScreen } from '../screens/ReorderMyCardsScreen';
 import { ScanScreen } from '../screens/ScanScreen';
@@ -56,6 +57,7 @@ export type MainStackParamList = {
     | { mode: 'edit'; card: UserCard };
   ReorderMyCards: { cards: UserCard[] };
   Profile: undefined;
+  ManageAccount: undefined;
   ShareMyCard: { cardId: string };
   SharedCardPreview: { token: string };
 };
@@ -103,6 +105,11 @@ function MainNavigator({
       <MainStack.Screen name="Profile" options={{ title: 'Profile' }}>
         {() => <ProfileScreen onSignOut={onSignOut} />}
       </MainStack.Screen>
+      <MainStack.Screen
+        name="ManageAccount"
+        component={ManageAccountScreen}
+        options={{ title: 'Manage account' }}
+      />
       <MainStack.Screen
         name="CollectedCards"
         component={CollectedCardsScreen}
