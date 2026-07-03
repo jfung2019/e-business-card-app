@@ -1,29 +1,28 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-  Copy to GoogleService-Info.plist after adding an iOS app in Firebase Console.
+  Copy to GoogleService-Info-Dev.plist after adding an iOS app in the DEV Firebase project.
 
-  Firebase project (prod): mega-e-business-card
-  Bundle ID (Release builds): com.megaannumai.ebusinesscard
+  Firebase project: mega-e-business-card-dev (or your dev project name)
+  Bundle ID (must match Debug builds): com.megaannumai.ebusinesscard.dev
 
   Firebase Console → Project settings → Your apps → Add iOS app → download plist
-  Place at: ios/GoogleService-Info.plist
-  Then add the file to the EBusinessCard target in Xcode (drag into project navigator).
+  Place at: ios/GoogleService-Info-Dev.plist
 -->
 <plist version="1.0">
 <dict>
 	<key>API_KEY</key>
 	<string>YOUR_IOS_API_KEY</string>
 	<key>GCM_SENDER_ID</key>
-	<string>359348506633</string>
+	<string>YOUR_DEV_PROJECT_NUMBER</string>
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.megaannumai.ebusinesscard</string>
+	<string>com.megaannumai.ebusinesscard.dev</string>
 	<key>PROJECT_ID</key>
-	<string>mega-e-business-card</string>
+	<string>mega-e-business-card-dev</string>
 	<key>STORAGE_BUCKET</key>
-	<string>mega-e-business-card.firebasestorage.app</string>
+	<string>mega-e-business-card-dev.firebasestorage.app</string>
 	<key>IS_ADS_ENABLED</key>
 	<false/>
 	<key>IS_ANALYTICS_ENABLED</key>
@@ -35,6 +34,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true/>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:359348506633:ios:YOUR_IOS_APP_ID</string>
+	<string>1:YOUR_DEV_PROJECT_NUMBER:ios:YOUR_IOS_APP_ID</string>
 </dict>
 </plist>

@@ -8,6 +8,8 @@ apply plugin: "com.google.gms.google-services"
  * By default you don't need to apply any configuration, just uncomment the lines you need.
  */
 react {
+    debuggableVariants = ["devDebug", "prodDebug"]
+
     /* Folders */
     //   The root of your project, i.e. where "package.json" lives. Default is '../..'
     // root = file("../../")
@@ -79,12 +81,35 @@ android {
     compileSdk rootProject.ext.compileSdkVersion
 
     namespace "com.megaannumai.ebusinesscard"
+
+    flavorDimensions "environment"
+    productFlavors {
+        prod {
+            dimension "environment"
+            manifestPlaceholders = [usesCleartextTraffic: "false"]
+            resValue "string", "app_name", "E-Business Cards"
+            buildConfigField "String", "APP_ENVIRONMENT", '"prod"'
+        }
+        dev {
+            dimension "environment"
+            applicationIdSuffix ".dev"
+            manifestPlaceholders = [usesCleartextTraffic: "true"]
+            resValue "string", "app_name", "EBC Dev"
+            buildConfigField "String", "APP_ENVIRONMENT", '"dev"'
+        }
+    }
+
     defaultConfig {
         applicationId "com.megaannumai.ebusinesscard"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
+        manifestPlaceholders = [usesCleartextTraffic: "true"]
+    }
+
+    buildFeatures {
+        buildConfig true
     }
     signingConfigs {
         debug {

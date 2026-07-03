@@ -1,12 +1,14 @@
 # Builds/installs Android on Windows via subst to avoid CMake MAX_PATH failures.
 # Usage:
-#   npm run android:win              # run on emulator or connected device
+#   npm run android:win              # dev flavor (default) — com.megaannumai.ebusinesscard.dev
+#   npm run android:win:prod         # prod flavor — com.megaannumai.ebusinesscard
 #   npm run android:win -- --device  # prefer a physical device when available
 #   npm run android:win -- --install-only
 
 param(
   [switch]$Device,
-  [switch]$InstallOnly
+  [switch]$InstallOnly,
+  [switch]$Prod
 )
 
 $ErrorActionPreference = "Stop"
@@ -41,22 +43,32 @@ $hasPhysicalDevice = @($connectedDevices | Where-Object { $_ -notmatch "emulator
 $arch = if ($Device -or $hasPhysicalDevice) { "arm64-v8a" } else { "x86_64" }
 $gradleArgs = @("-PreactNativeArchitectures=$arch")
 
+$variant = if ($Prod) { "prodDebug" } else { "devDebug" }
+$installTask = if ($Prod) { "app:installProdDebug" } else { "app:installDevDebug" }
+
 Write-Host "Using $driveLetter -> $projectPath"
 Write-Host "Building for architecture: $arch"
+Write-Host "Android variant: $variant"
 
 if ($InstallOnly) {
   Set-Location "$driveLetter\android"
-  & .\gradlew.bat app:installDebug @gradleArgs
+  & .\gradlew.bat $installTask @gradleArgs
   exit $LASTEXITCODE
 }
 
 Set-Location $driveLetter
-$packagerArgs = @($args | Where-Object { $_ -ne "--device" -and $_ -ne "--install-only" })
+$packagerArgs = @($args | Where-Object {
+    $_ -ne "--device" -and $_ -ne "--install-only" -and $_ -ne "--prod"
+  })
 if ($packagerArgs -notcontains "--no-packager") {
   $packagerArgs += "--no-packager"
 }
 if ($Device -and $packagerArgs -notcontains "--device") {
   $packagerArgs += "--device"
+}
+if ($packagerArgs -notcontains "--mode") {
+  $packagerArgs += "--mode"
+  $packagerArgs += $variant
 }
 
 $extraParams = ($gradleArgs | ForEach-Object { $_ }) -join " "

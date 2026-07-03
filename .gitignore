@@ -39,9 +39,12 @@ local.properties
 .env
 .env.local
 
-# Firebase
+# Firebase (per flavor / build type — copy from *.example after Firebase Console download)
 android/app/google-services.json
+android/app/src/prod/google-services.json
+android/app/src/dev/google-services.json
 ios/GoogleService-Info.plist
+ios/GoogleService-Info-Dev.plist
 
 # node.js
 #

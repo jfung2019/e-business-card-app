@@ -31,22 +31,61 @@ OCR packages are already in `package.json`:
 
 ## Step 2 — Firebase setup (required for login)
 
-1. Create a project at [Firebase Console](https://console.firebase.google.com/)
-2. Add an **Android app** with package name `com.ebusinesscard`
-3. Download `google-services.json` and place it at:
-   ```
-   android/app/google-services.json
-   ```
-4. In Firebase Console → **Authentication** → **Sign-in method**:
-   - Enable **Email/Password**
-   - (Later) enable **Google** for Google Sign-In
-5. For the API, download a **service account JSON** from Firebase Console → Project settings → Service accounts → Generate new private key
-   - Save as `e-business-card-api/firebase-service-account.json`
-   - Set in API `.env`: `FIREBASE_CREDENTIALS_PATH=./firebase-service-account.json`
+Use **two Firebase projects** so dev/debug cannot touch prod users:
 
-After adding `google-services.json`, rebuild the Android app (`npm run android`).
+| Environment | Firebase project | Android package / iOS bundle ID |
+|-------------|------------------|----------------------------------|
+| **Prod** (release) | `mega-e-business-card` | `com.megaannumai.ebusinesscard` |
+| **Dev** (debug) | `mega-e-business-card-dev` (create new) | `com.megaannumai.ebusinesscard.dev` |
 
-Scanned card photos are uploaded with `POST /api/v1/cards/process` and stored in **MongoDB GridFS** on the API server. No Firebase Storage or billing required.
+Skip Google Analytics and Gemini when creating projects — only **Authentication → Email/Password** is required.
+
+### Android
+
+1. In each Firebase project, add an **Android app** with the package name from the table above.
+2. Download `google-services.json` into the matching flavor folder:
+
+   | Flavor | Path |
+   |--------|------|
+   | Prod | `android/app/src/prod/google-services.json` |
+   | Dev | `android/app/src/dev/google-services.json` |
+
+   See `*.example` files in those folders for the expected shape.
+
+3. **Debug builds** (default) use the **dev** flavor → `com.megaannumai.ebusinesscard.dev` → dev Firebase.
+4. **Release / prod testing** use the **prod** flavor → `com.megaannumai.ebusinesscard` → prod Firebase.
+
+```powershell
+# Dev build (default) — EBC Dev app, dev Firebase, dev API
+npm run android:win
+
+# Prod flavor debug build — prod Firebase + prod API (for pre-release testing)
+npm run android:win:prod
+```
+
+### iOS (Mac)
+
+| Build | Bundle ID | Firebase plist |
+|-------|-----------|----------------|
+| Debug (`npm run ios`) | `com.megaannumai.ebusinesscard.dev` | `ios/GoogleService-Info-Dev.plist` |
+| Release (TestFlight) | `com.megaannumai.ebusinesscard` | `ios/GoogleService-Info.plist` |
+
+1. Register **both** bundle IDs in the matching Firebase projects.
+2. Download plists to `ios/GoogleService-Info-Dev.plist` (dev) and `ios/GoogleService-Info.plist` (prod).
+3. See `ios/GoogleService-Info*.plist.example` for reference.
+
+### API (each server)
+
+Download a **service account JSON** per Firebase project (Project settings → Service accounts):
+
+| Server | File | `.env` |
+|--------|------|--------|
+| Prod (`ebc.megaannum.ai`) | `firebase-service-account.json` | `FIREBASE_CREDENTIALS_PATH=./firebase-service-account.json` |
+| Dev + local docker | `firebase-service-account-dev.json` | `FIREBASE_CREDENTIALS_PATH=./firebase-service-account-dev.json` |
+
+After adding `google-services.json` files, rebuild the native app.
+
+Scanned card photos are uploaded with `POST /api/v1/cards/process` and stored in **MongoDB GridFS** on the API server. No Firebase Storage required.
 
 ---
 
@@ -81,16 +120,13 @@ The `ios/` folder is already in Git. You **edit** `Info.plist` in the repo — y
 
 ### Firebase iOS app
 
-1. Firebase Console → project **mega-e-business-card** → **Add app** → **iOS**
-2. Bundle ID: **`com.megaannumai.ebusinesscard`** (must match Xcode)
-3. Download **`GoogleService-Info.plist`**
-4. Save to:
-   ```
-   ios/GoogleService-Info.plist
-   ```
-5. On Mac, open `ios/EBusinessCard.xcworkspace` in Xcode and drag the plist into the **EBusinessCard** target (if not picked up automatically)
+1. **Dev Firebase** → Add iOS app → Bundle ID **`com.megaannumai.ebusinesscard.dev`**
+   - Save `GoogleService-Info-Dev.plist` to `ios/GoogleService-Info-Dev.plist`
+2. **Prod Firebase** → Add iOS app → Bundle ID **`com.megaannumai.ebusinesscard`**
+   - Save `GoogleService-Info.plist` to `ios/GoogleService-Info.plist`
+3. On Mac, open `ios/EBusinessCard.xcworkspace` in Xcode and ensure both plists are in the project (prod plist is bundled for Release; add Dev plist to the target if needed for Debug)
 
-See `ios/GoogleService-Info.plist.example` for the expected shape.
+See `ios/GoogleService-Info.plist.example` and `ios/GoogleService-Info-Dev.plist.example`.
 
 ### Build on Mac
 
@@ -114,15 +150,15 @@ For **TestFlight**, deploy the API to a public HTTPS URL and update `src/config/
 
 ## Step 5 — API URL for your device
 
-Edit `src/config/apiConfig.ts`:
+`src/config/apiConfig.ts` picks the API from the **build environment**:
 
-| How you run the app | `API_BASE_URL` |
-|---------------------|----------------|
-| Android emulator | `http://10.0.2.2:8000` (default) |
-| iOS simulator | `http://localhost:8000` |
-| Physical phone | `http://<YOUR_PC_LAN_IP>:8000` e.g. `http://192.168.1.10:8000` |
+| Build | API |
+|-------|-----|
+| Release (prod flavor) | `https://ebc.megaannum.ai` |
+| Dev flavor debug (default) | `https://focms.megaannum.ai:8001` |
+| Dev flavor + `DEBUG_API_TARGET = 'local'` | `http://10.0.2.2:8000` (Android) / `http://localhost:8000` (iOS) |
 
-Find your PC IP: `ipconfig` → IPv4 Address.
+Change `DEBUG_API_TARGET` in `apiConfig.ts` only when testing against local docker API.
 
 ---
 
