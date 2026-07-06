@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 
-import { getAppEnvironment } from './appEnvironment';
+import { getAppEnvironment, type AppEnvironment } from './appEnvironment';
 
 /**
  * API target for mobile builds.
@@ -18,7 +18,7 @@ import { getAppEnvironment } from './appEnvironment';
 export type ApiTarget = 'prod' | 'dev' | 'local';
 
 /** Cloud dev vs local API when running a dev build (`__DEV__` + dev flavor). */
-const DEBUG_API_TARGET: ApiTarget = 'prod';
+const DEBUG_API_TARGET: ApiTarget = 'dev';
 
 const API_HOSTS: Record<Exclude<ApiTarget, 'local'>, { baseUrl: string; sharePublicBaseUrl: string }> =
   {
@@ -31,6 +31,11 @@ const API_HOSTS: Record<Exclude<ApiTarget, 'local'>, { baseUrl: string; sharePub
       sharePublicBaseUrl: 'https://focms.megaannum.ai:8001/c',
     },
   };
+
+export const API_TARGET_LABELS: Record<Exclude<ApiTarget, 'prod'>, string> = {
+  dev: 'focms dev API',
+  local: 'local API on your machine',
+};
 
 const DEV_API_HOST =
   Platform.OS === 'android' ? 'http://10.0.2.2:8000' : 'http://localhost:8000';
@@ -48,6 +53,24 @@ function resolveApiTarget(): ApiTarget {
 }
 
 const activeTarget = resolveApiTarget();
+
+/** Firebase project the active API expects (prod API ↔ prod Firebase). */
+export function expectedFirebaseEnvironmentForApiTarget(
+  apiTarget: ApiTarget = activeTarget,
+): AppEnvironment {
+  return apiTarget === 'prod' ? 'prod' : 'dev';
+}
+
+/** False when API host and bundled Firebase project do not match (e.g. dev app → prod API). */
+export function isApiFirebaseEnvironmentAligned(
+  apiTarget: ApiTarget = activeTarget,
+): boolean {
+  return getAppEnvironment() === expectedFirebaseEnvironmentForApiTarget(apiTarget);
+}
+
+export const API_FIREBASE_MISMATCH_MESSAGE =
+  'This API target uses a different Firebase project than this app install. ' +
+  'Use matching settings (dev app + dev API, or prod app + prod API) and sign in again.';
 
 export const API_BASE_URL =
   activeTarget === 'local' ? DEV_API_HOST : API_HOSTS[activeTarget].baseUrl;

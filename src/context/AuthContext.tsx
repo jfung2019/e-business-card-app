@@ -11,6 +11,7 @@ import auth, { type FirebaseAuthTypes } from '@react-native-firebase/auth';
 
 import { deleteAccount as deleteAccountRequest } from '../api/account';
 import { setAccessTokenGetter } from '../api/authToken';
+import { isApiFirebaseEnvironmentAligned } from '../config/apiConfig';
 
 const PENDING_SHARE_TOKEN_KEY = '@ebc/pendingShareToken';
 
@@ -49,6 +50,14 @@ export function AuthProvider({
       }
 
       clearTimeout(initTimeout);
+
+      if (nextUser && !isApiFirebaseEnvironmentAligned()) {
+        await auth().signOut();
+        setUser(null);
+        setInitializing(false);
+        return;
+      }
+
       setUser(nextUser);
       setInitializing(false);
 
@@ -71,15 +80,25 @@ export function AuthProvider({
       if (!currentUser) {
         return null;
       }
-      return currentUser.getIdToken();
+      return currentUser.getIdToken(true);
     });
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
+    if (!isApiFirebaseEnvironmentAligned()) {
+      throw new Error(
+        'Cannot sign in: API target and Firebase project do not match this app install.',
+      );
+    }
     await auth().signInWithEmailAndPassword(email.trim(), password);
   }, []);
 
   const signUp = useCallback(async (email: string, password: string) => {
+    if (!isApiFirebaseEnvironmentAligned()) {
+      throw new Error(
+        'Cannot create account: API target and Firebase project do not match this app install.',
+      );
+    }
     await auth().createUserWithEmailAndPassword(email.trim(), password);
   }, []);
 

@@ -17,6 +17,8 @@ import { useUserCards } from '../hooks/useUserCards';
 import type { MainStackParamList } from '../navigation/AppNavigator';
 import type { WalletThemeColors } from '../theme/appTheme';
 import { getEmailInitials } from '../utils/formatDate';
+import { ApiTargetBanner } from '../components/ApiTargetBanner';
+import { DevDiagnostics } from '../components/DevDiagnostics';
 
 type ProfileNavigation = NativeStackNavigationProp<MainStackParamList, 'Profile'>;
 
@@ -278,6 +280,8 @@ export function ProfileScreen({ onSignOut }: ProfileScreenProps): React.JSX.Elem
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      <ApiTargetBanner />
+      <DevDiagnostics />
       <View style={styles.hero}>
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{initials}</Text>

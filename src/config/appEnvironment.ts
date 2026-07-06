@@ -17,3 +17,7 @@ export function getAppEnvironment(): AppEnvironment {
 
   return __DEV__ ? 'dev' : 'prod';
 }
+
+/** In-app title — dev install vs prod install (not API target). */
+export const APP_DISPLAY_NAME =
+  getAppEnvironment() === 'dev' ? 'E-Business Cards Dev' : 'E-Business Cards';

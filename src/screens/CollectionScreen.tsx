@@ -13,6 +13,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MyCardCarousel } from '../components/MyCardCarousel';
+import { ApiTargetBanner } from '../components/ApiTargetBanner';
 import { MyCardsBanner } from '../components/MyCardsBanner';
 import { ProfileAvatarButton } from '../components/ProfileAvatarButton';
 import { WalletCardStack } from '../components/WalletCardStack';
@@ -26,6 +27,7 @@ import { useAppTheme } from '../context/ThemeContext';
 import type { WalletThemeColors } from '../theme/appTheme';
 import type { CapturedCard } from '../types/card';
 import type { UserCard } from '../types/userCard';
+import { APP_DISPLAY_NAME } from '../config/appEnvironment';
 
 type CollectionNavigation = NativeStackNavigationProp<MainStackParamList, 'Collection'>;
 
@@ -88,8 +90,9 @@ export function CollectionScreen(): React.JSX.Element {
       <View style={styles.header}>
         <View style={styles.headerCopy}>
           <Text style={styles.eyebrow}>Wallet</Text>
-          <Text style={styles.title}>E-Business Cards</Text>
+          <Text style={styles.title}>{APP_DISPLAY_NAME}</Text>
           <Text style={styles.subtitle}>Your cards and collected contacts in one place.</Text>
+          <ApiTargetBanner compact />
         </View>
         <View style={styles.headerActions}>
           <ProfileAvatarButton

@@ -309,7 +309,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.megaannumai.ebusinesscard.dev;
 				PRODUCT_NAME = EBusinessCard;
-				INFOPLIST_KEY_CFBundleDisplayName = "EBC Dev";
+				INFOPLIST_KEY_CFBundleDisplayName = "E-Business Cards Dev";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -341,6 +341,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.megaannumai.ebusinesscard;
 				PRODUCT_NAME = EBusinessCard;
+				INFOPLIST_KEY_CFBundleDisplayName = "E-Business Cards";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";

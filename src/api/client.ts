@@ -1,4 +1,4 @@
-import { API_BASE_URL, REQUEST_TIMEOUT_MS } from '../config/apiConfig';
+import { API_BASE_URL, API_FIREBASE_MISMATCH_MESSAGE, isApiFirebaseEnvironmentAligned, REQUEST_TIMEOUT_MS } from '../config/apiConfig';
 import { getAccessToken } from './authToken';
 
 export class ApiClientError extends Error {
@@ -48,6 +48,11 @@ async function apiRequest<TResponse>(
         }
       } catch {
         // Response body is not JSON; keep generic message.
+      }
+      if (response.status === 401) {
+        detail = isApiFirebaseEnvironmentAligned()
+          ? 'Authentication failed. The API server may be configured with the wrong Firebase credentials.'
+          : API_FIREBASE_MISMATCH_MESSAGE;
       }
       throw new ApiClientError(detail, response.status);
     }

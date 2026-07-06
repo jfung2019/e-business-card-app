@@ -17,6 +17,8 @@ import { useAuth } from '../context/AuthContext';
 import { useShareLink } from '../context/ShareLinkContext';
 import { useAppTheme } from '../context/ThemeContext';
 import type { AppThemeColors } from '../theme/appTheme';
+import { ApiTargetBanner } from '../components/ApiTargetBanner';
+import { APP_DISPLAY_NAME } from '../config/appEnvironment';
 
 type AuthMode = 'signIn' | 'signUp';
 
@@ -327,12 +329,13 @@ export function LoginScreen(): React.JSX.Element {
           </View>
 
           <View>
-            <Text style={styles.title}>E-Business Card</Text>
+            <Text style={styles.title}>{APP_DISPLAY_NAME}</Text>
             <Text style={styles.subtitle}>
               {mode === 'signIn'
                 ? 'Sign in to scan and save business cards.'
                 : 'Create an account to get started.'}
             </Text>
+            <ApiTargetBanner compact />
             {pendingToken ? (
               <Text style={styles.shareHint}>Sign in to view the shared business card.</Text>
             ) : null}
