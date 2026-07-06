@@ -9,6 +9,12 @@ require Pod::Executable.execute_command('node', ['-p',
 platform :ios, '15.5'
 prepare_react_native_project!
 
+project 'EBusinessCard.xcodeproj', {
+  'Debug' => :debug,
+  'ProdDebug' => :debug,
+  'Release' => :release,
+}
+
 # Required by @react-native-firebase/* when using static libraries (default RN 0.86).
 $RNFirebaseAsStaticFramework = true
 

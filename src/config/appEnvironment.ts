@@ -1,18 +1,16 @@
-import { NativeModules, Platform } from 'react-native';
+import { NativeModules } from 'react-native';
 
 export type AppEnvironment = 'prod' | 'dev';
 
 /**
- * Native build environment: prod release vs dev debug builds.
+ * Native build environment from the install flavor / Xcode scheme.
  * Android: Gradle flavor (`prod` | `dev`).
- * iOS: Release = prod, Debug = dev (bundle id `.dev`).
+ * iOS: EBusinessCard-Dev (Debug) | EBusinessCard-Prod (ProdDebug) | Release.
  */
 export function getAppEnvironment(): AppEnvironment {
-  if (Platform.OS === 'android') {
-    const env = NativeModules.AppEnvironment?.appEnvironment;
-    if (env === 'prod' || env === 'dev') {
-      return env;
-    }
+  const env = NativeModules.AppEnvironment?.appEnvironment;
+  if (env === 'prod' || env === 'dev') {
+    return env;
   }
 
   return __DEV__ ? 'dev' : 'prod';

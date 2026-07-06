@@ -34,9 +34,9 @@ OCR packages are already in `package.json`:
 Use **two Firebase projects** so dev/debug cannot touch prod users:
 
 | Environment | Firebase project | Android package / iOS bundle ID |
-|-------------|------------------|----------------------------------|
-| **Prod** (release) | `mega-e-business-card` | `com.megaannumai.ebusinesscard` |
-| **Dev** (debug) | `mega-e-business-card-dev` (create new) | `com.megaannumai.ebusinesscard.dev` |
+|-------------|------------------|--------------------------------|
+| **Dev** | `mega-e-business-card-dev` | `com.megaannumai.ebusinesscard.dev` |
+| **Prod** | `mega-e-business-card` | `com.megaannumai.ebusinesscard` |
 
 Skip Google Analytics and Gemini when creating projects — only **Authentication → Email/Password** is required.
 
@@ -65,10 +65,11 @@ npm run android:win:prod
 
 ### iOS (Mac)
 
-| Build | Bundle ID | Firebase plist |
-|-------|-----------|----------------|
-| Debug (`npm run ios`) | `com.megaannumai.ebusinesscard.dev` | `ios/GoogleService-Info-Dev.plist` |
-| Release (TestFlight) | `com.megaannumai.ebusinesscard` | `ios/GoogleService-Info.plist` |
+| Command | Bundle ID | Firebase plist |
+|---------|-----------|----------------|
+| `npm run ios:dev` | `com.megaannumai.ebusinesscard.dev` | `ios/GoogleService-Info-Dev.plist` |
+| `npm run ios:prod` | `com.megaannumai.ebusinesscard` | `ios/GoogleService-Info.plist` |
+| Release (Archive / TestFlight) | `com.megaannumai.ebusinesscard` | `ios/GoogleService-Info.plist` |
 
 1. Register **both** bundle IDs in the matching Firebase projects.
 2. Download plists to `ios/GoogleService-Info-Dev.plist` (dev) and `ios/GoogleService-Info.plist` (prod).
@@ -139,7 +140,23 @@ cd ios && pod install && cd ..
 # Copy GoogleService-Info.plist (see above)
 
 npm start          # Terminal 1
-npm run ios        # Terminal 2 — simulator
+### Run on device (dev vs prod)
+
+| Command | Scheme | Install | Firebase | API |
+|---------|--------|---------|----------|-----|
+| `npm run ios:dev` | `EBusinessCard-Dev` | E-Business Cards **Dev** | `mega-e-business-card-dev` | `focms.megaannum.ai:8001` |
+| `npm run ios:prod` | `EBusinessCard-Prod` | E-Business Cards | `mega-e-business-card` | `ebc.megaannum.ai` |
+
+Both are **debug builds** (Metro + fast refresh). Use **Archive / Release** in Xcode for TestFlight.
+
+```bash
+cd ios && pod install && cd ..
+npm start          # Terminal 1
+npm run ios:dev    # Terminal 2 — dev on connected iPhone
+npm run ios:prod   # Terminal 2 — prod on connected iPhone
+```
+
+Legacy: `npm run ios` = same as `ios:dev` (simulator or device).
 ```
 
 `Info.plist` already includes camera/photo permissions and `NSAllowsLocalNetworking` for local API dev.
