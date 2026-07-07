@@ -21,6 +21,7 @@ interface AuthContextValue {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<void>;
 }
@@ -106,6 +107,23 @@ export function AuthProvider({
     await auth().sendPasswordResetEmail(email.trim());
   }, []);
 
+  const changePassword = useCallback(
+    async (currentPassword: string, newPassword: string) => {
+      const currentUser = auth().currentUser;
+      if (!currentUser?.email) {
+        throw new Error('You must be signed in with an email account to change your password.');
+      }
+
+      const credential = auth.EmailAuthProvider.credential(
+        currentUser.email,
+        currentPassword,
+      );
+      await currentUser.reauthenticateWithCredential(credential);
+      await currentUser.updatePassword(newPassword);
+    },
+    [],
+  );
+
   const signOut = useCallback(async () => {
     await auth().signOut();
   }, []);
@@ -123,10 +141,20 @@ export function AuthProvider({
       signIn,
       signUp,
       sendPasswordReset,
+      changePassword,
       signOut,
       deleteAccount,
     }),
-    [user, initializing, signIn, signUp, sendPasswordReset, signOut, deleteAccount],
+    [
+      user,
+      initializing,
+      signIn,
+      signUp,
+      sendPasswordReset,
+      changePassword,
+      signOut,
+      deleteAccount,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

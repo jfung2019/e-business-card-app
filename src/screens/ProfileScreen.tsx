@@ -352,8 +352,14 @@ export function ProfileScreen({ onSignOut }: ProfileScreenProps): React.JSX.Elem
         <View style={styles.card}>
           <ProfileRow
             styles={styles}
-            label={sendingReset ? 'Sending reset email...' : 'Change password'}
-            hint="We will email you a reset link"
+            label="Change password"
+            hint="Update your password while signed in"
+            onPress={() => navigation.navigate('ChangePassword')}
+          />
+          <ProfileRow
+            styles={styles}
+            label={sendingReset ? 'Sending reset email...' : 'Reset password via email'}
+            hint="Send a reset link to your email"
             onPress={() => {
               if (!sendingReset) {
                 handlePasswordReset();

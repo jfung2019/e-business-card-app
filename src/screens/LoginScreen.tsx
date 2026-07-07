@@ -22,6 +22,10 @@ import { APP_DISPLAY_NAME } from '../config/appEnvironment';
 
 type AuthMode = 'signIn' | 'signUp';
 
+function isStrongPassword(password: string): boolean {
+  return password.length >= 8 && /[A-Za-z]/.test(password) && /\d/.test(password);
+}
+
 function getAuthErrorMessage(error: unknown): string {
   if (error && typeof error === 'object' && 'code' in error) {
     const code = String((error as { code: string }).code);
@@ -35,7 +39,7 @@ function getAuthErrorMessage(error: unknown): string {
       case 'auth/email-already-in-use':
         return 'An account with this email already exists.';
       case 'auth/weak-password':
-        return 'Password must be at least 6 characters.';
+        return 'Password must be at least 8 characters and include a letter and a number.';
       case 'auth/too-many-requests':
         return 'Too many attempts. Please try again later.';
       default:
@@ -248,8 +252,8 @@ export function LoginScreen(): React.JSX.Element {
       setError('Email and password are required.');
       return;
     }
-    if (mode === 'signUp' && password.length < 6) {
-      setError('Password must be at least 6 characters.');
+    if (mode === 'signUp' && !isStrongPassword(password)) {
+      setError('Password must be at least 8 characters and include a letter and a number.');
       return;
     }
 
@@ -383,7 +387,9 @@ export function LoginScreen(): React.JSX.Element {
               </Pressable>
             </View>
             {mode === 'signUp' ? (
-              <Text style={styles.helperText}>Use at least 6 characters.</Text>
+              <Text style={styles.helperText}>
+                Use at least 8 characters with a letter and a number.
+              </Text>
             ) : null}
           </View>
 

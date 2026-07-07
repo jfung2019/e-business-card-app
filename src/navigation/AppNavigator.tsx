@@ -23,6 +23,7 @@ import { useAuth } from '../context/AuthContext';
 import { useShareLink } from '../context/ShareLinkContext';
 import { useAppTheme } from '../context/ThemeContext';
 import { CardDetailScreen } from '../screens/CardDetailScreen';
+import { ChangePasswordScreen } from '../screens/ChangePasswordScreen';
 import { CollectedCardsScreen } from '../screens/CollectedCardsScreen';
 import { CollectionScreen } from '../screens/CollectionScreen';
 import { LoginScreen } from '../screens/LoginScreen';
@@ -57,6 +58,7 @@ export type MainStackParamList = {
     | { mode: 'edit'; card: UserCard };
   ReorderMyCards: { cards: UserCard[] };
   Profile: undefined;
+  ChangePassword: undefined;
   ManageAccount: undefined;
   ShareMyCard: { cardId: string };
   SharedCardPreview: { token: string };
@@ -105,6 +107,11 @@ function MainNavigator({
       <MainStack.Screen name="Profile" options={{ title: 'Profile' }}>
         {() => <ProfileScreen onSignOut={onSignOut} />}
       </MainStack.Screen>
+      <MainStack.Screen
+        name="ChangePassword"
+        component={ChangePasswordScreen}
+        options={{ title: 'Change password' }}
+      />
       <MainStack.Screen
         name="ManageAccount"
         component={ManageAccountScreen}
