@@ -2,7 +2,13 @@ import { useCallback, useState } from 'react';
 
 import { processCard } from '../api/cards';
 import { ApiClientError } from '../api/client';
+import {
+  enqueueOfflineScan,
+  queuedScanToCapturedCard,
+} from '../services/offlineCardQueue';
 import type { CapturedCard, ProcessCardState } from '../types/card';
+import { isDeviceOnline, isLikelyNetworkError } from '../utils/network';
+import { parseOcrOffline } from '../utils/parseOcrOffline';
 import { scanUploadErrorMessage } from '../utils/scanUploadErrors';
 
 export interface CardScanSubmission {
@@ -14,6 +20,7 @@ export interface CardScanSubmission {
 interface UseProcessCardResult {
   state: ProcessCardState;
   capturedCard: CapturedCard | null;
+  isOfflineDraft: boolean;
   submitScan: (scan: CardScanSubmission) => Promise<void>;
   reset: () => void;
 }
@@ -47,6 +54,7 @@ function normalizeScanErrorMessage(error: unknown): string {
 
 export function useProcessCard(): UseProcessCardResult {
   const [state, setState] = useState<ProcessCardState>({ status: 'idle' });
+  const [isOfflineDraft, setIsOfflineDraft] = useState(false);
 
   const submitScan = useCallback(async ({ ocrText, imageBase64, backImageBase64 }: CardScanSubmission) => {
     const trimmed = ocrText.trim();
@@ -56,11 +64,58 @@ export function useProcessCard(): UseProcessCardResult {
     }
 
     setState({ status: 'loading' });
+    setIsOfflineDraft(false);
+
+    const online = await isDeviceOnline();
+    if (!online) {
+      try {
+        const parsed = parseOcrOffline(trimmed);
+        const queued = await enqueueOfflineScan({
+          rawOcrText: trimmed,
+          imageBase64,
+          backImageBase64,
+          core_fields: parsed.core_fields,
+          custom_fields: parsed.custom_fields,
+        });
+        const card = queuedScanToCapturedCard(queued);
+        setIsOfflineDraft(true);
+        setState({ status: 'success', card });
+      } catch {
+        setState({
+          status: 'error',
+          message: 'Unable to save this card offline. Please try again.',
+        });
+      }
+      return;
+    }
 
     try {
       const card = await processCard(trimmed, imageBase64, backImageBase64);
       setState({ status: 'success', card });
     } catch (error) {
+      if (isLikelyNetworkError(error)) {
+        try {
+          const parsed = parseOcrOffline(trimmed);
+          const queued = await enqueueOfflineScan({
+            rawOcrText: trimmed,
+            imageBase64,
+            backImageBase64,
+            core_fields: parsed.core_fields,
+            custom_fields: parsed.custom_fields,
+          });
+          const card = queuedScanToCapturedCard(queued);
+          setIsOfflineDraft(true);
+          setState({ status: 'success', card });
+          return;
+        } catch {
+          setState({
+            status: 'error',
+            message: 'Network unavailable and offline save failed. Please try again.',
+          });
+          return;
+        }
+      }
+
       const message = normalizeScanErrorMessage(error);
       setState({ status: 'error', message });
     }
@@ -68,6 +123,7 @@ export function useProcessCard(): UseProcessCardResult {
 
   const reset = useCallback(() => {
     setState({ status: 'idle' });
+    setIsOfflineDraft(false);
   }, []);
 
   const capturedCard = state.status === 'success' ? state.card : null;
@@ -75,6 +131,7 @@ export function useProcessCard(): UseProcessCardResult {
   return {
     state,
     capturedCard,
+    isOfflineDraft,
     submitScan,
     reset,
   };

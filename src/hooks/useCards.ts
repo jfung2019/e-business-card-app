@@ -2,6 +2,10 @@ import { useCallback, useState } from 'react';
 
 import { listCards, updateCardWalletDisplay } from '../api/cards';
 import { ApiClientError } from '../api/client';
+import {
+  listQueuedScans,
+  queuedScanToCapturedCard,
+} from '../services/offlineCardQueue';
 import type { CapturedCard, CardListState, PhotoFace, WalletDisplay } from '../types/card';
 
 interface UseCardsResult {
@@ -24,8 +28,11 @@ export function useCards(): UseCardsResult {
     });
 
     try {
-      const cards = await listCards();
-      setState({ status: 'success', cards });
+      const [serverCards, queuedScans] = await Promise.all([listCards(), listQueuedScans()]);
+      const localCards = queuedScans
+        .filter(item => item.syncStatus !== 'uploading')
+        .map(queuedScanToCapturedCard);
+      setState({ status: 'success', cards: [...localCards, ...serverCards] });
     } catch (error) {
       const message =
         error instanceof ApiClientError
@@ -42,6 +49,9 @@ export function useCards(): UseCardsResult {
 
   const setCardWalletDisplay = useCallback(
     async (cardId: string, walletDisplay: WalletDisplay) => {
+      if (cardId.startsWith('local:')) {
+        return;
+      }
       let previousCards: CapturedCard[] | undefined;
 
       setState(previous => {
@@ -81,6 +91,9 @@ export function useCards(): UseCardsResult {
   );
 
   const setCardPhotoFace = useCallback(async (cardId: string, photoFace: PhotoFace) => {
+    if (cardId.startsWith('local:')) {
+      return;
+    }
     let previousCards: CapturedCard[] | undefined;
 
     setState(previous => {

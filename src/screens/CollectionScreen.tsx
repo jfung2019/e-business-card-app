@@ -21,6 +21,7 @@ import { WalletCardStack } from '../components/WalletCardStack';
 import { COLLECTION_PREVIEW_LIMIT } from '../constants/collection';
 import { useAuth } from '../context/AuthContext';
 import { useCards } from '../hooks/useCards';
+import { useOfflineCardSync } from '../hooks/useOfflineCardSync';
 import { useMyCardsBanner } from '../hooks/useMyCardsBanner';
 import { useUserCards } from '../hooks/useUserCards';
 import type { MainStackParamList } from '../navigation/AppNavigator';
@@ -46,13 +47,15 @@ export function CollectionScreen(): React.JSX.Element {
     setCardWalletDisplay: setUserCardWalletDisplay,
     setCardPhotoFace: setUserCardPhotoFace,
   } = useUserCards();
+  const { syncQueuedScans } = useOfflineCardSync();
   const { visible: bannerVisible, dismiss: dismissBanner } = useMyCardsBanner(
     userCards.length > 0,
   );
 
   const refreshAll = useCallback(async () => {
+    await syncQueuedScans();
     await Promise.all([fetchCards(), fetchUserCards()]);
-  }, [fetchCards, fetchUserCards]);
+  }, [fetchCards, fetchUserCards, syncQueuedScans]);
 
   useFocusEffect(
     useCallback(() => {

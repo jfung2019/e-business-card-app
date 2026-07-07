@@ -11,6 +11,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useCards } from '../hooks/useCards';
+import { useOfflineCardSync } from '../hooks/useOfflineCardSync';
 import type { MainStackParamList } from '../navigation/AppNavigator';
 import { useAppTheme } from '../context/ThemeContext';
 import type { WalletThemeColors } from '../theme/appTheme';
@@ -79,12 +80,16 @@ export function CollectedCardsScreen(): React.JSX.Element {
   const { wallet } = useAppTheme();
   const styles = useMemo(() => createStyles(wallet), [wallet]);
   const { cards, fetchCards } = useCards();
+  const { syncQueuedScans } = useOfflineCardSync();
   const [query, setQuery] = useState('');
 
   useFocusEffect(
     useCallback(() => {
-      void fetchCards();
-    }, [fetchCards]),
+      void (async () => {
+        await syncQueuedScans();
+        await fetchCards();
+      })();
+    }, [fetchCards, syncQueuedScans]),
   );
 
   const filteredCards = useMemo(

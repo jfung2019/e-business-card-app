@@ -1,12 +1,14 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Linking,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -14,23 +16,38 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ApiClientError } from '../api/client';
-import { deleteCard } from '../api/cards';
+import { applyCardEnhancement, deleteCard } from '../api/cards';
 import { CustomFieldsList } from '../components/CustomFieldsList';
 import { ScanImage } from '../components/ScanImage';
 import type { MainStackParamList } from '../navigation/AppNavigator';
 import { useAppTheme } from '../context/ThemeContext';
 import type { WalletThemeColors } from '../theme/appTheme';
-import type { CoreFields } from '../types/card';
+import type { CapturedCard, CoreFields } from '../types/card';
+import {
+  getQueuedScan,
+  isLocalCardId,
+  localCardIdToQueueId,
+  removeQueuedScan,
+  updateQueuedScanFields,
+} from '../services/offlineCardQueue';
+import type { QueuedCardScan } from '../types/offlineQueue';
 import { formatScannedDate } from '../utils/formatDate';
 
 type CardDetailProps = NativeStackScreenProps<MainStackParamList, 'CardDetail'>;
 type CardDetailNavigation = NativeStackNavigationProp<MainStackParamList, 'CardDetail'>;
 
-const CONTACT_FIELD_LABELS: Array<{ key: keyof CoreFields; label: string }> = [
+const CORE_FIELD_LABELS: Array<{ key: keyof CoreFields; label: string }> = [
+  { key: 'name', label: 'Name' },
+  { key: 'company_name', label: 'Company' },
+  { key: 'job_title', label: 'Job title' },
   { key: 'email', label: 'Email' },
   { key: 'phone', label: 'Phone' },
   { key: 'website', label: 'Website' },
 ];
+
+const CONTACT_FIELD_LABELS = CORE_FIELD_LABELS.filter(({ key }) =>
+  (['email', 'phone', 'website'] as const).includes(key as 'email' | 'phone' | 'website'),
+);
 
 type QuickAction = {
   key: string;
@@ -48,11 +65,76 @@ function normalizeWebsite(url: string): string {
   return url.startsWith('http') ? url : `https://${url}`;
 }
 
+function suggestionLabel(fieldKey: string): string {
+  if (fieldKey.startsWith('core.')) {
+    const coreKey = fieldKey.replace('core.', '') as keyof CoreFields;
+    return CORE_FIELD_LABELS.find(item => item.key === coreKey)?.label ?? coreKey;
+  }
+  if (fieldKey.startsWith('custom.')) {
+    return fieldKey.replace('custom.', '').replace(/_/g, ' ');
+  }
+  return fieldKey;
+}
+
+function currentSuggestionValue(card: CapturedCard, fieldKey: string): string {
+  if (fieldKey.startsWith('core.')) {
+    const coreKey = fieldKey.replace('core.', '') as keyof CoreFields;
+    return card.core_fields[coreKey]?.trim() ?? '';
+  }
+  if (fieldKey.startsWith('custom.')) {
+    const customKey = fieldKey.replace('custom.', '');
+    return card.custom_fields[customKey]?.trim() ?? '';
+  }
+  return '';
+}
+
+function buildEditedFieldKeys(
+  previousCore: CoreFields,
+  nextCore: CoreFields,
+  previousCustom: Record<string, string>,
+  nextCustom: Record<string, string>,
+  existingEdited: string[],
+): string[] {
+  const edited = new Set(existingEdited);
+  for (const { key } of CORE_FIELD_LABELS) {
+    const previousValue = previousCore[key]?.trim() ?? '';
+    const nextValue = nextCore[key]?.trim() ?? '';
+    if (previousValue !== nextValue) {
+      edited.add(`core.${key}`);
+    }
+  }
+  const customKeys = new Set([...Object.keys(previousCustom), ...Object.keys(nextCustom)]);
+  for (const key of customKeys) {
+    const previousValue = previousCustom[key]?.trim() ?? '';
+    const nextValue = nextCustom[key]?.trim() ?? '';
+    if (previousValue !== nextValue) {
+      edited.add(`custom.${key}`);
+    }
+  }
+  return [...edited];
+}
+
+function toDataUri(base64: string): string {
+  return base64.startsWith('data:') ? base64 : `data:image/jpeg;base64,${base64}`;
+}
+
 export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element {
   const navigation = useNavigation<CardDetailNavigation>();
   const { wallet } = useAppTheme();
   const styles = useMemo(() => createStyles(wallet), [wallet]);
-  const { card } = route.params;
+  const [card, setCard] = useState(route.params.card);
+  const [queuedScan, setQueuedScan] = useState<QueuedCardScan | null>(null);
+  const [editingLocal, setEditingLocal] = useState(false);
+  const [draftCoreFields, setDraftCoreFields] = useState<CoreFields>(route.params.card.core_fields);
+  const [draftCustomFields, setDraftCustomFields] = useState<Record<string, string>>(
+    route.params.card.custom_fields,
+  );
+  const [deleting, setDeleting] = useState(false);
+  const [applyingEnhancement, setApplyingEnhancement] = useState(false);
+  const [savingLocalEdits, setSavingLocalEdits] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const isLocalCard = isLocalCardId(card._id);
   const {
     core_fields,
     custom_fields,
@@ -60,17 +142,48 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
     scan_image_url,
     scan_image_front_url,
     scan_image_back_url,
+    parse_source,
+    parse_status,
+    enhancement_status,
+    enhanced_suggestions,
   } = card;
-  const [deleting, setDeleting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isLocalCard) {
+      setQueuedScan(null);
+      return;
+    }
+    void (async () => {
+      const item = await getQueuedScan(localCardIdToQueueId(card._id));
+      setQueuedScan(item);
+    })();
+  }, [card._id, isLocalCard]);
 
   const subtitle = buildSubtitle(core_fields);
-  const scanImages = [
-    { label: scan_image_back_url ? 'Front scan' : 'Original scan', url: scan_image_front_url ?? scan_image_url },
-    { label: 'Back scan', url: scan_image_back_url },
-  ].filter((image): image is { label: string; url: string } => Boolean(image.url));
+  const localScanImages = queuedScan
+    ? [
+        { label: queuedScan.backImageBase64 ? 'Front scan' : 'Original scan', uri: toDataUri(queuedScan.imageBase64) },
+        queuedScan.backImageBase64
+          ? { label: 'Back scan', uri: toDataUri(queuedScan.backImageBase64) }
+          : null,
+      ].filter((image): image is { label: string; uri: string } => Boolean(image))
+    : [];
+  const scanImages = localScanImages.length
+    ? []
+    : [
+        { label: scan_image_back_url ? 'Front scan' : 'Original scan', url: scan_image_front_url ?? scan_image_url },
+        { label: 'Back scan', url: scan_image_back_url },
+      ].filter((image): image is { label: string; url: string } => Boolean(image.url));
 
   const quickActions: QuickAction[] = [];
+  const showOfflineBanner =
+    isLocalCard || parse_source === 'offline' || parse_status === 'fallback';
+  const showEnhancementBanner = enhancement_status === 'queued' || enhancement_status === 'processing';
+  const showReviewBanner =
+    enhancement_status === 'pending_review' &&
+    enhanced_suggestions &&
+    Object.keys(enhanced_suggestions).length > 0;
+  const suggestionEntries = Object.entries(enhanced_suggestions ?? {});
   if (core_fields.phone?.trim()) {
     const phone = core_fields.phone.trim();
     quickActions.push({
@@ -110,7 +223,11 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
               setDeleting(true);
               setError(null);
               try {
-                await deleteCard(card._id);
+                if (isLocalCard) {
+                  await removeQueuedScan(localCardIdToQueueId(card._id));
+                } else {
+                  await deleteCard(card._id);
+                }
                 navigation.navigate('Collection');
               } catch (deleteError) {
                 const message =
@@ -126,6 +243,66 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
         },
       ],
     );
+  };
+
+  const handleApplyEnhancement = (acceptAll: boolean) => {
+    void (async () => {
+      setApplyingEnhancement(true);
+      setError(null);
+      try {
+        const updated = await applyCardEnhancement(card._id, { acceptAll });
+        setCard(updated);
+      } catch (applyError) {
+        const message =
+          applyError instanceof ApiClientError
+            ? applyError.message
+            : 'Unable to apply enhancement suggestions.';
+        setError(message);
+      } finally {
+        setApplyingEnhancement(false);
+      }
+    })();
+  };
+
+  const handleSaveLocalEdits = () => {
+    void (async () => {
+      if (!queuedScan) {
+        return;
+      }
+      setSavingLocalEdits(true);
+      setError(null);
+      try {
+        const editedFields = buildEditedFieldKeys(
+          card.core_fields,
+          draftCoreFields,
+          card.custom_fields,
+          draftCustomFields,
+          queuedScan.editedFields,
+        );
+        const updatedQueueItem = await updateQueuedScanFields(
+          queuedScan.localId,
+          draftCoreFields,
+          draftCustomFields,
+          editedFields,
+        );
+        if (!updatedQueueItem) {
+          throw new Error('Offline draft is no longer available.');
+        }
+        setQueuedScan(updatedQueueItem);
+        setCard(previous => ({
+          ...previous,
+          core_fields: draftCoreFields,
+          custom_fields: draftCustomFields,
+        }));
+        setEditingLocal(false);
+      } catch (saveError) {
+        const message =
+          saveError instanceof Error ? saveError.message : 'Unable to save offline edits.';
+        setError(message);
+      } finally {
+        setSavingLocalEdits(false);
+      }
+    })();
   };
 
   const openField = (key: keyof CoreFields, value: string) => {
@@ -144,6 +321,18 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+      {localScanImages.length > 0 ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Original scans</Text>
+          {localScanImages.map(image => (
+            <View key={image.label} style={styles.scanCard}>
+              <Text style={styles.scanLabel}>{image.label}</Text>
+              <Image source={{ uri: image.uri }} style={styles.scanImage} resizeMode="contain" />
+            </View>
+          ))}
+        </View>
+      ) : null}
+
       {scanImages.length > 0 ? (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Original scans</Text>
@@ -166,6 +355,128 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
         {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
         <Text style={styles.meta}>Added {formatScannedDate(scanned_at)}</Text>
       </View>
+
+      {showOfflineBanner ? (
+        <View style={styles.infoBanner}>
+          <Text style={styles.infoBannerText}>
+            Offline draft: details are based on OCR and may be incomplete. We will enhance this
+            card automatically when internet is available.
+          </Text>
+        </View>
+      ) : null}
+
+      {showEnhancementBanner ? (
+        <View style={styles.infoBanner}>
+          <Text style={styles.infoBannerText}>
+            Enhancing your card details in the background. Updates will appear shortly.
+          </Text>
+        </View>
+      ) : null}
+
+      {showReviewBanner ? (
+        <View style={styles.reviewCard}>
+          <Text style={styles.sectionTitle}>Suggested updates</Text>
+          <Text style={styles.reviewIntro}>
+            Review the enhanced details below. Accept all to update this card, or keep your
+            current values.
+          </Text>
+          {suggestionEntries.map(([fieldKey, suggestedValue]) => (
+            <View key={fieldKey} style={styles.suggestionRow}>
+              <Text style={styles.label}>{suggestionLabel(fieldKey)}</Text>
+              <Text style={styles.suggestionCurrent}>
+                Current: {currentSuggestionValue(card, fieldKey) || '—'}
+              </Text>
+              <Text style={styles.suggestionNext}>Suggested: {suggestedValue}</Text>
+            </View>
+          ))}
+          <View style={styles.reviewActions}>
+            <Pressable
+              onPress={() => handleApplyEnhancement(true)}
+              disabled={applyingEnhancement}
+              style={({ pressed }) => [
+                styles.reviewPrimaryButton,
+                pressed && styles.actionButtonPressed,
+                applyingEnhancement && styles.buttonDisabled,
+              ]}
+            >
+              {applyingEnhancement ? (
+                <ActivityIndicator color={wallet.addButtonText} />
+              ) : (
+                <Text style={styles.reviewPrimaryText}>Accept all</Text>
+              )}
+            </Pressable>
+            <Pressable
+              onPress={() => handleApplyEnhancement(false)}
+              disabled={applyingEnhancement}
+              style={({ pressed }) => [
+                styles.reviewSecondaryButton,
+                pressed && styles.actionButtonPressed,
+                applyingEnhancement && styles.buttonDisabled,
+              ]}
+            >
+              <Text style={styles.reviewSecondaryText}>Keep current</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
+
+      {isLocalCard ? (
+        <View style={styles.section}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Offline draft</Text>
+            <Pressable
+              onPress={() => {
+                if (editingLocal) {
+                  setDraftCoreFields(card.core_fields);
+                  setDraftCustomFields(card.custom_fields);
+                }
+                setEditingLocal(previous => !previous);
+              }}
+              style={({ pressed }) => [styles.editToggle, pressed && styles.rowPressed]}
+            >
+              <Text style={styles.editToggleText}>{editingLocal ? 'Cancel' : 'Edit'}</Text>
+            </Pressable>
+          </View>
+          {editingLocal ? (
+            <View style={styles.editForm}>
+              {CORE_FIELD_LABELS.map(({ key, label }) => (
+                <View key={key} style={styles.editField}>
+                  <Text style={styles.label}>{label}</Text>
+                  <TextInput
+                    value={draftCoreFields[key] ?? ''}
+                    onChangeText={value =>
+                      setDraftCoreFields(previous => ({ ...previous, [key]: value }))
+                    }
+                    placeholder={label}
+                    placeholderTextColor={wallet.subtitle}
+                    style={styles.editInput}
+                  />
+                </View>
+              ))}
+              <Pressable
+                onPress={handleSaveLocalEdits}
+                disabled={savingLocalEdits}
+                style={({ pressed }) => [
+                  styles.reviewPrimaryButton,
+                  pressed && styles.actionButtonPressed,
+                  savingLocalEdits && styles.buttonDisabled,
+                ]}
+              >
+                {savingLocalEdits ? (
+                  <ActivityIndicator color={wallet.addButtonText} />
+                ) : (
+                  <Text style={styles.reviewPrimaryText}>Save changes</Text>
+                )}
+              </Pressable>
+            </View>
+          ) : (
+            <Text style={styles.infoBannerText}>
+              This card is stored on your device and will sync when internet is available.
+              {queuedScan?.lastError ? ` Last sync error: ${queuedScan.lastError}` : ''}
+            </Text>
+          )}
+        </View>
+      ) : null}
 
       {quickActions.length > 0 ? (
         <View style={styles.actionsRow}>
@@ -300,6 +611,115 @@ const createStyles = (wallet: WalletThemeColors) =>
     marginTop: 6,
     color: wallet.subtitle,
     fontSize: 13,
+  },
+  infoBanner: {
+    backgroundColor: wallet.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: wallet.border,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  infoBannerText: {
+    color: wallet.subtitle,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  reviewCard: {
+    backgroundColor: wallet.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: wallet.border,
+    padding: 18,
+    gap: 12,
+    ...cardShadow,
+  },
+  reviewIntro: {
+    color: wallet.subtitle,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  suggestionRow: {
+    gap: 4,
+    paddingVertical: 4,
+    borderTopWidth: 1,
+    borderTopColor: wallet.border,
+  },
+  suggestionCurrent: {
+    color: wallet.subtitle,
+    fontSize: 13,
+  },
+  suggestionNext: {
+    color: wallet.title,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  reviewActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  reviewPrimaryButton: {
+    flex: 1,
+    backgroundColor: wallet.addButton,
+    borderRadius: 999,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
+  },
+  reviewPrimaryText: {
+    color: wallet.addButtonText,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  reviewSecondaryButton: {
+    flex: 1,
+    borderRadius: 999,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: wallet.border,
+    minHeight: 44,
+  },
+  reviewSecondaryText: {
+    color: wallet.title,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  editToggle: {
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+  },
+  editToggleText: {
+    color: wallet.accentMuted,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  editForm: {
+    gap: 12,
+  },
+  editField: {
+    gap: 6,
+  },
+  editInput: {
+    borderWidth: 1,
+    borderColor: wallet.border,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: wallet.title,
+    fontSize: 15,
+    backgroundColor: wallet.background,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   actionsRow: {
     flexDirection: 'row',

@@ -11,6 +11,9 @@ export interface CoreFields {
 
 export type WalletDisplay = 'photo' | 'classic';
 export type PhotoFace = 'front' | 'back';
+export type ParseStatus = 'pending' | 'parsed' | 'failed' | 'fallback';
+export type ParseSource = 'llm' | 'offline' | 'manual';
+export type EnhancementStatus = 'none' | 'queued' | 'processing' | 'pending_review' | 'applied' | 'failed';
 
 export interface CapturedCard {
   _id: string;
@@ -23,6 +26,12 @@ export interface CapturedCard {
   scan_image_back_url?: string | null;
   wallet_display?: WalletDisplay;
   photo_face?: PhotoFace;
+  parse_status?: ParseStatus;
+  parse_source?: ParseSource;
+  enhancement_status?: EnhancementStatus;
+  enhanced_suggestions?: Record<string, string>;
+  parse_error?: string | null;
+  parsed_at?: string | null;
 }
 
 export interface ProcessCardRequest {
