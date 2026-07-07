@@ -169,14 +169,45 @@ async function scanWithDocumentCamera(): Promise<string | null> {
   }
 }
 
+async function recognizeWithScript(
+  imageUri: string,
+  script: TextRecognitionScript,
+): Promise<string[]> {
+  try {
+    const recognized = await TextRecognition.recognize(imageUri, script);
+    return recognized.blocks
+      .map((block) => block.text.trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function mergeOcrLines(...lineGroups: string[][]): string[] {
+  const seen = new Set<string>();
+  const merged: string[] = [];
+
+  for (const lines of lineGroups) {
+    for (const line of lines) {
+      const key = line.replace(/\s+/g, ' ').toLowerCase();
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      merged.push(line);
+    }
+  }
+
+  return merged;
+}
+
 async function recognizeText(imageUri: string): Promise<string> {
-  const recognized = await TextRecognition.recognize(
-    imageUri,
-    TextRecognitionScript.CHINESE,
-  );
-  const lines = recognized.blocks
-    .map((block) => block.text.trim())
-    .filter(Boolean);
+  // Bilingual cards: Chinese script + Latin script, merged (either alone can miss lines).
+  const [chineseLines, latinLines] = await Promise.all([
+    recognizeWithScript(imageUri, TextRecognitionScript.CHINESE),
+    recognizeWithScript(imageUri, TextRecognitionScript.LATIN),
+  ]);
+  const lines = mergeOcrLines(chineseLines, latinLines);
 
   if (lines.length === 0) {
     throw new Error('No text detected on the image. Try better lighting or a clearer photo.');

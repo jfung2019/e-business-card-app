@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Button,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,6 +12,7 @@ import { fetchSharedCard, saveSharedCardToCollection } from '../api/shareLinks';
 import { ApiClientError } from '../api/client';
 import { CustomFieldsList } from '../components/CustomFieldsList';
 import { ScanImage } from '../components/ScanImage';
+import { SecondaryButton } from '../components/SecondaryButton';
 import { useAppTheme } from '../context/ThemeContext';
 import type { MainStackParamList } from '../navigation/AppNavigator';
 import type { WalletThemeColors } from '../theme/appTheme';
@@ -90,6 +90,11 @@ function createStyles(wallet: WalletThemeColors) {
     actions: {
       gap: 10,
       marginTop: 8,
+    },
+    actionRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 10,
     },
     loading: {
       flex: 1,
@@ -174,8 +179,13 @@ export function SharedCardPreviewScreen({
     return (
       <View style={styles.loading}>
         <Text style={styles.errorText}>{error ?? 'Shared card not found.'}</Text>
-        <Button title="Try again" onPress={() => void loadSharedCard()} />
-        <Button title="Back to collection" onPress={() => navigation.navigate('Collection')} />
+        <View style={styles.actionRow}>
+          <SecondaryButton label="Try again" onPress={() => void loadSharedCard()} />
+          <SecondaryButton
+            label="Back to collection"
+            onPress={() => navigation.navigate('Collection')}
+          />
+        </View>
       </View>
     );
   }
@@ -214,13 +224,13 @@ export function SharedCardPreviewScreen({
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       <View style={styles.actions}>
-        <Button
-          title={saving ? 'Saving...' : 'Save to collection'}
+        <SecondaryButton
+          label={saving ? 'Saving...' : 'Save to collection'}
           onPress={() => void handleSave()}
           disabled={saving}
         />
-        <Button
-          title="Not now"
+        <SecondaryButton
+          label="Not now"
           onPress={() => navigation.navigate('Collection')}
           disabled={saving}
         />

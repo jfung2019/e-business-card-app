@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Button,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,24 +14,44 @@ import { ScanSuccessPanel } from '../components/ScanSuccessPanel';
 import { useAppTheme } from '../context/ThemeContext';
 import { useProcessCard } from '../hooks/useProcessCard';
 import type { MainStackParamList } from '../navigation/AppNavigator';
-import type { ScanThemeColors } from '../theme/appTheme';
+import type { WalletThemeColors } from '../theme/appTheme';
 import { scanBusinessCard, type OcrSource } from '../services/ocr';
 import { mergeCardOcrText } from '../utils/mergeCardOcrText';
 
 type ScanNavigation = NativeStackNavigationProp<MainStackParamList, 'Scan'>;
 
-function createStyles(scan: ScanThemeColors) {
+function createStyles(wallet: WalletThemeColors) {
   return StyleSheet.create({
     container: {
       flexGrow: 1,
       padding: 20,
-      gap: 16,
-      backgroundColor: scan.background,
-      justifyContent: 'center',
+      gap: 18,
+      backgroundColor: wallet.background,
+    },
+    heroCard: {
+      backgroundColor: wallet.surface,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: wallet.border,
+      padding: 20,
+      gap: 8,
+    },
+    eyebrow: {
+      color: wallet.accentMuted,
+      fontSize: 11,
+      fontWeight: '700',
+      letterSpacing: 1.2,
+      textTransform: 'uppercase',
+    },
+    title: {
+      color: wallet.title,
+      fontSize: 26,
+      fontWeight: '700',
+      letterSpacing: -0.3,
     },
     subtitle: {
       fontSize: 14,
-      color: scan.creamMuted,
+      color: wallet.subtitle,
       lineHeight: 20,
     },
     buttonRow: {
@@ -40,6 +60,68 @@ function createStyles(scan: ScanThemeColors) {
     },
     button: {
       flex: 1,
+      borderRadius: 999,
+      paddingVertical: 13,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: wallet.addButton,
+    },
+    buttonSecondary: {
+      backgroundColor: wallet.surface,
+      borderWidth: 1,
+      borderColor: wallet.border,
+    },
+    buttonPressed: {
+      opacity: 0.86,
+      transform: [{ scale: 0.98 }],
+    },
+    buttonText: {
+      color: wallet.addButtonText,
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    buttonTextSecondary: {
+      color: wallet.title,
+    },
+    stepCard: {
+      backgroundColor: wallet.surface,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: wallet.border,
+      padding: 16,
+      gap: 10,
+    },
+    stepRow: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    stepNumber: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      textAlign: 'center',
+      lineHeight: 24,
+      overflow: 'hidden',
+      backgroundColor: wallet.addButton,
+      color: wallet.addButtonText,
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    stepCopy: {
+      flex: 1,
+      gap: 2,
+    },
+    stepTitle: {
+      color: wallet.title,
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    skipButton: {
+      borderRadius: 999,
+      paddingVertical: 13,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: wallet.border,
     },
     feedback: {
       alignItems: 'center',
@@ -47,18 +129,18 @@ function createStyles(scan: ScanThemeColors) {
       paddingVertical: 24,
     },
     feedbackText: {
-      color: scan.creamMuted,
+      color: wallet.subtitle,
       textAlign: 'center',
       fontSize: 15,
       lineHeight: 22,
     },
     errorText: {
-      color: scan.error,
+      color: wallet.error,
       fontWeight: '600',
       textAlign: 'center',
     },
     captureReadyText: {
-      color: scan.gold,
+      color: wallet.title,
       fontWeight: '700',
       textAlign: 'center',
       letterSpacing: 0.3,
@@ -68,8 +150,8 @@ function createStyles(scan: ScanThemeColors) {
 
 export function ScanScreen(): React.JSX.Element {
   const navigation = useNavigation<ScanNavigation>();
-  const { scan } = useAppTheme();
-  const styles = useMemo(() => createStyles(scan), [scan]);
+  const { wallet } = useAppTheme();
+  const styles = useMemo(() => createStyles(wallet), [wallet]);
   const { state, capturedCard, submitScan, reset } = useProcessCard();
   const [scanError, setScanError] = useState<string | null>(null);
   const [frontOcrText, setFrontOcrText] = useState<string | null>(null);
@@ -166,63 +248,108 @@ export function ScanScreen(): React.JSX.Element {
     navigation.navigate('CardDetail', { card });
   };
 
+  const renderActionButton = (
+    label: string,
+    onPress: () => void,
+    variant: 'primary' | 'secondary' = 'primary',
+  ) => (
+    <Pressable
+      onPress={onPress}
+      disabled={isBusy}
+      style={({ pressed }) => [
+        styles.button,
+        variant === 'secondary' && styles.buttonSecondary,
+        pressed && styles.buttonPressed,
+        isBusy && { opacity: 0.6 },
+      ]}
+    >
+      <Text
+        style={[
+          styles.buttonText,
+          variant === 'secondary' && styles.buttonTextSecondary,
+        ]}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       {!isSuccess && !awaitingBackCapture && (
         <>
-          <Text style={styles.subtitle}>
-            Scan with the document camera for auto crop and align, or pick from gallery.
-            OCR runs on-device; the photo is saved on the API server (MongoDB GridFS).
-          </Text>
+          <View style={styles.heroCard}>
+            <Text style={styles.eyebrow}>Collected card scanner</Text>
+            <Text style={styles.title}>Save a contact to your collection</Text>
+            <Text style={styles.subtitle}>
+              Capture the front first. We will extract contact details on-device, save the
+              photo on the server, and add the card to your wallet.
+            </Text>
+          </View>
+
+          <View style={styles.stepCard}>
+            <View style={styles.stepRow}>
+              <Text style={styles.stepNumber}>1</Text>
+              <View style={styles.stepCopy}>
+                <Text style={styles.stepTitle}>Front side</Text>
+                <Text style={styles.subtitle}>
+                  Use the camera for auto crop or choose a clear image.
+                </Text>
+              </View>
+            </View>
+            <View style={styles.stepRow}>
+              <Text style={styles.stepNumber}>2</Text>
+              <View style={styles.stepCopy}>
+                <Text style={styles.stepTitle}>Back side optional</Text>
+                <Text style={styles.subtitle}>
+                  Add a back photo if the card has extra details or a second language.
+                </Text>
+              </View>
+            </View>
+          </View>
 
           <View style={styles.buttonRow}>
-            <View style={styles.button}>
-              <Button
-                title="Scan Card"
-                onPress={() => void handleScanFront('camera')}
-                disabled={isBusy}
-              />
-            </View>
-            <View style={styles.button}>
-              <Button
-                title="Choose Image"
-                onPress={() => void handleScanFront('gallery')}
-                disabled={isBusy}
-              />
-            </View>
+            {renderActionButton('Scan card', () => void handleScanFront('camera'))}
+            {renderActionButton(
+              'Choose image',
+              () => void handleScanFront('gallery'),
+              'secondary',
+            )}
           </View>
         </>
       )}
 
       {!isSuccess && awaitingBackCapture && !isBusy && (
         <>
-          <Text style={styles.captureReadyText}>Front captured successfully</Text>
-          <Text style={styles.subtitle}>
-            Front captured. Capture the back side now (optional), or skip and save front only.
-          </Text>
-          <View style={styles.buttonRow}>
-            <View style={styles.button}>
-              <Button
-                title="Scan Back"
-                onPress={() => void handleScanBack('camera')}
-                disabled={isBusy}
-              />
-            </View>
-            <View style={styles.button}>
-              <Button
-                title="Choose Back Image"
-                onPress={() => void handleScanBack('gallery')}
-                disabled={isBusy}
-              />
-            </View>
+          <View style={styles.heroCard}>
+            <Text style={styles.captureReadyText}>Front captured successfully</Text>
+            <Text style={styles.title}>Add the back side?</Text>
+            <Text style={styles.subtitle}>
+              This step is optional. Capture the back if it has extra details, QR codes, or
+              text in another language.
+            </Text>
           </View>
-          <Button title="Skip Back and Save" onPress={handleSkipBack} disabled={isBusy} />
+          <View style={styles.buttonRow}>
+            {renderActionButton('Scan back', () => void handleScanBack('camera'))}
+            {renderActionButton(
+              'Choose back',
+              () => void handleScanBack('gallery'),
+              'secondary',
+            )}
+          </View>
+          <Pressable
+            onPress={handleSkipBack}
+            disabled={isBusy}
+            style={({ pressed }) => [styles.skipButton, pressed && styles.buttonPressed]}
+          >
+            <Text style={styles.buttonTextSecondary}>Skip back and save</Text>
+          </Pressable>
         </>
       )}
 
       {isBusy && (
         <View style={styles.feedback}>
-          <ActivityIndicator size="large" color={scan.gold} />
+          <ActivityIndicator size="large" color={wallet.title} />
           <Text style={styles.feedbackText}>
             {submissionVariant === 'frontAndBack'
               ? 'Uploading front and back scans, then parsing contact details...'
@@ -231,11 +358,9 @@ export function ScanScreen(): React.JSX.Element {
         </View>
       )}
 
-      {scanError && <Text style={styles.errorText}>{scanError}</Text>}
+      {scanError ? <Text style={styles.errorText}>{scanError}</Text> : null}
 
-      {state.status === 'error' && (
-        <Text style={styles.errorText}>{state.message}</Text>
-      )}
+      {state.status === 'error' && <Text style={styles.errorText}>{state.message}</Text>}
 
       {isSuccess && capturedCard && (
         <ScanSuccessPanel

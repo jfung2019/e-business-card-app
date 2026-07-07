@@ -16,6 +16,7 @@ import { MyCardCarousel } from '../components/MyCardCarousel';
 import { ApiTargetBanner } from '../components/ApiTargetBanner';
 import { MyCardsBanner } from '../components/MyCardsBanner';
 import { ProfileAvatarButton } from '../components/ProfileAvatarButton';
+import { SecondaryButton } from '../components/SecondaryButton';
 import { WalletCardStack } from '../components/WalletCardStack';
 import { COLLECTION_PREVIEW_LIMIT } from '../constants/collection';
 import { useAuth } from '../context/AuthContext';
@@ -150,24 +151,15 @@ export function CollectionScreen(): React.JSX.Element {
                 }}
               />
               <View style={styles.myCardActions}>
-                <Pressable
+                <SecondaryButton
+                  label="Scan my card"
                   onPress={() => navigation.navigate('MyCardScan')}
-                  style={styles.secondaryButton}
-                >
-                  <Text style={styles.secondaryButtonText}>Scan my card</Text>
-                </Pressable>
-                <Pressable
+                />
+                <SecondaryButton
+                  label="Add manually"
                   onPress={() => navigation.navigate('MyCardForm', { mode: 'create' })}
-                  style={styles.secondaryButton}
-                >
-                  <Text style={styles.secondaryButtonText}>Add manually</Text>
-                </Pressable>
-                <Pressable
-                  onPress={handleShareMyCard}
-                  style={styles.secondaryButton}
-                >
-                  <Text style={styles.secondaryButtonText}>Share my card</Text>
-                </Pressable>
+                />
+                <SecondaryButton label="Share my card" onPress={handleShareMyCard} />
               </View>
             </>
           ) : null}
@@ -179,18 +171,14 @@ export function CollectionScreen(): React.JSX.Element {
                 Scan your printed card for a quick start, or enter your details manually.
               </Text>
               <View style={styles.myCardActions}>
-                <Pressable
+                <SecondaryButton
+                  label="Scan my card"
                   onPress={() => navigation.navigate('MyCardScan')}
-                  style={styles.secondaryButton}
-                >
-                  <Text style={styles.secondaryButtonText}>Scan my card</Text>
-                </Pressable>
-                <Pressable
+                />
+                <SecondaryButton
+                  label="Add manually"
                   onPress={() => navigation.navigate('MyCardForm', { mode: 'create' })}
-                  style={styles.secondaryButton}
-                >
-                  <Text style={styles.secondaryButtonText}>Add manually</Text>
-                </Pressable>
+                />
               </View>
             </View>
           ) : null}
@@ -206,13 +194,11 @@ export function CollectionScreen(): React.JSX.Element {
                     <Text style={styles.sectionAction}>See all</Text>
                   </Pressable>
                 ) : null}
-                <Pressable
+                <SecondaryButton
+                  label="Scan card"
                   onPress={() => navigation.navigate('Scan')}
-                  style={({ pressed }) => [styles.pillButton, pressed && styles.addButtonPressed]}
                   accessibilityLabel="Scan a collected business card"
-                >
-                  <Text style={styles.pillButtonText}>Scan card</Text>
-                </Pressable>
+                />
               </View>
             </View>
             <Text style={styles.sectionSubtitle}>
@@ -247,12 +233,10 @@ export function CollectionScreen(): React.JSX.Element {
               <Text style={styles.emptyBody}>
                 Scan a business card to save the photo, contact details, and quick actions.
               </Text>
-              <Pressable
+              <SecondaryButton
+                label="Scan a card"
                 onPress={() => navigation.navigate('Scan')}
-                style={styles.primaryButton}
-              >
-                <Text style={styles.primaryButtonText}>Scan a card</Text>
-              </Pressable>
+              />
             </View>
           )}
 
@@ -329,10 +313,6 @@ const createStyles = (wallet: WalletThemeColors) =>
     alignItems: 'center',
     gap: 10,
   },
-  addButtonPressed: {
-    opacity: 0.85,
-    transform: [{ scale: 0.96 }],
-  },
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 24,
@@ -388,18 +368,6 @@ const createStyles = (wallet: WalletThemeColors) =>
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
-  },
-  secondaryButton: {
-    borderWidth: 1,
-    borderColor: wallet.title,
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  secondaryButtonText: {
-    color: wallet.title,
-    fontWeight: '600',
-    fontSize: 14,
   },
   emptyMyCards: {
     gap: 10,
@@ -486,28 +454,5 @@ const createStyles = (wallet: WalletThemeColors) =>
     fontSize: 15,
     textAlign: 'center',
     lineHeight: 22,
-  },
-  primaryButton: {
-    marginTop: 8,
-    backgroundColor: wallet.addButton,
-    borderRadius: 999,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-  },
-  primaryButtonText: {
-    color: wallet.addButtonText,
-    fontWeight: '700',
-    fontSize: 15,
-  },
-  pillButton: {
-    borderRadius: 999,
-    backgroundColor: wallet.addButton,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-  },
-  pillButtonText: {
-    color: wallet.addButtonText,
-    fontSize: 13,
-    fontWeight: '700',
   },
 });

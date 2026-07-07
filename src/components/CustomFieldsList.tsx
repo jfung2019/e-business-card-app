@@ -3,6 +3,7 @@ import { FlatList, StyleSheet, Text, View } from 'react-native';
 
 import { useAppTheme } from '../context/ThemeContext';
 import type { WalletThemeColors } from '../theme/appTheme';
+import { formatCustomFieldLabel } from '../utils/formatCustomFieldLabel';
 
 interface CustomFieldsListProps {
   customFields: Record<string, string>;
@@ -64,7 +65,7 @@ export function CustomFieldsList({
         scrollEnabled={false}
         renderItem={({ item: [key, value] }) => (
           <View style={styles.row}>
-            <Text style={styles.label}>{key}</Text>
+            <Text style={styles.label}>{formatCustomFieldLabel(key)}</Text>
             <Text style={styles.value}>{value}</Text>
           </View>
         )}
