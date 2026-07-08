@@ -1,4 +1,4 @@
-import type { CoreFields } from './card';
+import type { CoreFields, PhotoFace, WalletDisplay } from './card';
 
 export type OfflineQueueStatus = 'pending' | 'uploading' | 'failed';
 
@@ -14,4 +14,6 @@ export interface QueuedCardScan {
   syncStatus: OfflineQueueStatus;
   serverCardId?: string;
   lastError?: string;
+  wallet_display?: WalletDisplay;
+  photo_face?: PhotoFace;
 }

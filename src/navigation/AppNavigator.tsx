@@ -19,6 +19,7 @@ import {
 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
+import { useOfflineAutoSync } from '../hooks/useOfflineAutoSync';
 import { useAuth } from '../context/AuthContext';
 import { useShareLink } from '../context/ShareLinkContext';
 import { useAppTheme } from '../context/ThemeContext';
@@ -193,6 +194,8 @@ export function AppNavigator(): React.JSX.Element {
   const { isDark, wallet } = useAppTheme();
   const userRef = useRef(user);
   userRef.current = user;
+
+  useOfflineAutoSync(Boolean(user));
 
   const navigationTheme = useMemo(
     () => ({

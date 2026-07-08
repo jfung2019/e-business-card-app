@@ -49,6 +49,10 @@ export async function prefetchScanImage(
   if (!uri || imageSourceCache.has(uri)) {
     return;
   }
+  if (/^data:/i.test(uri)) {
+    imageSourceCache.set(uri, imageSourceFromUri(uri));
+    return;
+  }
   await loadAuthenticatedImageSource(uri);
 }
 
@@ -58,10 +62,14 @@ export function resolveScanImageUri(
   if (!scanImageUrl) {
     return null;
   }
-  if (/^https?:\/\//i.test(scanImageUrl)) {
+  if (/^data:/i.test(scanImageUrl) || /^https?:\/\//i.test(scanImageUrl)) {
     return scanImageUrl;
   }
   return `${API_BASE_URL}${scanImageUrl}`;
+}
+
+function imageSourceFromUri(uri: string): ImageSourcePropType {
+  return { uri };
 }
 
 export function useAuthenticatedImageSource(
@@ -85,6 +93,15 @@ export function useAuthenticatedImageSource(
     const cached = imageSourceCache.get(uri);
     if (cached) {
       setSource(cached);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (/^data:/i.test(uri)) {
+      const nextSource = imageSourceFromUri(uri);
+      imageSourceCache.set(uri, nextSource);
+      setSource(nextSource);
       return () => {
         cancelled = true;
       };

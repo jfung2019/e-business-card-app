@@ -19,12 +19,13 @@ import { useAuth } from '../context/AuthContext';
 import { useAppTheme } from '../context/ThemeContext';
 import type { MainStackParamList } from '../navigation/AppNavigator';
 import type { WalletThemeColors } from '../theme/appTheme';
+import {
+  isStrongPassword,
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_REQUIREMENTS_MESSAGE,
+} from '../utils/passwordPolicy';
 
 type ChangePasswordNavigation = NativeStackNavigationProp<MainStackParamList, 'ChangePassword'>;
-
-function isStrongPassword(password: string): boolean {
-  return password.length >= 8 && /[A-Za-z]/.test(password) && /\d/.test(password);
-}
 
 function getChangePasswordErrorMessage(error: unknown): string {
   if (error && typeof error === 'object' && 'code' in error) {
@@ -34,7 +35,7 @@ function getChangePasswordErrorMessage(error: unknown): string {
       case 'auth/invalid-credential':
         return 'Your current password is incorrect.';
       case 'auth/weak-password':
-        return 'New password must be at least 8 characters and include a letter and a number.';
+        return PASSWORD_REQUIREMENTS_MESSAGE;
       case 'auth/requires-recent-login':
         return 'Please sign in again, then try changing your password.';
       case 'auth/too-many-requests':
@@ -162,7 +163,7 @@ export function ChangePasswordScreen(): React.JSX.Element {
     }
 
     if (!isStrongPassword(newPassword)) {
-      setError('New password must be at least 8 characters and include a letter and a number.');
+      setError(PASSWORD_REQUIREMENTS_MESSAGE);
       return;
     }
 
@@ -216,6 +217,7 @@ export function ChangePasswordScreen(): React.JSX.Element {
                 secureTextEntry={!showCurrentPassword}
                 autoCapitalize="none"
                 autoComplete="current-password"
+                maxLength={PASSWORD_MAX_LENGTH}
                 placeholder="••••••••"
                 placeholderTextColor={wallet.subtitle}
                 value={currentPassword}
@@ -238,7 +240,8 @@ export function ChangePasswordScreen(): React.JSX.Element {
                 secureTextEntry={!showNewPassword}
                 autoCapitalize="none"
                 autoComplete="new-password"
-                placeholder="At least 8 characters"
+                maxLength={PASSWORD_MAX_LENGTH}
+                placeholder="8–30 characters"
                 placeholderTextColor={wallet.subtitle}
                 value={newPassword}
                 onChangeText={setNewPassword}
@@ -250,7 +253,7 @@ export function ChangePasswordScreen(): React.JSX.Element {
                 <Text style={styles.toggleText}>{showNewPassword ? 'Hide' : 'Show'}</Text>
               </Pressable>
             </View>
-            <Text style={styles.helperText}>Use at least 8 characters with a letter and a number.</Text>
+            <Text style={styles.helperText}>{PASSWORD_REQUIREMENTS_MESSAGE}</Text>
           </View>
 
           <View style={styles.field}>
@@ -261,6 +264,7 @@ export function ChangePasswordScreen(): React.JSX.Element {
                 secureTextEntry={!showConfirmPassword}
                 autoCapitalize="none"
                 autoComplete="new-password"
+                maxLength={PASSWORD_MAX_LENGTH}
                 placeholder="Repeat new password"
                 placeholderTextColor={wallet.subtitle}
                 value={confirmPassword}

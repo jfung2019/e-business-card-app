@@ -19,12 +19,13 @@ import { useAppTheme } from '../context/ThemeContext';
 import type { AppThemeColors } from '../theme/appTheme';
 import { ApiTargetBanner } from '../components/ApiTargetBanner';
 import { APP_DISPLAY_NAME } from '../config/appEnvironment';
+import {
+  isStrongPassword,
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_REQUIREMENTS_MESSAGE,
+} from '../utils/passwordPolicy';
 
 type AuthMode = 'signIn' | 'signUp';
-
-function isStrongPassword(password: string): boolean {
-  return password.length >= 8 && /[A-Za-z]/.test(password) && /\d/.test(password);
-}
 
 function getAuthErrorMessage(error: unknown): string {
   if (error && typeof error === 'object' && 'code' in error) {
@@ -39,7 +40,7 @@ function getAuthErrorMessage(error: unknown): string {
       case 'auth/email-already-in-use':
         return 'An account with this email already exists.';
       case 'auth/weak-password':
-        return 'Password must be at least 8 characters and include a letter and a number.';
+        return PASSWORD_REQUIREMENTS_MESSAGE;
       case 'auth/too-many-requests':
         return 'Too many attempts. Please try again later.';
       default:
@@ -253,7 +254,7 @@ export function LoginScreen(): React.JSX.Element {
       return;
     }
     if (mode === 'signUp' && !isStrongPassword(password)) {
-      setError('Password must be at least 8 characters and include a letter and a number.');
+      setError(PASSWORD_REQUIREMENTS_MESSAGE);
       return;
     }
 
@@ -371,6 +372,7 @@ export function LoginScreen(): React.JSX.Element {
                 secureTextEntry={!passwordVisible}
                 placeholder="••••••••"
                 placeholderTextColor={colors.placeholder}
+                maxLength={PASSWORD_MAX_LENGTH}
                 style={styles.passwordInput}
                 value={password}
                 onChangeText={setPassword}
@@ -387,9 +389,7 @@ export function LoginScreen(): React.JSX.Element {
               </Pressable>
             </View>
             {mode === 'signUp' ? (
-              <Text style={styles.helperText}>
-                Use at least 8 characters with a letter and a number.
-              </Text>
+              <Text style={styles.helperText}>{PASSWORD_REQUIREMENTS_MESSAGE}</Text>
             ) : null}
           </View>
 

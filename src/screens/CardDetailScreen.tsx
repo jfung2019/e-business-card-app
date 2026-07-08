@@ -131,6 +131,8 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
   );
   const [deleting, setDeleting] = useState(false);
   const [applyingEnhancement, setApplyingEnhancement] = useState(false);
+  const [acceptedFieldKeys, setAcceptedFieldKeys] = useState<Set<string>>(new Set());
+  const [suggestionDrafts, setSuggestionDrafts] = useState<Record<string, string>>({});
   const [savingLocalEdits, setSavingLocalEdits] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -158,6 +160,11 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
       setQueuedScan(item);
     })();
   }, [card._id, isLocalCard]);
+
+  useEffect(() => {
+    setAcceptedFieldKeys(new Set(Object.keys(enhanced_suggestions ?? {})));
+    setSuggestionDrafts(enhanced_suggestions ?? {});
+  }, [card._id, enhanced_suggestions]);
 
   const subtitle = buildSubtitle(core_fields);
   const localScanImages = queuedScan
@@ -245,12 +252,16 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
     );
   };
 
-  const handleApplyEnhancement = (acceptAll: boolean) => {
+  const handleApplyEnhancement = (options: {
+    acceptAll?: boolean;
+    acceptedFields?: string[];
+    acceptedOverrides?: Record<string, string>;
+  }) => {
     void (async () => {
       setApplyingEnhancement(true);
       setError(null);
       try {
-        const updated = await applyCardEnhancement(card._id, { acceptAll });
+        const updated = await applyCardEnhancement(card._id, options);
         setCard(updated);
       } catch (applyError) {
         const message =
@@ -262,6 +273,26 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
         setApplyingEnhancement(false);
       }
     })();
+  };
+
+  const toggleAcceptedField = (fieldKey: string) => {
+    setAcceptedFieldKeys(previous => {
+      const next = new Set(previous);
+      if (next.has(fieldKey)) {
+        next.delete(fieldKey);
+      } else {
+        next.add(fieldKey);
+      }
+      return next;
+    });
+  };
+
+  const acceptedFieldCount = suggestionEntries.filter(([fieldKey]) =>
+    acceptedFieldKeys.has(fieldKey),
+  ).length;
+
+  const updateSuggestionDraft = (fieldKey: string, value: string) => {
+    setSuggestionDrafts(previous => ({ ...previous, [fieldKey]: value }));
   };
 
   const handleSaveLocalEdits = () => {
@@ -377,36 +408,92 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
         <View style={styles.reviewCard}>
           <Text style={styles.sectionTitle}>Suggested updates</Text>
           <Text style={styles.reviewIntro}>
-            Review the enhanced details below. Accept all to update this card, or keep your
-            current values.
+            Tap each suggestion to include or exclude it, then apply your selection.
           </Text>
-          {suggestionEntries.map(([fieldKey, suggestedValue]) => (
-            <View key={fieldKey} style={styles.suggestionRow}>
-              <Text style={styles.label}>{suggestionLabel(fieldKey)}</Text>
-              <Text style={styles.suggestionCurrent}>
-                Current: {currentSuggestionValue(card, fieldKey) || '—'}
-              </Text>
-              <Text style={styles.suggestionNext}>Suggested: {suggestedValue}</Text>
-            </View>
-          ))}
+          {suggestionEntries.map(([fieldKey, suggestedValue]) => {
+            const isAccepted = acceptedFieldKeys.has(fieldKey);
+            const draftValue = suggestionDrafts[fieldKey] ?? suggestedValue;
+            return (
+              <Pressable
+                key={fieldKey}
+                onPress={() => toggleAcceptedField(fieldKey)}
+                style={({ pressed }) => [
+                  styles.suggestionRow,
+                  isAccepted && styles.suggestionRowSelected,
+                  pressed && styles.rowPressed,
+                ]}
+              >
+                <View style={styles.suggestionHeader}>
+                  <View style={[styles.suggestionCheck, isAccepted && styles.suggestionCheckOn]}>
+                    {isAccepted ? <Text style={styles.suggestionCheckMark}>✓</Text> : null}
+                  </View>
+                  <Text style={styles.label}>{suggestionLabel(fieldKey)}</Text>
+                </View>
+                <Text style={styles.suggestionCurrent}>
+                  Current: {currentSuggestionValue(card, fieldKey) || '—'}
+                </Text>
+                <Text style={styles.suggestionNext}>Suggested value</Text>
+                <TextInput
+                  value={draftValue}
+                  onChangeText={value => updateSuggestionDraft(fieldKey, value)}
+                  placeholder="Edit suggested value"
+                  placeholderTextColor={wallet.subtitle}
+                  style={styles.suggestionInput}
+                />
+              </Pressable>
+            );
+          })}
           <View style={styles.reviewActions}>
             <Pressable
-              onPress={() => handleApplyEnhancement(true)}
-              disabled={applyingEnhancement}
+              onPress={() =>
+                handleApplyEnhancement({
+                  acceptedFields: suggestionEntries
+                    .map(([fieldKey]) => fieldKey)
+                    .filter(fieldKey => acceptedFieldKeys.has(fieldKey)),
+                  acceptedOverrides: suggestionEntries
+                    .map(([fieldKey]) => fieldKey)
+                    .filter(fieldKey => acceptedFieldKeys.has(fieldKey))
+                    .reduce<Record<string, string>>((acc, fieldKey) => {
+                      const suggestionValue = enhanced_suggestions?.[fieldKey] ?? '';
+                      const draftValue = suggestionDrafts[fieldKey] ?? suggestionValue;
+                      if (draftValue !== suggestionValue) {
+                        acc[fieldKey] = draftValue;
+                      }
+                      return acc;
+                    }, {}),
+                })
+              }
+              disabled={applyingEnhancement || acceptedFieldCount === 0}
               style={({ pressed }) => [
                 styles.reviewPrimaryButton,
                 pressed && styles.actionButtonPressed,
-                applyingEnhancement && styles.buttonDisabled,
+                (applyingEnhancement || acceptedFieldCount === 0) && styles.buttonDisabled,
               ]}
             >
               {applyingEnhancement ? (
                 <ActivityIndicator color={wallet.addButtonText} />
               ) : (
-                <Text style={styles.reviewPrimaryText}>Accept all</Text>
+                <Text style={styles.reviewPrimaryText}>
+                  Apply selected{acceptedFieldCount > 0 ? ` (${acceptedFieldCount})` : ''}
+                </Text>
               )}
             </Pressable>
             <Pressable
-              onPress={() => handleApplyEnhancement(false)}
+              onPress={() =>
+                handleApplyEnhancement({
+                  acceptAll: true,
+                  acceptedOverrides: suggestionEntries.reduce<Record<string, string>>(
+                    (acc, [fieldKey, suggestedValue]) => {
+                      const draftValue = suggestionDrafts[fieldKey] ?? suggestedValue;
+                      if (draftValue !== suggestedValue) {
+                        acc[fieldKey] = draftValue;
+                      }
+                      return acc;
+                    },
+                    {},
+                  ),
+                })
+              }
               disabled={applyingEnhancement}
               style={({ pressed }) => [
                 styles.reviewSecondaryButton,
@@ -414,9 +501,20 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
                 applyingEnhancement && styles.buttonDisabled,
               ]}
             >
-              <Text style={styles.reviewSecondaryText}>Keep current</Text>
+              <Text style={styles.reviewSecondaryText}>Accept all</Text>
             </Pressable>
           </View>
+          <Pressable
+            onPress={() => handleApplyEnhancement({ acceptAll: false })}
+            disabled={applyingEnhancement}
+            style={({ pressed }) => [
+              styles.reviewTertiaryButton,
+              pressed && styles.actionButtonPressed,
+              applyingEnhancement && styles.buttonDisabled,
+            ]}
+          >
+            <Text style={styles.reviewTertiaryText}>Keep all current values</Text>
+          </Pressable>
         </View>
       ) : null}
 
@@ -641,9 +739,38 @@ const createStyles = (wallet: WalletThemeColors) =>
   },
   suggestionRow: {
     gap: 4,
-    paddingVertical: 4,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
     borderTopWidth: 1,
     borderTopColor: wallet.border,
+    borderRadius: 10,
+  },
+  suggestionRowSelected: {
+    backgroundColor: wallet.background,
+  },
+  suggestionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  suggestionCheck: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: wallet.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: wallet.surface,
+  },
+  suggestionCheckOn: {
+    backgroundColor: wallet.addButton,
+    borderColor: wallet.addButton,
+  },
+  suggestionCheckMark: {
+    color: wallet.addButtonText,
+    fontSize: 14,
+    fontWeight: '700',
   },
   suggestionCurrent: {
     color: wallet.subtitle,
@@ -651,8 +778,18 @@ const createStyles = (wallet: WalletThemeColors) =>
   },
   suggestionNext: {
     color: wallet.title,
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '600',
+  },
+  suggestionInput: {
+    borderWidth: 1,
+    borderColor: wallet.border,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    color: wallet.title,
+    fontSize: 14,
+    backgroundColor: wallet.surface,
   },
   reviewActions: {
     flexDirection: 'row',
@@ -685,6 +822,17 @@ const createStyles = (wallet: WalletThemeColors) =>
   },
   reviewSecondaryText: {
     color: wallet.title,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  reviewTertiaryButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    minHeight: 40,
+  },
+  reviewTertiaryText: {
+    color: wallet.subtitle,
     fontSize: 14,
     fontWeight: '600',
   },

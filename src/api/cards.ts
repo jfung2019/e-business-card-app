@@ -183,13 +183,18 @@ export async function enhanceCard(cardId: string): Promise<CapturedCard> {
 
 export async function applyCardEnhancement(
   cardId: string,
-  payload: { acceptAll?: boolean; acceptedFields?: string[] },
+  payload: {
+    acceptAll?: boolean;
+    acceptedFields?: string[];
+    acceptedOverrides?: Record<string, string>;
+  },
 ): Promise<CapturedCard> {
   const card = await apiPost<CapturedCardApiPayload>(
     `${API_V1_PREFIX}/cards/${cardId}/enhancement/apply`,
     {
       accept_all: payload.acceptAll ?? false,
       accepted_fields: payload.acceptedFields ?? [],
+      accepted_overrides: payload.acceptedOverrides ?? {},
     },
   );
   return normalizeCapturedCard(card);

@@ -220,7 +220,7 @@ export function CollectionScreen(): React.JSX.Element {
             </View>
           )}
 
-          {state.status === 'error' && (
+          {state.status === 'error' && cards.length === 0 && (
             <View style={styles.centered}>
               <Text style={styles.errorText}>{state.message}</Text>
               <Pressable onPress={() => void fetchCards()} style={styles.retryButton}>
@@ -228,6 +228,15 @@ export function CollectionScreen(): React.JSX.Element {
               </Pressable>
             </View>
           )}
+
+          {state.status === 'success' && state.isOfflineSnapshot ? (
+            <View style={styles.offlineBanner}>
+              <Text style={styles.offlineBannerText}>
+                Offline mode: showing saved cards from your device. New scans are queued and
+                will sync when you are back online.
+              </Text>
+            </View>
+          ) : null}
 
           {state.status === 'success' && cards.length === 0 && (
             <View style={styles.centered}>
@@ -434,6 +443,20 @@ const createStyles = (wallet: WalletThemeColors) =>
     fontSize: 15,
     textAlign: 'center',
     fontWeight: '600',
+  },
+  offlineBanner: {
+    backgroundColor: wallet.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: wallet.border,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 12,
+  },
+  offlineBannerText: {
+    color: wallet.subtitle,
+    fontSize: 13,
+    lineHeight: 18,
   },
   retryButton: {
     marginTop: 8,

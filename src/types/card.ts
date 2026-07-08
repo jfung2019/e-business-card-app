@@ -47,7 +47,7 @@ export type ProcessCardState =
 export type CardListState =
   | { status: 'idle' }
   | { status: 'loading'; cards?: CapturedCard[] }
-  | { status: 'success'; cards: CapturedCard[] }
+  | { status: 'success'; cards: CapturedCard[]; isOfflineSnapshot?: boolean }
   | { status: 'error'; message: string; cards?: CapturedCard[] };
 
 export type CardCaptureSource = 'scan' | 'nfc';
