@@ -16,11 +16,12 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ApiClientError } from '../api/client';
-import { applyCardEnhancement, deleteCard } from '../api/cards';
+import { applyCardEnhancement, deleteCard, updateCard } from '../api/cards';
 import { CustomFieldsList } from '../components/CustomFieldsList';
 import { ScanImage } from '../components/ScanImage';
 import type { MainStackParamList } from '../navigation/AppNavigator';
 import { useAppTheme } from '../context/ThemeContext';
+import { upsertCachedCard } from '../services/cardCollectionCache';
 import type { WalletThemeColors } from '../theme/appTheme';
 import type { CapturedCard, CoreFields } from '../types/card';
 import {
@@ -33,6 +34,11 @@ import {
 import type { QueuedCardScan } from '../types/offlineQueue';
 import { formatScannedDate } from '../utils/formatDate';
 import { buildEditedFieldKeys } from '../utils/offlineFieldEdits';
+import {
+  normalizeCustomFields,
+  sortCustomFieldKeys,
+} from '../utils/customFieldKeys';
+import { formatCustomFieldLabel } from '../utils/formatCustomFieldLabel';
 
 type CardDetailProps = NativeStackScreenProps<MainStackParamList, 'CardDetail'>;
 type CardDetailNavigation = NativeStackNavigationProp<MainStackParamList, 'CardDetail'>;
@@ -93,13 +99,24 @@ function toDataUri(base64: string): string {
   return base64.startsWith('data:') ? base64 : `data:image/jpeg;base64,${base64}`;
 }
 
+function normalizeCoreFields(fields: CoreFields): CoreFields {
+  return {
+    name: fields.name.trim(),
+    company_name: fields.company_name?.trim() || null,
+    job_title: fields.job_title?.trim() || null,
+    email: fields.email?.trim() || null,
+    phone: fields.phone?.trim() || null,
+    website: fields.website?.trim() || null,
+  };
+}
+
 export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element {
   const navigation = useNavigation<CardDetailNavigation>();
   const { wallet } = useAppTheme();
   const styles = useMemo(() => createStyles(wallet), [wallet]);
   const [card, setCard] = useState(route.params.card);
   const [queuedScan, setQueuedScan] = useState<QueuedCardScan | null>(null);
-  const [editingLocal, setEditingLocal] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [draftCoreFields, setDraftCoreFields] = useState<CoreFields>(route.params.card.core_fields);
   const [draftCustomFields, setDraftCustomFields] = useState<Record<string, string>>(
     route.params.card.custom_fields,
@@ -108,7 +125,7 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
   const [applyingEnhancement, setApplyingEnhancement] = useState(false);
   const [acceptedFieldKeys, setAcceptedFieldKeys] = useState<Set<string>>(new Set());
   const [suggestionDrafts, setSuggestionDrafts] = useState<Record<string, string>>({});
-  const [savingLocalEdits, setSavingLocalEdits] = useState(false);
+  const [savingEdits, setSavingEdits] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const isLocalCard = isLocalCardId(card._id);
@@ -126,6 +143,19 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
   } = card;
 
   useEffect(() => {
+    setEditing(false);
+    setDraftCoreFields(card.core_fields);
+    setDraftCustomFields(card.custom_fields);
+  }, [card._id]);
+
+  useEffect(() => {
+    if (!editing) {
+      setDraftCoreFields(card.core_fields);
+      setDraftCustomFields(card.custom_fields);
+    }
+  }, [card.core_fields, card.custom_fields, editing]);
+
+  useEffect(() => {
     if (!isLocalCard) {
       setQueuedScan(null);
       return;
@@ -141,7 +171,11 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
     setSuggestionDrafts(enhanced_suggestions ?? {});
   }, [card._id, enhanced_suggestions]);
 
-  const subtitle = buildSubtitle(core_fields);
+  const subtitle = buildSubtitle(editing ? draftCoreFields : core_fields);
+  const displayName = (editing ? draftCoreFields.name : core_fields.name)?.trim() || 'Unknown contact';
+  const customFieldKeys = sortCustomFieldKeys(
+    Object.keys(editing ? draftCustomFields : custom_fields),
+  );
   const localScanImages = queuedScan
     ? [
         { label: queuedScan.backImageBase64 ? 'Front scan' : 'Original scan', uri: toDataUri(queuedScan.imageBase64) },
@@ -270,45 +304,74 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
     setSuggestionDrafts(previous => ({ ...previous, [fieldKey]: value }));
   };
 
-  const handleSaveLocalEdits = () => {
+  const handleSaveEdits = () => {
     void (async () => {
-      if (!queuedScan) {
+      const normalizedCore = normalizeCoreFields(draftCoreFields);
+      if (!normalizedCore.name) {
+        setError('Name is required.');
         return;
       }
-      setSavingLocalEdits(true);
+
+      const normalizedCustom = normalizeCustomFields(draftCustomFields);
+      setSavingEdits(true);
       setError(null);
       try {
-        const editedFields = buildEditedFieldKeys(
-          card.core_fields,
-          draftCoreFields,
-          card.custom_fields,
-          draftCustomFields,
-          queuedScan.editedFields,
-        );
-        const updatedQueueItem = await updateQueuedScanFields(
-          queuedScan.localId,
-          draftCoreFields,
-          draftCustomFields,
-          editedFields,
-        );
-        if (!updatedQueueItem) {
-          throw new Error('Offline draft is no longer available.');
+        if (isLocalCard) {
+          if (!queuedScan) {
+            throw new Error('Offline draft is no longer available.');
+          }
+          const editedFields = buildEditedFieldKeys(
+            card.core_fields,
+            normalizedCore,
+            card.custom_fields,
+            normalizedCustom,
+            queuedScan.editedFields,
+          );
+          const updatedQueueItem = await updateQueuedScanFields(
+            queuedScan.localId,
+            normalizedCore,
+            normalizedCustom,
+            editedFields,
+          );
+          if (!updatedQueueItem) {
+            throw new Error('Offline draft is no longer available.');
+          }
+          setQueuedScan(updatedQueueItem);
+          setCard(previous => ({
+            ...previous,
+            core_fields: normalizedCore,
+            custom_fields: normalizedCustom,
+          }));
+        } else {
+          const updated = await updateCard(card._id, {
+            core_fields: normalizedCore,
+            custom_fields: normalizedCustom,
+          });
+          setCard(updated);
+          await upsertCachedCard(updated);
         }
-        setQueuedScan(updatedQueueItem);
-        setCard(previous => ({
-          ...previous,
-          core_fields: draftCoreFields,
-          custom_fields: draftCustomFields,
-        }));
-        setEditingLocal(false);
+        setDraftCoreFields(normalizedCore);
+        setDraftCustomFields(normalizedCustom);
+        setEditing(false);
       } catch (saveError) {
         const message =
-          saveError instanceof Error ? saveError.message : 'Unable to save offline edits.';
+          saveError instanceof ApiClientError
+            ? saveError.message
+            : saveError instanceof Error
+              ? saveError.message
+              : 'Unable to save changes.';
         setError(message);
       } finally {
-        setSavingLocalEdits(false);
+        setSavingEdits(false);
       }
     })();
+  };
+
+  const cancelEditing = () => {
+    setDraftCoreFields(card.core_fields);
+    setDraftCustomFields(card.custom_fields);
+    setEditing(false);
+    setError(null);
   };
 
   const openField = (key: keyof CoreFields, value: string) => {
@@ -357,7 +420,7 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
 
       <View style={styles.heroCard}>
         <Text style={styles.eyebrow}>Contact</Text>
-        <Text style={styles.name}>{core_fields.name}</Text>
+        <Text style={styles.name}>{displayName}</Text>
         {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
         <Text style={styles.meta}>Added {formatScannedDate(scanned_at)}</Text>
       </View>
@@ -493,65 +556,102 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
         </View>
       ) : null}
 
-      {isLocalCard ? (
-        <View style={styles.section}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Offline draft</Text>
-            <Pressable
-              onPress={() => {
-                if (editingLocal) {
-                  setDraftCoreFields(card.core_fields);
-                  setDraftCustomFields(card.custom_fields);
-                }
-                setEditingLocal(previous => !previous);
-              }}
-              style={({ pressed }) => [styles.editToggle, pressed && styles.rowPressed]}
-            >
-              <Text style={styles.editToggleText}>{editingLocal ? 'Cancel' : 'Edit'}</Text>
-            </Pressable>
-          </View>
-          {editingLocal ? (
-            <View style={styles.editForm}>
-              {CORE_FIELD_LABELS.map(({ key, label }) => (
-                <View key={key} style={styles.editField}>
-                  <Text style={styles.label}>{label}</Text>
-                  <TextInput
-                    value={draftCoreFields[key] ?? ''}
-                    onChangeText={value =>
-                      setDraftCoreFields(previous => ({ ...previous, [key]: value }))
-                    }
-                    placeholder={label}
-                    placeholderTextColor={wallet.subtitle}
-                    style={styles.editInput}
-                  />
-                </View>
-              ))}
-              <Pressable
-                onPress={handleSaveLocalEdits}
-                disabled={savingLocalEdits}
-                style={({ pressed }) => [
-                  styles.reviewPrimaryButton,
-                  pressed && styles.actionButtonPressed,
-                  savingLocalEdits && styles.buttonDisabled,
-                ]}
-              >
-                {savingLocalEdits ? (
-                  <ActivityIndicator color={wallet.addButtonText} />
-                ) : (
-                  <Text style={styles.reviewPrimaryText}>Save changes</Text>
-                )}
-              </Pressable>
-            </View>
-          ) : (
-            <Text style={styles.infoBannerText}>
-              This card is stored on your device and will sync when internet is available.
-              {queuedScan?.lastError ? ` Last sync error: ${queuedScan.lastError}` : ''}
-            </Text>
-          )}
+      {isLocalCard && !editing ? (
+        <View style={styles.infoBanner}>
+          <Text style={styles.infoBannerText}>
+            This card is stored on your device and will sync when internet is available.
+            {queuedScan?.lastError ? ` Last sync error: ${queuedScan.lastError}` : ''}
+          </Text>
         </View>
       ) : null}
 
-      {quickActions.length > 0 ? (
+      {editing ? (
+        <View style={styles.section}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>
+              {isLocalCard ? 'Edit offline draft' : 'Edit card details'}
+            </Text>
+            <Pressable
+              onPress={cancelEditing}
+              style={({ pressed }) => [styles.editToggle, pressed && styles.rowPressed]}
+            >
+              <Text style={styles.editToggleText}>Cancel</Text>
+            </Pressable>
+          </View>
+          <View style={styles.editForm}>
+            {CORE_FIELD_LABELS.map(({ key, label }) => (
+              <View key={key} style={styles.editField}>
+                <Text style={styles.label}>{label}</Text>
+                <TextInput
+                  value={draftCoreFields[key] ?? ''}
+                  onChangeText={value =>
+                    setDraftCoreFields(previous => ({ ...previous, [key]: value }))
+                  }
+                  placeholder={label}
+                  placeholderTextColor={wallet.subtitle}
+                  style={styles.editInput}
+                  autoCapitalize={key === 'email' || key === 'website' ? 'none' : 'words'}
+                  keyboardType={
+                    key === 'email'
+                      ? 'email-address'
+                      : key === 'phone'
+                        ? 'phone-pad'
+                        : key === 'website'
+                          ? 'url'
+                          : 'default'
+                  }
+                />
+              </View>
+            ))}
+            {customFieldKeys.length > 0 ? (
+              <View style={styles.editCustomSection}>
+                <Text style={styles.editCustomTitle}>Additional details</Text>
+                {customFieldKeys.map(key => (
+                  <View key={key} style={styles.editField}>
+                    <Text style={styles.label}>{formatCustomFieldLabel(key)}:</Text>
+                    <TextInput
+                      value={draftCustomFields[key] ?? ''}
+                      onChangeText={value =>
+                        setDraftCustomFields(previous => ({ ...previous, [key]: value }))
+                      }
+                      placeholder={formatCustomFieldLabel(key)}
+                      placeholderTextColor={wallet.subtitle}
+                      style={[styles.editInput, styles.editInputMultiline]}
+                      multiline
+                    />
+                  </View>
+                ))}
+              </View>
+            ) : null}
+            <Pressable
+              onPress={handleSaveEdits}
+              disabled={savingEdits}
+              style={({ pressed }) => [
+                styles.reviewPrimaryButton,
+                pressed && styles.actionButtonPressed,
+                savingEdits && styles.buttonDisabled,
+              ]}
+            >
+              {savingEdits ? (
+                <ActivityIndicator color={wallet.addButtonText} />
+              ) : (
+                <Text style={styles.reviewPrimaryText}>Save changes</Text>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
+
+      {!editing && !showEnhancementBanner ? (
+        <Pressable
+          onPress={() => setEditing(true)}
+          style={({ pressed }) => [styles.editEntryButton, pressed && styles.rowPressed]}
+        >
+          <Text style={styles.editEntryButtonText}>Edit card details</Text>
+        </Pressable>
+      ) : null}
+
+      {!editing && quickActions.length > 0 ? (
         <View style={styles.actionsRow}>
           {quickActions.map(action => (
             <Pressable
@@ -568,7 +668,7 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
         </View>
       ) : null}
 
-      {CONTACT_FIELD_LABELS.some(({ key }) => core_fields[key]) ? (
+      {!editing && CONTACT_FIELD_LABELS.some(({ key }) => core_fields[key]) ? (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Contact details</Text>
           {CONTACT_FIELD_LABELS.map(({ key, label }) => {
@@ -590,7 +690,7 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
         </View>
       ) : null}
 
-      {Object.keys(custom_fields).length > 0 ? (
+      {!editing && Object.keys(custom_fields).length > 0 ? (
         <CustomFieldsList customFields={custom_fields} />
       ) : null}
 
@@ -840,6 +940,33 @@ const createStyles = (wallet: WalletThemeColors) =>
     color: wallet.title,
     fontSize: 15,
     backgroundColor: wallet.background,
+  },
+  editInputMultiline: {
+    minHeight: 72,
+    textAlignVertical: 'top',
+  },
+  editCustomSection: {
+    gap: 12,
+    marginTop: 4,
+  },
+  editCustomTitle: {
+    color: wallet.title,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  editEntryButton: {
+    alignSelf: 'flex-start',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: wallet.border,
+    backgroundColor: wallet.surface,
+  },
+  editEntryButtonText: {
+    color: wallet.accentMuted,
+    fontSize: 14,
+    fontWeight: '600',
   },
   buttonDisabled: {
     opacity: 0.6,

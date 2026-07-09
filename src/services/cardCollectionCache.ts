@@ -22,6 +22,20 @@ export async function saveCachedCards(cards: CapturedCard[]): Promise<void> {
   await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(serverCards));
 }
 
+export async function upsertCachedCard(updated: CapturedCard): Promise<void> {
+  if (updated._id.startsWith('local:')) {
+    return;
+  }
+  const cached = await loadCachedCards();
+  const index = cached.findIndex(card => card._id === updated._id);
+  if (index >= 0) {
+    cached[index] = updated;
+  } else {
+    cached.unshift(updated);
+  }
+  await saveCachedCards(cached);
+}
+
 export async function clearCachedCards(): Promise<void> {
   await AsyncStorage.removeItem(CACHE_KEY);
 }
