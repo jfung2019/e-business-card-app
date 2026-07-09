@@ -40,5 +40,5 @@ export interface ParsedUserCardPreview {
 export type UserCardListState =
   | { status: 'idle' }
   | { status: 'loading'; cards?: UserCard[] }
-  | { status: 'success'; cards: UserCard[] }
+  | { status: 'success'; cards: UserCard[]; isOfflineSnapshot?: boolean }
   | { status: 'error'; message: string; cards?: UserCard[] };

@@ -1,5 +1,7 @@
 const BACK_SECTION_LABEL = '--- BACK ---';
 
+export { BACK_SECTION_LABEL };
+
 export function mergeCardOcrText(frontOcrText: string, backOcrText?: string): string {
   const front = frontOcrText.trim();
   const back = backOcrText?.trim() ?? '';

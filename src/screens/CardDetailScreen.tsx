@@ -32,6 +32,7 @@ import {
 } from '../services/offlineCardQueue';
 import type { QueuedCardScan } from '../types/offlineQueue';
 import { formatScannedDate } from '../utils/formatDate';
+import { buildEditedFieldKeys } from '../utils/offlineFieldEdits';
 
 type CardDetailProps = NativeStackScreenProps<MainStackParamList, 'CardDetail'>;
 type CardDetailNavigation = NativeStackNavigationProp<MainStackParamList, 'CardDetail'>;
@@ -86,32 +87,6 @@ function currentSuggestionValue(card: CapturedCard, fieldKey: string): string {
     return card.custom_fields[customKey]?.trim() ?? '';
   }
   return '';
-}
-
-function buildEditedFieldKeys(
-  previousCore: CoreFields,
-  nextCore: CoreFields,
-  previousCustom: Record<string, string>,
-  nextCustom: Record<string, string>,
-  existingEdited: string[],
-): string[] {
-  const edited = new Set(existingEdited);
-  for (const { key } of CORE_FIELD_LABELS) {
-    const previousValue = previousCore[key]?.trim() ?? '';
-    const nextValue = nextCore[key]?.trim() ?? '';
-    if (previousValue !== nextValue) {
-      edited.add(`core.${key}`);
-    }
-  }
-  const customKeys = new Set([...Object.keys(previousCustom), ...Object.keys(nextCustom)]);
-  for (const key of customKeys) {
-    const previousValue = previousCustom[key]?.trim() ?? '';
-    const nextValue = nextCustom[key]?.trim() ?? '';
-    if (previousValue !== nextValue) {
-      edited.add(`custom.${key}`);
-    }
-  }
-  return [...edited];
 }
 
 function toDataUri(base64: string): string {
@@ -390,8 +365,8 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
       {showOfflineBanner ? (
         <View style={styles.infoBanner}>
           <Text style={styles.infoBannerText}>
-            Offline draft: details are based on OCR and may be incomplete. We will enhance this
-            card automatically when internet is available.
+            Offline draft: quick preview from on-device OCR. When you are back online, AI will
+            suggest field updates for you to review. Your manual edits are kept.
           </Text>
         </View>
       ) : null}

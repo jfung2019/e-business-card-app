@@ -12,6 +12,8 @@ import auth, { type FirebaseAuthTypes } from '@react-native-firebase/auth';
 import { deleteAccount as deleteAccountRequest } from '../api/account';
 import { setAccessTokenGetter } from '../api/authToken';
 import { isApiFirebaseEnvironmentAligned } from '../config/apiConfig';
+import { clearCachedUserCards } from '../services/userCardsCache';
+import { clearOfflineUserCardQueue } from '../services/offlineUserCardQueue';
 
 const PENDING_SHARE_TOKEN_KEY = '@ebc/pendingShareToken';
 
@@ -125,6 +127,7 @@ export function AuthProvider({
   );
 
   const signOut = useCallback(async () => {
+    await Promise.all([clearCachedUserCards(), clearOfflineUserCardQueue()]);
     await auth().signOut();
   }, []);
 

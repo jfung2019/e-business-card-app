@@ -1,7 +1,7 @@
 import type { CapturedCard, PhotoFace, WalletDisplay } from '../types/card';
 import { API_BASE_URL, API_V1_PREFIX } from '../config/apiConfig';
 import { getAccessToken } from './authToken';
-import { ApiClientError, apiDelete, apiGet, apiPatch, apiPost } from './client';
+import { ApiClientError, apiDelete, apiGet, apiPatch, apiPost, apiPut } from './client';
 
 const PROCESS_CARD_TIMEOUT_MS = 60_000;
 
@@ -80,6 +80,17 @@ export async function processCard(
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+export async function updateCard(
+  cardId: string,
+  patch: {
+    core_fields?: CapturedCard['core_fields'];
+    custom_fields?: Record<string, string>;
+  },
+): Promise<CapturedCard> {
+  const card = await apiPut<CapturedCardApiPayload>(`${API_V1_PREFIX}/cards/${cardId}`, patch);
+  return normalizeCapturedCard(card);
 }
 
 export async function updateCardWalletDisplay(

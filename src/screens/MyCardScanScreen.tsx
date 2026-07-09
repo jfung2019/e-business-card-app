@@ -152,7 +152,7 @@ export function MyCardScanScreen(): React.JSX.Element {
   const navigation = useNavigation<ScanNavigation>();
   const { wallet } = useAppTheme();
   const styles = useMemo(() => createStyles(wallet), [wallet]);
-  const { state, userCard, submitScan, reset } = useProcessUserCard();
+  const { state, userCard, isOfflineDraft, submitScan, reset } = useProcessUserCard();
   const [scanError, setScanError] = useState<string | null>(null);
   const [frontOcrText, setFrontOcrText] = useState<string | null>(null);
   const [frontImageBase64, setFrontImageBase64] = useState<string | null>(null);
@@ -349,8 +349,8 @@ export function MyCardScanScreen(): React.JSX.Element {
           <ActivityIndicator size="large" color={wallet.title} />
           <Text style={styles.feedbackText}>
             {submissionVariant === 'frontAndBack'
-              ? 'Uploading front and back scans, then parsing your card details...'
-              : 'Uploading front scan and parsing your card details...'}
+              ? 'Saving front and back scans...'
+              : 'Saving your card scan...'}
           </Text>
         </View>
       )}
@@ -362,6 +362,7 @@ export function MyCardScanScreen(): React.JSX.Element {
       {isSuccess && userCard && (
         <ScanSuccessPanel
           coreFields={userCard.core_fields}
+          title={isOfflineDraft ? 'Saved offline' : 'Card added!'}
           onDone={handleDone}
           onViewDetails={handleViewDetails}
         />

@@ -17,3 +17,21 @@ export interface QueuedCardScan {
   wallet_display?: WalletDisplay;
   photo_face?: PhotoFace;
 }
+
+export interface QueuedUserCardScan {
+  localId: string;
+  createdAt: string;
+  rawOcrText: string;
+  imageBase64: string;
+  backImageBase64?: string;
+  core_fields: CoreFields;
+  custom_fields: Record<string, string>;
+  designId: string;
+  isPrimary: boolean;
+  editedFields: string[];
+  syncStatus: OfflineQueueStatus;
+  serverCardId?: string;
+  lastError?: string;
+  wallet_display?: WalletDisplay;
+  photo_face?: PhotoFace;
+}

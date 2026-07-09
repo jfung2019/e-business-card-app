@@ -1,53 +1,41 @@
-const LANGUAGE_LABELS: Record<string, string> = {
-  en: 'English',
-  ch: 'Chinese',
-  zh: 'Chinese',
-  ja: 'Japanese',
-  ko: 'Korean',
-  fr: 'French',
-  de: 'German',
-  es: 'Spanish',
+import { canonicalCustomFieldKey } from './customFieldKeys';
+
+/** Display lang codes: legacy ch/zh → cn for Chinese. */
+const DISPLAY_LANG_ALIASES: Record<string, string> = {
+  ch: 'cn',
+  zh: 'cn',
 };
 
 const EXACT_LABELS: Record<string, string> = {
-  address_en: 'Address (English)',
-  address_ch: 'Address (Chinese)',
-  address_zh: 'Address (Chinese)',
-  alternate_name_en: 'Alternate name (English)',
-  alternate_name_ch: 'Alternate name (Chinese)',
-  alternate_name_zh: 'Alternate name (Chinese)',
-  phone_2: 'Phone 2',
+  phone_2: 'phone 2',
+  phone_3: 'phone 3',
 };
 
-function titleCaseWords(value: string): string {
-  return value.replace(/\b\w/g, character => character.toUpperCase());
-}
-
-/** Human-readable label for custom_fields keys (e.g. address_en → Address (English)). */
+/**
+ * Human-readable label for custom_fields keys.
+ * e.g. address_cn → "address (cn)", address_en → "address (en)"
+ */
 export function formatCustomFieldLabel(key: string): string {
-  const trimmed = key.trim();
-  if (!trimmed) {
-    return trimmed;
+  const canonical = canonicalCustomFieldKey(key.trim());
+  if (!canonical) {
+    return canonical;
   }
 
-  const exact = EXACT_LABELS[trimmed] ?? EXACT_LABELS[trimmed.toLowerCase()];
+  const exact = EXACT_LABELS[canonical] ?? EXACT_LABELS[canonical.toLowerCase()];
   if (exact) {
     return exact;
   }
 
-  const localized = trimmed.match(/^(.+)_([a-z]{2})$/i);
+  const localized = canonical.match(/^(.+)_([a-z]{2})$/i);
   if (localized) {
     const [, field, langCode] = localized;
-    const fieldLabel = titleCaseWords(field.replace(/_/g, ' '));
-    const languageLabel = LANGUAGE_LABELS[langCode.toLowerCase()];
-    if (languageLabel) {
-      return `${fieldLabel} (${languageLabel})`;
-    }
+    const lang = DISPLAY_LANG_ALIASES[langCode.toLowerCase()] ?? langCode.toLowerCase();
+    return `${field.replace(/_/g, ' ')} (${lang})`;
   }
 
-  if (trimmed.includes('_')) {
-    return titleCaseWords(trimmed.replace(/_/g, ' '));
+  if (canonical.includes('_')) {
+    return canonical.replace(/_/g, ' ');
   }
 
-  return trimmed;
+  return canonical;
 }

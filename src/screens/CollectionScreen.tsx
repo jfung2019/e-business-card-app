@@ -29,6 +29,7 @@ import { useAppTheme } from '../context/ThemeContext';
 import type { WalletThemeColors } from '../theme/appTheme';
 import type { CapturedCard } from '../types/card';
 import type { UserCard } from '../types/userCard';
+import { isLocalUserCardId } from '../services/offlineUserCardQueue';
 import { APP_DISPLAY_NAME } from '../config/appEnvironment';
 
 type CollectionNavigation = NativeStackNavigationProp<MainStackParamList, 'Collection'>;
@@ -76,7 +77,9 @@ export function CollectionScreen(): React.JSX.Element {
     (userCardsState.status === 'loading' && userCards.length > 0);
 
   const handleShareMyCard = useCallback(() => {
-    const cardToShare = userCards.find(card => card.is_primary) ?? userCards[0];
+    const cardToShare =
+      userCards.find(card => card.is_primary && !isLocalUserCardId(card._id)) ??
+      userCards.find(card => !isLocalUserCardId(card._id));
     if (!cardToShare) {
       return;
     }
@@ -119,7 +122,7 @@ export function CollectionScreen(): React.JSX.Element {
         <View style={styles.myCardsSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>My cards</Text>
-            {userCards.length > 1 ? (
+            {userCards.length > 1 && !userCards.some(card => isLocalUserCardId(card._id)) ? (
               <Pressable
                 onPress={() => navigation.navigate('ReorderMyCards', { cards: userCards })}
               >
@@ -135,9 +138,38 @@ export function CollectionScreen(): React.JSX.Element {
             />
           ) : null}
 
+          {userCardsState.status === 'success' && userCardsState.isOfflineSnapshot ? (
+            <View style={styles.offlineBanner}>
+              <Text style={styles.offlineBannerText}>
+                Offline mode: showing saved business cards from this device. Pending scans will
+                sync when you are back online.
+              </Text>
+            </View>
+          ) : null}
+
           {userCardsState.status === 'loading' && userCards.length === 0 ? (
             <View style={styles.inlineLoading}>
               <ActivityIndicator color={wallet.title} />
+            </View>
+          ) : null}
+
+          {userCardsState.status === 'error' && userCards.length === 0 ? (
+            <View style={styles.inlineError}>
+              <Text style={styles.errorText}>{userCardsState.message}</Text>
+              <Pressable onPress={() => void fetchUserCards()} style={styles.retryButton}>
+                <Text style={styles.retryText}>Try again</Text>
+              </Pressable>
+            </View>
+          ) : null}
+
+          {userCardsState.status === 'success' &&
+          userCardsState.isOfflineSnapshot &&
+          userCards.length === 0 ? (
+            <View style={styles.emptyMyCards}>
+              <Text style={styles.emptyMyCardsTitle}>No cached business cards</Text>
+              <Text style={styles.emptyMyCardsText}>
+                Open the app while online once to save your cards on this device.
+              </Text>
             </View>
           ) : null}
 
@@ -167,7 +199,10 @@ export function CollectionScreen(): React.JSX.Element {
             </>
           ) : null}
 
-          {!bannerVisible && userCards.length === 0 && userCardsState.status !== 'loading' ? (
+          {!bannerVisible &&
+          userCards.length === 0 &&
+          userCardsState.status !== 'loading' &&
+          !(userCardsState.status === 'success' && userCardsState.isOfflineSnapshot) ? (
             <View style={styles.emptyMyCards}>
               <Text style={styles.emptyMyCardsTitle}>Create the card you share</Text>
               <Text style={styles.emptyMyCardsText}>
@@ -375,6 +410,11 @@ const createStyles = (wallet: WalletThemeColors) =>
   inlineLoading: {
     paddingVertical: 24,
     alignItems: 'center',
+  },
+  inlineError: {
+    paddingVertical: 16,
+    alignItems: 'center',
+    gap: 12,
   },
   myCardActions: {
     flexDirection: 'row',

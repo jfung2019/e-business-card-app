@@ -4,6 +4,7 @@ import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { useAppTheme } from '../context/ThemeContext';
 import type { WalletThemeColors } from '../theme/appTheme';
 import { formatCustomFieldLabel } from '../utils/formatCustomFieldLabel';
+import { normalizeCustomFields, sortCustomFieldKeys } from '../utils/customFieldKeys';
 
 interface CustomFieldsListProps {
   customFields: Record<string, string>;
@@ -50,7 +51,10 @@ export function CustomFieldsList({
 }: CustomFieldsListProps): React.JSX.Element | null {
   const { wallet } = useAppTheme();
   const styles = useMemo(() => createStyles(wallet), [wallet]);
-  const entries = Object.entries(customFields);
+  const entries = useMemo(() => {
+    const normalized = normalizeCustomFields(customFields);
+    return sortCustomFieldKeys(Object.keys(normalized)).map(key => [key, normalized[key]] as const);
+  }, [customFields]);
 
   if (entries.length === 0) {
     return null;
@@ -65,7 +69,7 @@ export function CustomFieldsList({
         scrollEnabled={false}
         renderItem={({ item: [key, value] }) => (
           <View style={styles.row}>
-            <Text style={styles.label}>{formatCustomFieldLabel(key)}</Text>
+            <Text style={styles.label}>{formatCustomFieldLabel(key)}:</Text>
             <Text style={styles.value}>{value}</Text>
           </View>
         )}

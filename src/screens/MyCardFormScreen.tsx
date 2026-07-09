@@ -17,12 +17,25 @@ import { DesignPicker } from '../components/DesignPicker';
 import { MyCardFace } from '../components/MyCardFace';
 import { createUserCard, deleteUserCard, updateUserCard } from '../api/userCards';
 import { ApiClientError } from '../api/client';
+import {
+  isLocalUserCardId,
+  localUserCardIdToQueueId,
+  getQueuedUserScan,
+  removeQueuedUserScan,
+  updateQueuedUserScan,
+} from '../services/offlineUserCardQueue';
 import { useAppTheme } from '../context/ThemeContext';
 import type { MainStackParamList } from '../navigation/AppNavigator';
 import { DEFAULT_CARD_DESIGN_ID } from '../theme/cardDesigns';
 import type { WalletThemeColors } from '../theme/appTheme';
 import type { CoreFields } from '../types/card';
 import type { UserCard, UserCardDraft } from '../types/userCard';
+import { formatCustomFieldLabel } from '../utils/formatCustomFieldLabel';
+import {
+  normalizeCustomFields as normalizeStoredCustomFields,
+  sortCustomFieldKeys as sortStoredCustomFieldKeys,
+} from '../utils/customFieldKeys';
+import { buildEditedFieldKeys } from '../utils/offlineFieldEdits';
 
 type FormRoute = RouteProp<MainStackParamList, 'MyCardForm'>;
 type FormNavigation = NativeStackNavigationProp<MainStackParamList, 'MyCardForm'>;
@@ -54,12 +67,13 @@ const FIELD_SECTIONS: Array<{
 
 function buildDraft(
   fields: CoreFields,
+  customFields: Record<string, string>,
   designId: string,
   isPrimary: boolean,
 ): UserCardDraft {
   return {
     core_fields: fields,
-    custom_fields: {},
+    custom_fields: customFields,
     design_id: designId,
     design_type: 'preset',
     is_primary: isPrimary,
@@ -145,6 +159,10 @@ function createStyles(wallet: WalletThemeColors) {
       fontSize: 16,
       color: wallet.title,
     },
+    multilineInput: {
+      minHeight: 72,
+      textAlignVertical: 'top',
+    },
     primaryToggle: {
       backgroundColor: wallet.surface,
       borderRadius: 16,
@@ -219,7 +237,18 @@ export function MyCardFormScreen(): React.JSX.Element {
     };
   }, [card, parsedPreview]);
 
+  const initialCustomFields = useMemo<Record<string, string>>(() => {
+    if (card?.custom_fields) {
+      return normalizeStoredCustomFields(card.custom_fields);
+    }
+    if (parsedPreview?.custom_fields) {
+      return normalizeStoredCustomFields(parsedPreview.custom_fields);
+    }
+    return {};
+  }, [card, parsedPreview]);
+
   const [fields, setFields] = useState<CoreFields>(initialFields);
+  const [customFields, setCustomFields] = useState<Record<string, string>>(initialCustomFields);
   const [designId, setDesignId] = useState(card?.design_id ?? DEFAULT_CARD_DESIGN_ID);
   const [isPrimary, setIsPrimary] = useState(card?.is_primary ?? mode === 'create');
   const [saving, setSaving] = useState(false);
@@ -229,7 +258,7 @@ export function MyCardFormScreen(): React.JSX.Element {
     _id: card?._id ?? 'preview',
     owner_user_id: card?.owner_user_id ?? '',
     core_fields: fields,
-    custom_fields: card?.custom_fields ?? parsedPreview?.custom_fields ?? {},
+    custom_fields: customFields,
     design_id: designId,
     design_type: 'preset',
     is_primary: isPrimary,
@@ -247,6 +276,12 @@ export function MyCardFormScreen(): React.JSX.Element {
   const updateField = (key: keyof CoreFields, value: string) => {
     setFields(previous => ({ ...previous, [key]: value }));
   };
+
+  const updateCustomField = (key: string, value: string) => {
+    setCustomFields(previous => ({ ...previous, [key]: value }));
+  };
+
+  const customFieldKeys = sortStoredCustomFieldKeys(Object.keys(customFields));
 
   const handleSave = async () => {
     if (!fields.name.trim()) {
@@ -266,15 +301,46 @@ export function MyCardFormScreen(): React.JSX.Element {
       website: fields.website?.trim() || null,
     };
 
+    const normalizedCustomFields = normalizeStoredCustomFields(customFields);
+
     try {
       if (mode === 'edit' && card) {
-        await updateUserCard(card._id, {
-          core_fields: normalized,
-          design_id: designId,
-          is_primary: isPrimary,
-        });
+        if (isLocalUserCardId(card._id)) {
+          const queueId = localUserCardIdToQueueId(card._id);
+          const existingQueueItem = await getQueuedUserScan(queueId);
+          const previousCustomFields = normalizeStoredCustomFields(card.custom_fields);
+          const editedFields = buildEditedFieldKeys(
+            card.core_fields,
+            normalized,
+            previousCustomFields,
+            normalizedCustomFields,
+            existingQueueItem?.editedFields ?? [],
+          );
+          const edited = new Set(editedFields);
+          if (designId !== card.design_id) {
+            edited.add('meta.design_id');
+          }
+          if (isPrimary !== card.is_primary) {
+            edited.add('meta.is_primary');
+          }
+
+          await updateQueuedUserScan(queueId, {
+            core_fields: normalized,
+            custom_fields: normalizedCustomFields,
+            designId,
+            isPrimary,
+            editedFields: [...edited],
+          });
+        } else {
+          await updateUserCard(card._id, {
+            core_fields: normalized,
+            custom_fields: normalizedCustomFields,
+            design_id: designId,
+            is_primary: isPrimary,
+          });
+        }
       } else {
-        await createUserCard(buildDraft(normalized, designId, isPrimary));
+        await createUserCard(buildDraft(normalized, normalizedCustomFields, designId, isPrimary));
       }
       navigation.navigate('Collection');
     } catch (saveError) {
@@ -307,7 +373,11 @@ export function MyCardFormScreen(): React.JSX.Element {
               setSaving(true);
               setError(null);
               try {
-                await deleteUserCard(card._id);
+                if (isLocalUserCardId(card._id)) {
+                  await removeQueuedUserScan(localUserCardIdToQueueId(card._id));
+                } else {
+                  await deleteUserCard(card._id);
+                }
                 navigation.navigate('Collection');
               } catch (deleteError) {
                 const message =
@@ -377,6 +447,29 @@ export function MyCardFormScreen(): React.JSX.Element {
             ))}
           </View>
         ))}
+        {customFieldKeys.length > 0 ? (
+          <View style={styles.sectionCard}>
+            <View>
+              <Text style={styles.sectionTitle}>Additional details</Text>
+              <Text style={styles.helperText}>
+                Extra fields captured from your scan, such as address or alternate contact info.
+              </Text>
+            </View>
+            {customFieldKeys.map(key => (
+              <View key={key} style={styles.field}>
+                <Text style={styles.label}>{formatCustomFieldLabel(key)}:</Text>
+                <TextInput
+                  value={customFields[key] ?? ''}
+                  onChangeText={value => updateCustomField(key, value)}
+                  style={[styles.input, styles.multilineInput]}
+                  placeholder={formatCustomFieldLabel(key)}
+                  placeholderTextColor={wallet.subtitle}
+                  multiline
+                />
+              </View>
+            ))}
+          </View>
+        ) : null}
       </View>
 
       <Pressable

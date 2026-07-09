@@ -1,19 +1,31 @@
 import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 
-import { runOfflineCardSync } from './useOfflineCardSync';
+import { runAllOfflineSync } from './useOfflineCardSync';
 import { listQueuedScans } from '../services/offlineCardQueue';
+import { listQueuedUserScans } from '../services/offlineUserCardQueue';
 import { isDeviceOnline } from '../utils/network';
 
 const ONLINE_POLL_MS = 20_000;
 
 async function hasPendingOfflineScans(): Promise<boolean> {
-  const queue = await listQueuedScans();
-  return queue.some(item => item.syncStatus === 'pending' || item.syncStatus === 'failed');
+  const [collectedQueue, userCardQueue] = await Promise.all([
+    listQueuedScans(),
+    listQueuedUserScans(),
+  ]);
+
+  const hasCollected = collectedQueue.some(
+    item => item.syncStatus === 'pending' || item.syncStatus === 'failed',
+  );
+  const hasUserCards = userCardQueue.some(
+    item => item.syncStatus === 'pending' || item.syncStatus === 'failed',
+  );
+
+  return hasCollected || hasUserCards;
 }
 
 /**
- * Syncs the offline queue when the API is reachable and pending scans exist.
+ * Syncs offline queues when the API is reachable and pending scans exist.
  * Polls while the app is active (no extra native NetInfo dependency).
  */
 export function useOfflineAutoSync(enabled: boolean): void {
@@ -36,7 +48,7 @@ export function useOfflineAutoSync(enabled: boolean): void {
 
       syncingRef.current = true;
       try {
-        await runOfflineCardSync();
+        await runAllOfflineSync();
       } finally {
         syncingRef.current = false;
       }
