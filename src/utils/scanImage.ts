@@ -3,18 +3,29 @@ import type { ImageSourcePropType } from 'react-native';
 
 import { API_BASE_URL } from '../config/apiConfig';
 import { getAccessToken } from '../api/authToken';
+import {
+  readPersistedScanImageSource,
+  writePersistedScanImageSource,
+} from '../services/scanImagePersistentCache';
 import { arrayBufferToBase64 } from './imageBase64';
 
 const imageSourceCache = new Map<string, ImageSourcePropType>();
 
-async function loadAuthenticatedImageSource(
+export function clearMemoryScanImageCache(): void {
+  imageSourceCache.clear();
+}
+
+function imageSourceFromUri(uri: string): ImageSourcePropType {
+  return { uri };
+}
+
+function isDataUri(uri: string): boolean {
+  return /^data:/i.test(uri);
+}
+
+async function fetchAuthenticatedImageSource(
   uri: string,
 ): Promise<ImageSourcePropType | null> {
-  const cached = imageSourceCache.get(uri);
-  if (cached) {
-    return cached;
-  }
-
   try {
     const token = await getAccessToken();
     const response = await fetch(uri, {
@@ -31,29 +42,77 @@ async function loadAuthenticatedImageSource(
     }
 
     const base64 = arrayBufferToBase64(buffer);
-    const nextSource: ImageSourcePropType = {
+    return {
       uri: `data:${contentType};base64,${base64}`,
     };
-    imageSourceCache.set(uri, nextSource);
-    return nextSource;
   } catch {
     return null;
   }
 }
 
-/** Warm the scan image cache before a flip so both faces are ready. */
+async function getOrLoadImageSource(uri: string): Promise<ImageSourcePropType | null> {
+  const cached = imageSourceCache.get(uri);
+  if (cached) {
+    return cached;
+  }
+
+  if (isDataUri(uri)) {
+    const nextSource = imageSourceFromUri(uri);
+    imageSourceCache.set(uri, nextSource);
+    return nextSource;
+  }
+
+  const persisted = await readPersistedScanImageSource(uri);
+  if (persisted) {
+    imageSourceCache.set(uri, persisted);
+    return persisted;
+  }
+
+  const fetched = await fetchAuthenticatedImageSource(uri);
+  if (!fetched) {
+    return null;
+  }
+
+  imageSourceCache.set(uri, fetched);
+  await writePersistedScanImageSource(uri, fetched);
+  return fetched;
+}
+
+type ScanImageFields = {
+  scan_image_url?: string | null;
+  scan_image_front_url?: string | null;
+  scan_image_back_url?: string | null;
+};
+
+function collectScanImageUrls(card: ScanImageFields): string[] {
+  const urls = new Set<string>();
+  for (const url of [card.scan_image_front_url, card.scan_image_url, card.scan_image_back_url]) {
+    if (url?.trim() && !isDataUri(url.trim())) {
+      urls.add(url.trim());
+    }
+  }
+  return [...urls];
+}
+
+/** Warm the scan image cache (memory + disk) before a flip or offline use. */
 export async function prefetchScanImage(
   scanImageUrl: string | null | undefined,
 ): Promise<void> {
   const uri = resolveScanImageUri(scanImageUrl);
-  if (!uri || imageSourceCache.has(uri)) {
+  if (!uri) {
     return;
   }
-  if (/^data:/i.test(uri)) {
-    imageSourceCache.set(uri, imageSourceFromUri(uri));
-    return;
+  await getOrLoadImageSource(uri);
+}
+
+export async function prefetchScanImagesForCards(cards: ScanImageFields[]): Promise<void> {
+  const urls = new Set<string>();
+  for (const card of cards) {
+    for (const url of collectScanImageUrls(card)) {
+      urls.add(url);
+    }
   }
-  await loadAuthenticatedImageSource(uri);
+  await Promise.allSettled([...urls].map(url => prefetchScanImage(url)));
 }
 
 export function resolveScanImageUri(
@@ -62,14 +121,10 @@ export function resolveScanImageUri(
   if (!scanImageUrl) {
     return null;
   }
-  if (/^data:/i.test(scanImageUrl) || /^https?:\/\//i.test(scanImageUrl)) {
+  if (isDataUri(scanImageUrl) || /^https?:\/\//i.test(scanImageUrl)) {
     return scanImageUrl;
   }
   return `${API_BASE_URL}${scanImageUrl}`;
-}
-
-function imageSourceFromUri(uri: string): ImageSourcePropType {
-  return { uri };
 }
 
 export function useAuthenticatedImageSource(
@@ -90,25 +145,16 @@ export function useAuthenticatedImageSource(
       };
     }
 
-    const cached = imageSourceCache.get(uri);
-    if (cached) {
-      setSource(cached);
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    if (/^data:/i.test(uri)) {
-      const nextSource = imageSourceFromUri(uri);
-      imageSourceCache.set(uri, nextSource);
-      setSource(nextSource);
+    const memoryCached = imageSourceCache.get(uri);
+    if (memoryCached) {
+      setSource(memoryCached);
       return () => {
         cancelled = true;
       };
     }
 
     void (async () => {
-      const nextSource = await loadAuthenticatedImageSource(uri);
+      const nextSource = await getOrLoadImageSource(uri);
       if (!cancelled) {
         setSource(nextSource);
       }

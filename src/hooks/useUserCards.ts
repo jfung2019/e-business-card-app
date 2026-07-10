@@ -37,6 +37,7 @@ import {
 import { onOfflineSyncComplete } from '../services/offlineSyncCoordinator';
 
 import { loadCachedUserCards, saveCachedUserCards } from '../services/userCardsCache';
+import { prefetchScanImagesForCards } from '../utils/scanImage';
 
 import type {
 
@@ -167,6 +168,7 @@ export function useUserCards(): UseUserCardsResult {
       const serverCards = await listUserCards();
 
       await saveCachedUserCards(serverCards);
+      void prefetchScanImagesForCards(serverCards);
 
       setState({
 

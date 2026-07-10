@@ -14,6 +14,10 @@ import { setAccessTokenGetter } from '../api/authToken';
 import { isApiFirebaseEnvironmentAligned } from '../config/apiConfig';
 import { clearCachedUserCards } from '../services/userCardsCache';
 import { clearOfflineUserCardQueue } from '../services/offlineUserCardQueue';
+import {
+  clearScanImagePersistentCache,
+} from '../services/scanImagePersistentCache';
+import { clearMemoryScanImageCache } from '../utils/scanImage';
 
 const PENDING_SHARE_TOKEN_KEY = '@ebc/pendingShareToken';
 
@@ -127,7 +131,12 @@ export function AuthProvider({
   );
 
   const signOut = useCallback(async () => {
-    await Promise.all([clearCachedUserCards(), clearOfflineUserCardQueue()]);
+    clearMemoryScanImageCache();
+    await Promise.all([
+      clearCachedUserCards(),
+      clearOfflineUserCardQueue(),
+      clearScanImagePersistentCache(),
+    ]);
     await auth().signOut();
   }, []);
 

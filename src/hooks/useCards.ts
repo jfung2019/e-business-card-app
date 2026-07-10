@@ -12,6 +12,7 @@ import {
 import { onOfflineSyncComplete } from '../services/offlineSyncCoordinator';
 import type { CapturedCard, CardListState, PhotoFace, WalletDisplay } from '../types/card';
 import { shouldFallbackToOfflineScan } from '../utils/network';
+import { prefetchScanImagesForCards } from '../utils/scanImage';
 
 function mergeLocalAndServerCards(
   localCards: CapturedCard[],
@@ -63,6 +64,7 @@ export function useCards(): UseCardsResult {
     try {
       const serverCards = await listCards();
       await saveCachedCards(serverCards);
+      void prefetchScanImagesForCards(serverCards);
       setState({
         status: 'success',
         cards: mergeLocalAndServerCards(localCards, serverCards),
