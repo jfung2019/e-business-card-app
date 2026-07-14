@@ -67,11 +67,6 @@ export function AuthProvider({
 
       setUser(nextUser);
       setInitializing(false);
-
-      if (__DEV__ && nextUser) {
-        const token = await nextUser.getIdToken();
-        console.log('Token for testing:', token);
-      }
     });
 
     return () => {

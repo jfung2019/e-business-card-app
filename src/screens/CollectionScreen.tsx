@@ -91,6 +91,9 @@ export function CollectionScreen(): React.JSX.Element {
     [cards],
   );
   const hasMoreCollected = cards.length > COLLECTION_PREVIEW_LIMIT;
+  const isOfflineSnapshot =
+    (userCardsState.status === 'success' && userCardsState.isOfflineSnapshot) ||
+    (state.status === 'success' && state.isOfflineSnapshot);
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
@@ -119,6 +122,15 @@ export function CollectionScreen(): React.JSX.Element {
           />
         }
       >
+        {isOfflineSnapshot ? (
+          <View style={styles.offlineBanner}>
+            <Text style={styles.offlineBannerText}>
+              Offline mode: showing saved cards from this device. Pending scans will sync when
+              you are back online.
+            </Text>
+          </View>
+        ) : null}
+
         <View style={styles.myCardsSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>My cards</Text>
@@ -136,15 +148,6 @@ export function CollectionScreen(): React.JSX.Element {
               onAdd={() => navigation.navigate('MyCardScan')}
               onDismiss={() => void dismissBanner()}
             />
-          ) : null}
-
-          {userCardsState.status === 'success' && userCardsState.isOfflineSnapshot ? (
-            <View style={styles.offlineBanner}>
-              <Text style={styles.offlineBannerText}>
-                Offline mode: showing saved business cards from this device. Pending scans will
-                sync when you are back online.
-              </Text>
-            </View>
           ) : null}
 
           {userCardsState.status === 'loading' && userCards.length === 0 ? (
@@ -263,15 +266,6 @@ export function CollectionScreen(): React.JSX.Element {
               </Pressable>
             </View>
           )}
-
-          {state.status === 'success' && state.isOfflineSnapshot ? (
-            <View style={styles.offlineBanner}>
-              <Text style={styles.offlineBannerText}>
-                Offline mode: showing saved cards from your device. New scans are queued and
-                will sync when you are back online.
-              </Text>
-            </View>
-          ) : null}
 
           {state.status === 'success' && cards.length === 0 && (
             <View style={styles.centered}>
@@ -491,7 +485,6 @@ const createStyles = (wallet: WalletThemeColors) =>
     borderColor: wallet.border,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    marginBottom: 12,
   },
   offlineBannerText: {
     color: wallet.subtitle,

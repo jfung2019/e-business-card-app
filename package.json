@@ -14,6 +14,7 @@
     "lint": "eslint .",
     "start": "react-native start",
     "test": "jest",
+    "icons:generate": "powershell -ExecutionPolicy Bypass -File ./scripts/generate-app-icons.ps1",
     "postinstall": "patch-package"
   },
   "dependencies": {

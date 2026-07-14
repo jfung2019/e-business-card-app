@@ -156,7 +156,7 @@ export function ShareMyCardScreen(): React.JSX.Element {
       return;
     }
     await Share.share({
-      title: 'My E-Business Card',
+      title: 'My AI Business Card',
       message: `Here is my digital business card: ${shareUrl}`,
       url: shareUrl,
     });

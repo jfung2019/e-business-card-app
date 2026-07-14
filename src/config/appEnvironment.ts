@@ -18,4 +18,4 @@ export function getAppEnvironment(): AppEnvironment {
 
 /** In-app title — dev install vs prod install (not API target). */
 export const APP_DISPLAY_NAME =
-  getAppEnvironment() === 'dev' ? 'E-Business Cards Dev' : 'E-Business Cards';
+  getAppEnvironment() === 'dev' ? 'AI Business Cards Dev' : 'AI Business Cards';

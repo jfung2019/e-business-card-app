@@ -87,14 +87,14 @@ android {
         prod {
             dimension "environment"
             manifestPlaceholders = [usesCleartextTraffic: "false"]
-            resValue "string", "app_name", "E-Business Cards"
+            resValue "string", "app_name", "AI Business Cards"
             buildConfigField "String", "APP_ENVIRONMENT", '"prod"'
         }
         dev {
             dimension "environment"
             applicationIdSuffix ".dev"
             manifestPlaceholders = [usesCleartextTraffic: "true"]
-            resValue "string", "app_name", "E-Business Cards Dev"
+            resValue "string", "app_name", "AI Business Cards Dev"
             buildConfigField "String", "APP_ENVIRONMENT", '"dev"'
         }
     }

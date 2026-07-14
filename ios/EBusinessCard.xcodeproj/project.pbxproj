@@ -319,7 +319,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.megaannumai.ebusinesscard.dev;
 				PRODUCT_NAME = EBusinessCard;
-				INFOPLIST_KEY_CFBundleDisplayName = "E-Business Cards Dev";
+				INFOPLIST_KEY_CFBundleDisplayName = "AI Business Cards Dev";
 				INFOPLIST_KEY_AppEnvironment = dev;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -352,7 +352,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.megaannumai.ebusinesscard;
 				PRODUCT_NAME = EBusinessCard;
-				INFOPLIST_KEY_CFBundleDisplayName = "E-Business Cards";
+				INFOPLIST_KEY_CFBundleDisplayName = "AI Business Cards";
 				INFOPLIST_KEY_AppEnvironment = prod;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_VERSION = 5.0;
@@ -385,7 +385,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.megaannumai.ebusinesscard;
 				PRODUCT_NAME = EBusinessCard;
-				INFOPLIST_KEY_CFBundleDisplayName = "E-Business Cards";
+				INFOPLIST_KEY_CFBundleDisplayName = "AI Business Cards";
 				INFOPLIST_KEY_AppEnvironment = prod;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";

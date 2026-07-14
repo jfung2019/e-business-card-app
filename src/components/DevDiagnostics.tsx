@@ -19,7 +19,7 @@ export function DevDiagnostics(): React.JSX.Element | null {
   const palette = isDark ? DIAG_BANNER.dark : DIAG_BANNER.light;
   const styles = useMemo(() => createStyles(palette), [palette]);
 
-  if (!__DEV__) {
+  if (!__DEV__ || APP_ENVIRONMENT !== 'dev') {
     return null;
   }
 
