@@ -20,6 +20,11 @@ import type { AppThemeColors } from '../theme/appTheme';
 import { ApiTargetBanner } from '../components/ApiTargetBanner';
 import { APP_DISPLAY_NAME } from '../config/appEnvironment';
 import {
+  openLegalUrl,
+  PRIVACY_POLICY_URL,
+  TERMS_OF_SERVICE_URL,
+} from '../config/legalUrls';
+import {
   isStrongPassword,
   PASSWORD_MAX_LENGTH,
   PASSWORD_REQUIREMENTS_MESSAGE,
@@ -191,11 +196,22 @@ function createStyles(colors: AppThemeColors) {
       fontSize: 12,
       lineHeight: 17,
     },
+    legalText: {
+      color: colors.textMuted,
+      fontSize: 12,
+      lineHeight: 18,
+      textAlign: 'center',
+    },
+    legalLink: {
+      color: colors.primary,
+      fontWeight: '600',
+    },
     link: {
       color: colors.primary,
       fontWeight: '600',
       fontSize: 14,
     },
+
     errorText: {
       color: colors.error,
       fontWeight: '600',
@@ -400,6 +416,34 @@ export function LoginScreen(): React.JSX.Element {
           )}
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+          {mode === 'signUp' ? (
+            <Text style={styles.legalText}>
+              By creating an account, you agree to our{' '}
+              <Text
+                style={styles.legalLink}
+                onPress={() => {
+                  void openLegalUrl(TERMS_OF_SERVICE_URL);
+                }}
+                accessibilityRole="link"
+                accessibilityLabel="Terms of Service"
+              >
+                Terms of Service
+              </Text>
+              {' '}and{' '}
+              <Text
+                style={styles.legalLink}
+                onPress={() => {
+                  void openLegalUrl(PRIVACY_POLICY_URL);
+                }}
+                accessibilityRole="link"
+                accessibilityLabel="Privacy Policy"
+              >
+                Privacy Policy
+              </Text>
+              .
+            </Text>
+          ) : null}
 
           {loading ? (
             <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />

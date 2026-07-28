@@ -19,6 +19,11 @@ import type { WalletThemeColors } from '../theme/appTheme';
 import { getEmailInitials } from '../utils/formatDate';
 import { ApiTargetBanner } from '../components/ApiTargetBanner';
 import { DevDiagnostics } from '../components/DevDiagnostics';
+import {
+  openLegalUrl,
+  PRIVACY_POLICY_URL,
+  TERMS_OF_SERVICE_URL,
+} from '../config/legalUrls';
 
 type ProfileNavigation = NativeStackNavigationProp<MainStackParamList, 'Profile'>;
 
@@ -385,6 +390,28 @@ export function ProfileScreen({ onSignOut }: ProfileScreenProps): React.JSX.Elem
               )}
             </View>
           </Pressable>
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Legal</Text>
+        <View style={styles.card}>
+          <ProfileRow
+            styles={styles}
+            label="Privacy Policy"
+            hint="How we collect and use your data"
+            onPress={() => {
+              void openLegalUrl(PRIVACY_POLICY_URL);
+            }}
+          />
+          <ProfileRow
+            styles={styles}
+            label="Terms of Service"
+            hint="Rules for using the app"
+            onPress={() => {
+              void openLegalUrl(TERMS_OF_SERVICE_URL);
+            }}
+          />
         </View>
       </View>
     </ScrollView>

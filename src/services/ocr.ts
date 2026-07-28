@@ -95,6 +95,8 @@ const SCAN_IMAGE_JPEG_QUALITY: PhotoQuality = 0.7;
 
 async function pickGalleryImageUri(): Promise<PickedImage | null> {
   await runAfterInteractions();
+  // Android: react-native-image-picker uses the system Photo Picker (PickVisualMedia),
+  // so READ_MEDIA_IMAGES is not required. Keep selectionLimit=1 and includeExtra=false.
   const result = await withActivityRetry(() =>
     launchImageLibrary({
       mediaType: 'photo',
@@ -103,6 +105,7 @@ async function pickGalleryImageUri(): Promise<PickedImage | null> {
       maxHeight: SCAN_IMAGE_MAX_EDGE_PX,
       selectionLimit: 1,
       includeBase64: true,
+      includeExtra: false,
     }),
   );
 

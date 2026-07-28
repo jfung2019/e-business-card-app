@@ -34,6 +34,7 @@ local.properties
 *.keystore
 !debug.keystore
 .kotlin/
+android/keystore.properties
 
 # Environment
 .env
@@ -84,3 +85,6 @@ yarn-error.log
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# screenshots
+store-assets/

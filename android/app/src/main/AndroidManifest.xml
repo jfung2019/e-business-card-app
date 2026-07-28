@@ -1,8 +1,34 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <!--
+      Gallery picks use the Android Photo Picker (via react-native-image-picker).
+      Do not request READ_MEDIA_IMAGES / READ_MEDIA_VIDEO — Play policy rejects them
+      when a system picker is sufficient for one-at-a-time image selection.
+    -->
+    <uses-permission
+        android:name="android.permission.READ_MEDIA_IMAGES"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.READ_MEDIA_VIDEO"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        tools:node="remove" />
+
+    <!-- Android 11+: allow resolving https/http VIEW intents (open links in browser). -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="http" />
+        </intent>
+    </queries>
 
     <application
       android:name=".MainApplication"
@@ -24,25 +50,11 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
-        <intent-filter android:autoVerify="true">
-            <action android:name="android.intent.action.VIEW" />
-            <category android:name="android.intent.category.DEFAULT" />
-            <category android:name="android.intent.category.BROWSABLE" />
-            <data
-                android:scheme="https"
-                android:host="ebc.megaannum.ai"
-                android:pathPrefix="/c/" />
-        </intent-filter>
-        <intent-filter android:autoVerify="true">
-            <action android:name="android.intent.action.VIEW" />
-            <category android:name="android.intent.category.DEFAULT" />
-            <category android:name="android.intent.category.BROWSABLE" />
-            <data
-                android:scheme="https"
-                android:host="focms.megaannum.ai"
-                android:port="8001"
-                android:pathPrefix="/c/" />
-        </intent-filter>
+        <!--
+          Custom-scheme deep links only (ebusinesscard://c/...).
+          Do NOT declare https://ebc.megaannum.ai/c/ with autoVerify unless you host
+          /.well-known/assetlinks.json — API/share HTTPS URLs open in the browser.
+        -->
         <intent-filter>
             <action android:name="android.intent.action.VIEW" />
             <category android:name="android.intent.category.DEFAULT" />

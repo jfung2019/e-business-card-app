@@ -29,11 +29,15 @@
     "react-native": "0.86.0",
     "react-native-document-scanner-plugin": "^1.0.1",
     "react-native-draggable-flatlist": "^4.0.3",
+    "react-native-fast-opencv": "^1.0.0",
     "react-native-gesture-handler": "^3.0.1",
     "react-native-image-picker": "^8.2.1",
+    "react-native-nitro-image": "^0.15.1",
+    "react-native-nitro-modules": "^0.36.1",
     "react-native-reanimated": "^4.4.1",
     "react-native-safe-area-context": "^5.4.0",
     "react-native-screens": "^4.10.0",
+    "react-native-vision-camera": "^5.1.1",
     "react-native-worklets": "^0.9.2"
   },
   "devDependencies": {
