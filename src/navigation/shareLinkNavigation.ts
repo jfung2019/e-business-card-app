@@ -1,6 +1,6 @@
 import type { NavigationContainerRef } from '@react-navigation/native';
 
-import type { MainStackParamList } from './AppNavigator';
+import type { MainStackParamList } from './types';
 
 /** Token waiting for auth or navigation to become ready. */
 export const pendingShareTokenRef = { current: null as string | null };

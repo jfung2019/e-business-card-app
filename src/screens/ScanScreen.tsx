@@ -293,7 +293,7 @@ export function ScanScreen(): React.JSX.Element {
               <View style={styles.stepCopy}>
                 <Text style={styles.stepTitle}>Front side</Text>
                 <Text style={styles.subtitle}>
-                  Use the camera for auto crop or choose a clear image.
+                  Align the card in the camera frame, or choose a clear image.
                 </Text>
               </View>
             </View>

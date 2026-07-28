@@ -14,7 +14,6 @@ import {
   DarkTheme,
   DefaultTheme,
   NavigationContainer,
-  createNavigationContainerRef,
 } from '@react-navigation/native';
 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -24,6 +23,7 @@ import { useAuth } from '../context/AuthContext';
 import { useShareLink } from '../context/ShareLinkContext';
 import { useAppTheme } from '../context/ThemeContext';
 import { CardDetailScreen } from '../screens/CardDetailScreen';
+import { CardScannerScreen } from '../screens/CardScannerScreen';
 import { ChangePasswordScreen } from '../screens/ChangePasswordScreen';
 import { CollectedCardsScreen } from '../screens/CollectedCardsScreen';
 import { CollectionScreen } from '../screens/CollectionScreen';
@@ -36,38 +36,19 @@ import { ReorderMyCardsScreen } from '../screens/ReorderMyCardsScreen';
 import { ScanScreen } from '../screens/ScanScreen';
 import { ShareMyCardScreen } from '../screens/ShareMyCardScreen';
 import { SharedCardPreviewScreen } from '../screens/SharedCardPreviewScreen';
-import type { CapturedCard } from '../types/card';
-import type { ParsedUserCardPreview, UserCard } from '../types/userCard';
 import { SHARE_PUBLIC_BASE_URL } from '../config/apiConfig';
+import { navigationRef } from './navigationRef';
 import {
   flushPendingShareNavigation,
   queueSharedCardNavigation,
 } from './shareLinkNavigation';
+import type { AuthStackParamList, MainStackParamList } from './types';
 
-export type AuthStackParamList = {
-  Login: undefined;
-};
-
-export type MainStackParamList = {
-  Collection: undefined;
-  CollectedCards: undefined;
-  Scan: undefined;
-  CardDetail: { card: CapturedCard };
-  MyCardScan: undefined;
-  MyCardForm:
-    | { mode: 'create'; parsedPreview?: ParsedUserCardPreview }
-    | { mode: 'edit'; card: UserCard };
-  ReorderMyCards: { cards: UserCard[] };
-  Profile: undefined;
-  ChangePassword: undefined;
-  ManageAccount: undefined;
-  ShareMyCard: { cardId: string };
-  SharedCardPreview: { token: string };
-};
+export type { AuthStackParamList, MainStackParamList } from './types';
+export { navigationRef } from './navigationRef';
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const MainStack = createNativeStackNavigator<MainStackParamList>();
-export const navigationRef = createNavigationContainerRef<MainStackParamList>();
 
 const linkingPrefixes = [
   SHARE_PUBLIC_BASE_URL.replace(/\/c\/?$/, ''),
@@ -124,6 +105,15 @@ function MainNavigator({
         options={{ title: 'All Collected' }}
       />
       <MainStack.Screen name="Scan" component={ScanScreen} options={{ title: 'Scan Card' }} />
+      <MainStack.Screen
+        name="CardScanner"
+        component={CardScannerScreen}
+        options={{
+          headerShown: false,
+          animation: 'slide_from_bottom',
+          presentation: 'fullScreenModal',
+        }}
+      />
       <MainStack.Screen
         name="CardDetail"
         component={CardDetailScreen}

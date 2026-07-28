@@ -6,9 +6,9 @@ import {
 import TextRecognition, {
   TextRecognitionScript,
 } from '@react-native-ml-kit/text-recognition';
-import DocumentScanner from 'react-native-document-scanner-plugin';
 import { AppState, InteractionManager } from 'react-native';
 
+import { openCardScanner } from './cardScanner';
 import { compressScanImageForUpload } from '../utils/compressScanImage';
 
 export type OcrSource = 'camera' | 'gallery';
@@ -148,24 +148,14 @@ async function scanWithCameraFallback(): Promise<PickedImage | null> {
   return { uri: asset.uri, base64: asset.base64 ?? undefined };
 }
 
-async function scanWithDocumentCamera(): Promise<string | null> {
+async function scanWithCardCamera(): Promise<string | null> {
   await runAfterInteractions();
   try {
-    const { scannedImages, status } = await withActivityRetry(() =>
-      DocumentScanner.scanDocument({
-        maxNumDocuments: 1,
-        croppedImageQuality: 55,
-      }),
-    );
-
-    if (status === 'cancel' || !scannedImages?.length) {
-      return null;
-    }
-
-    return scannedImages[0] ?? null;
+    return await openCardScanner();
   } catch (error) {
-    if (!isActivityRegistryError(error)) {
-      throw error;
+    // Custom scanner failed to open (nav not ready, etc.) — plain camera, no crop.
+    if (__DEV__) {
+      console.warn('[ocr] Card scanner unavailable, falling back to camera', error);
     }
     const fallback = await scanWithCameraFallback();
     return fallback?.uri ?? null;
@@ -238,7 +228,7 @@ export async function scanBusinessCard(
   const requireText = options?.requireText !== false;
   const picked: PickedImage | null =
     source === 'camera'
-      ? await scanWithDocumentCamera().then((uri) => (uri ? { uri } : null))
+      ? await scanWithCardCamera().then((uri) => (uri ? { uri } : null))
       : await pickGalleryImageUri();
 
   if (!picked) {
