@@ -154,7 +154,7 @@ async function scanWithDocumentCamera(): Promise<string | null> {
     const { scannedImages, status } = await withActivityRetry(() =>
       DocumentScanner.scanDocument({
         maxNumDocuments: 1,
-        croppedImageQuality: 55,
+        croppedImageQuality: 90,
       }),
     );
 
@@ -162,6 +162,9 @@ async function scanWithDocumentCamera(): Promise<string | null> {
       return null;
     }
 
+    // Use the OS scanner result as-is. Users can adjust the edge quad before
+    // confirming; post-processing (OpenCV inset/warp) crashed on that confirm
+    // path and would also fight a carefully adjusted crop.
     return scannedImages[0] ?? null;
   } catch (error) {
     if (!isActivityRegistryError(error)) {
