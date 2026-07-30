@@ -154,7 +154,7 @@ async function scanWithDocumentCamera(): Promise<string | null> {
     const { scannedImages, status } = await withActivityRetry(() =>
       DocumentScanner.scanDocument({
         maxNumDocuments: 1,
-        croppedImageQuality: 55,
+        croppedImageQuality: 90,
       }),
     );
 

@@ -14,6 +14,13 @@ export type PhotoFace = 'front' | 'back';
 export type ParseStatus = 'pending' | 'parsed' | 'failed' | 'fallback';
 export type ParseSource = 'llm' | 'offline' | 'manual';
 export type EnhancementStatus = 'none' | 'queued' | 'processing' | 'pending_review' | 'applied' | 'failed';
+export type ScanImageEnhancementStatus =
+  | 'none'
+  | 'processing'
+  | 'preview_ready'
+  | 'applied'
+  | 'discarded'
+  | 'failed';
 
 export interface CapturedCard {
   _id: string;
@@ -24,6 +31,10 @@ export interface CapturedCard {
   scan_image_url?: string | null;
   scan_image_front_url?: string | null;
   scan_image_back_url?: string | null;
+  scan_image_front_pending_url?: string | null;
+  scan_image_back_pending_url?: string | null;
+  scan_image_enhancement_status?: ScanImageEnhancementStatus;
+  scan_image_enhancement_error?: string | null;
   wallet_display?: WalletDisplay;
   photo_face?: PhotoFace;
   parse_status?: ParseStatus;

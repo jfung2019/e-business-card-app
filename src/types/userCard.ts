@@ -1,4 +1,4 @@
-import type { CoreFields } from './card';
+import type { CoreFields, ScanImageEnhancementStatus } from './card';
 
 export type DesignType = 'preset' | 'custom';
 export type WalletDisplay = 'photo' | 'classic';
@@ -17,6 +17,10 @@ export interface UserCard {
   scan_image_url?: string | null;
   scan_image_front_url?: string | null;
   scan_image_back_url?: string | null;
+  scan_image_front_pending_url?: string | null;
+  scan_image_back_pending_url?: string | null;
+  scan_image_enhancement_status?: ScanImageEnhancementStatus;
+  scan_image_enhancement_error?: string | null;
   wallet_display?: WalletDisplay;
   photo_face?: PhotoFace;
   created_at: string;
