@@ -1,6 +1,10 @@
 import { useCallback } from 'react';
 
-import { enhanceCard, saveOfflineDraft } from '../api/cards';
+import {
+  enhanceCard,
+  retryCardScanEnhancement,
+  saveOfflineDraft,
+} from '../api/cards';
 import { processUserCard, updateUserCard, updateUserCardWalletDisplay } from '../api/userCards';
 import {
   listQueuedScans,
@@ -12,14 +16,31 @@ import {
   removeQueuedUserScan,
   updateQueuedUserScan,
 } from '../services/offlineUserCardQueue';
-import { notifyOfflineSyncComplete } from '../services/offlineSyncCoordinator';
+import {
+  notifyOfflineSyncComplete,
+  type OfflineScanReviewCandidate,
+  type OfflineSyncResult,
+} from '../services/offlineSyncCoordinator';
 import { isDeviceOnline } from '../utils/network';
 import { buildUserCardPatchFromQueueEdits } from '../utils/mergeQueuedUserCardEdits';
+import { shouldOpenScanImageReview } from '../utils/scanImageReview';
 
-export async function runOfflineCardSync(): Promise<number> {
+function asReviewCandidate(
+  candidate: OfflineScanReviewCandidate,
+): OfflineScanReviewCandidate | null {
+  if (!shouldOpenScanImageReview(candidate.card.scan_image_enhancement_status, false)) {
+    return null;
+  }
+  return candidate;
+}
+
+export async function runOfflineCardSync(): Promise<{
+  syncedCount: number;
+  reviewCandidates: OfflineScanReviewCandidate[];
+}> {
   const online = await isDeviceOnline();
   if (!online) {
-    return 0;
+    return { syncedCount: 0, reviewCandidates: [] };
   }
 
   const queue = await listQueuedScans();
@@ -27,6 +48,7 @@ export async function runOfflineCardSync(): Promise<number> {
     item => item.syncStatus === 'pending' || item.syncStatus === 'failed',
   );
   let syncedCount = 0;
+  const reviewCandidates: OfflineScanReviewCandidate[] = [];
 
   for (const item of pending) {
     await updateQueuedScan(item.localId, { syncStatus: 'uploading', lastError: undefined });
@@ -46,6 +68,14 @@ export async function runOfflineCardSync(): Promise<number> {
       }
 
       await enhanceCard(serverCardId);
+
+      // Image AI is separate from field enhancement for offline drafts.
+      let cardForReview = await retryCardScanEnhancement(serverCardId);
+      const review = asReviewCandidate({ kind: 'captured', card: cardForReview });
+      if (review) {
+        reviewCandidates.push(review);
+      }
+
       await removeQueuedScan(item.localId);
       syncedCount += 1;
     } catch (error) {
@@ -55,13 +85,16 @@ export async function runOfflineCardSync(): Promise<number> {
     }
   }
 
-  return syncedCount;
+  return { syncedCount, reviewCandidates };
 }
 
-export async function runOfflineUserCardSync(): Promise<number> {
+export async function runOfflineUserCardSync(): Promise<{
+  syncedCount: number;
+  reviewCandidates: OfflineScanReviewCandidate[];
+}> {
   const online = await isDeviceOnline();
   if (!online) {
-    return 0;
+    return { syncedCount: 0, reviewCandidates: [] };
   }
 
   const queue = await listQueuedUserScans();
@@ -69,26 +102,37 @@ export async function runOfflineUserCardSync(): Promise<number> {
     item => item.syncStatus === 'pending' || item.syncStatus === 'failed',
   );
   let syncedCount = 0;
+  const reviewCandidates: OfflineScanReviewCandidate[] = [];
 
   for (const item of pending) {
     await updateQueuedUserScan(item.localId, { syncStatus: 'uploading', lastError: undefined });
     try {
-      const created = await processUserCard(item.rawOcrText, item.imageBase64, {
+      let created = await processUserCard(item.rawOcrText, item.imageBase64, {
         backImageBase64: item.backImageBase64,
         designId: item.designId,
         isPrimary: item.isPrimary,
+        enhanceScanImage: true,
       });
 
       const patch = buildUserCardPatchFromQueueEdits(created, item);
       if (Object.keys(patch).length > 0) {
-        await updateUserCard(created._id, patch);
+        created = await updateUserCard(created._id, patch);
       }
 
       if (item.wallet_display && item.wallet_display !== created.wallet_display) {
-        await updateUserCardWalletDisplay(created._id, { walletDisplay: item.wallet_display });
+        created = await updateUserCardWalletDisplay(created._id, {
+          walletDisplay: item.wallet_display,
+        });
       }
       if (item.photo_face && item.photo_face !== created.photo_face) {
-        await updateUserCardWalletDisplay(created._id, { photoFace: item.photo_face });
+        created = await updateUserCardWalletDisplay(created._id, {
+          photoFace: item.photo_face,
+        });
+      }
+
+      const review = asReviewCandidate({ kind: 'user', card: created });
+      if (review) {
+        reviewCandidates.push(review);
       }
 
       await removeQueuedUserScan(item.localId);
@@ -100,24 +144,28 @@ export async function runOfflineUserCardSync(): Promise<number> {
     }
   }
 
-  return syncedCount;
+  return { syncedCount, reviewCandidates };
 }
 
-export async function runAllOfflineSync(): Promise<number> {
-  const collectedSynced = await runOfflineCardSync();
-  const userCardsSynced = await runOfflineUserCardSync();
-  const total = collectedSynced + userCardsSynced;
+export async function runAllOfflineSync(): Promise<OfflineSyncResult> {
+  const collected = await runOfflineCardSync();
+  const userCards = await runOfflineUserCardSync();
+  const result: OfflineSyncResult = {
+    syncedCount: collected.syncedCount + userCards.syncedCount,
+    reviewCandidates: [...collected.reviewCandidates, ...userCards.reviewCandidates],
+  };
 
-  if (total > 0) {
-    notifyOfflineSyncComplete(total);
+  if (result.syncedCount > 0) {
+    notifyOfflineSyncComplete(result);
   }
 
-  return total;
+  return result;
 }
 
 export function useOfflineCardSync() {
   const syncQueuedScans = useCallback(async (): Promise<number> => {
-    return runAllOfflineSync();
+    const result = await runAllOfflineSync();
+    return result.syncedCount;
   }, []);
 
   return { syncQueuedScans };

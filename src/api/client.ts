@@ -15,10 +15,13 @@ type ApiMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 async function apiRequest<TResponse>(
   path: string,
-  options: { method: ApiMethod; body?: unknown },
+  options: { method: ApiMethod; body?: unknown; timeoutMs?: number },
 ): Promise<TResponse> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeoutId = setTimeout(
+    () => controller.abort(),
+    options.timeoutMs ?? REQUEST_TIMEOUT_MS,
+  );
 
   try {
     const token = await getAccessToken();
@@ -82,8 +85,13 @@ export async function apiGet<TResponse>(path: string): Promise<TResponse> {
 export async function apiPost<TResponse>(
   path: string,
   body: unknown,
+  options?: { timeoutMs?: number },
 ): Promise<TResponse> {
-  return apiRequest<TResponse>(path, { method: 'POST', body });
+  return apiRequest<TResponse>(path, {
+    method: 'POST',
+    body,
+    timeoutMs: options?.timeoutMs,
+  });
 }
 
 export async function apiPut<TResponse>(

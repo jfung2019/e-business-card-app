@@ -14,8 +14,8 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 
 import { DesignPicker } from '../components/DesignPicker';
-import { MyCardFace } from '../components/MyCardFace';
-import { createUserCard, deleteUserCard, updateUserCard } from '../api/userCards';
+import { getMyCardDisplayHeight, MY_CARD_WIDTH, MyCardFace } from '../components/MyCardFace';
+import { createUserCard, deleteUserCard, updateUserCard, updateUserCardWalletDisplay } from '../api/userCards';
 import { ApiClientError } from '../api/client';
 import {
   isLocalUserCardId,
@@ -29,8 +29,9 @@ import type { MainStackParamList } from '../navigation/AppNavigator';
 import { DEFAULT_CARD_DESIGN_ID } from '../theme/cardDesigns';
 import type { WalletThemeColors } from '../theme/appTheme';
 import type { CoreFields } from '../types/card';
-import type { UserCard, UserCardDraft } from '../types/userCard';
+import type { UserCard, UserCardDraft, PhotoFace, WalletDisplay } from '../types/userCard';
 import { formatCustomFieldLabel } from '../utils/formatCustomFieldLabel';
+import { userCardHasScanImage } from '../utils/walletDisplay';
 import {
   normalizeCustomFields as normalizeStoredCustomFields,
   sortCustomFieldKeys as sortStoredCustomFieldKeys,
@@ -114,8 +115,21 @@ function createStyles(wallet: WalletThemeColors) {
       lineHeight: 20,
     },
     previewWrap: {
+      width: MY_CARD_WIDTH,
       alignItems: 'center',
       gap: 10,
+      marginBottom: 8,
+    },
+    previewCardSlot: {
+      width: '100%',
+    },
+    previewHint: {
+      color: wallet.subtitle,
+      fontSize: 13,
+      lineHeight: 18,
+      textAlign: 'center',
+      marginTop: 6,
+      paddingHorizontal: 4,
     },
     previewLabel: {
       color: wallet.subtitle,
@@ -251,6 +265,13 @@ export function MyCardFormScreen(): React.JSX.Element {
   const [customFields, setCustomFields] = useState<Record<string, string>>(initialCustomFields);
   const [designId, setDesignId] = useState(card?.design_id ?? DEFAULT_CARD_DESIGN_ID);
   const [isPrimary, setIsPrimary] = useState(card?.is_primary ?? mode === 'create');
+  const [walletDisplay, setWalletDisplay] = useState<WalletDisplay>(() => {
+    if (!card || !userCardHasScanImage(card)) {
+      return 'classic';
+    }
+    return card.wallet_display === 'classic' ? 'classic' : 'photo';
+  });
+  const [photoFace, setPhotoFace] = useState<PhotoFace>(card?.photo_face ?? 'front');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -266,9 +287,8 @@ export function MyCardFormScreen(): React.JSX.Element {
     scan_image_url: card?.scan_image_url,
     scan_image_front_url: card?.scan_image_front_url,
     scan_image_back_url: card?.scan_image_back_url,
-    // In form mode, prioritize template preview so design selection is immediately visible.
-    wallet_display: 'classic',
-    photo_face: card?.photo_face ?? 'front',
+    wallet_display: walletDisplay,
+    photo_face: photoFace,
     created_at: card?.created_at ?? '',
     updated_at: card?.updated_at ?? '',
   };
@@ -330,6 +350,8 @@ export function MyCardFormScreen(): React.JSX.Element {
             designId,
             isPrimary,
             editedFields: [...edited],
+            wallet_display: walletDisplay,
+            photo_face: photoFace,
           });
         } else {
           await updateUserCard(card._id, {
@@ -338,6 +360,15 @@ export function MyCardFormScreen(): React.JSX.Element {
             design_id: designId,
             is_primary: isPrimary,
           });
+          const initialWalletDisplay =
+            card.wallet_display === 'classic' ? 'classic' : 'photo';
+          const initialPhotoFace = card.photo_face ?? 'front';
+          if (
+            userCardHasScanImage(card) &&
+            (walletDisplay !== initialWalletDisplay || photoFace !== initialPhotoFace)
+          ) {
+            await updateUserCardWalletDisplay(card._id, { walletDisplay, photoFace });
+          }
         }
       } else {
         await createUserCard(buildDraft(normalized, normalizedCustomFields, designId, isPrimary));
@@ -411,7 +442,25 @@ export function MyCardFormScreen(): React.JSX.Element {
 
       <View style={styles.previewWrap}>
         <Text style={styles.previewLabel}>Live preview</Text>
-        <MyCardFace card={previewCard} compact />
+        <View
+          style={[
+            styles.previewCardSlot,
+            { height: getMyCardDisplayHeight(previewCard) },
+          ]}
+        >
+          <MyCardFace
+            card={previewCard}
+            compact
+            onWalletDisplayChange={(_cardId, nextDisplay) => setWalletDisplay(nextDisplay)}
+            onPhotoFaceChange={(_cardId, nextFace) => setPhotoFace(nextFace)}
+          />
+        </View>
+        {userCardHasScanImage(previewCard) ? (
+          <Text style={styles.previewHint}>
+            Tap ⇄ to switch between your design and scan photo
+            {previewCard.scan_image_back_url ? ', or ⇆ for front/back.' : '.'}
+          </Text>
+        ) : null}
       </View>
 
       <DesignPicker selectedDesignId={designId} onSelect={setDesignId} />

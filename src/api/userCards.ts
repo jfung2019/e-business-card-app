@@ -10,6 +10,8 @@ import { getAccessToken } from './authToken';
 import { ApiClientError, apiDelete, apiGet, apiPatch, apiPost, apiPut } from './client';
 
 const PROCESS_USER_CARD_TIMEOUT_MS = 60_000;
+const PROCESS_USER_CARD_WITH_ENHANCE_TIMEOUT_MS = 120_000;
+const SCAN_IMAGE_ENHANCEMENT_TIMEOUT_MS = 120_000;
 
 type UserCardApiPayload = UserCard & { id?: string };
 type UserCardShareLinkPayload = {
@@ -31,6 +33,31 @@ function normalizeUserCard(card: UserCardApiPayload): UserCard {
 export async function listUserCards(): Promise<UserCard[]> {
   const cards = await apiGet<UserCardApiPayload[]>(`${API_V1_PREFIX}/user-cards`);
   return cards.map(normalizeUserCard);
+}
+
+export async function retryUserCardScanEnhancement(cardId: string): Promise<UserCard> {
+  const card = await apiPost<UserCardApiPayload>(
+    `${API_V1_PREFIX}/user-cards/${cardId}/scan-image-enhancement/retry`,
+    {},
+    { timeoutMs: SCAN_IMAGE_ENHANCEMENT_TIMEOUT_MS },
+  );
+  return normalizeUserCard(card);
+}
+
+export async function confirmUserCardScanEnhancement(cardId: string): Promise<UserCard> {
+  const card = await apiPost<UserCardApiPayload>(
+    `${API_V1_PREFIX}/user-cards/${cardId}/scan-image-enhancement/confirm`,
+    {},
+  );
+  return normalizeUserCard(card);
+}
+
+export async function discardUserCardScanEnhancement(cardId: string): Promise<UserCard> {
+  const card = await apiPost<UserCardApiPayload>(
+    `${API_V1_PREFIX}/user-cards/${cardId}/scan-image-enhancement/discard`,
+    {},
+  );
+  return normalizeUserCard(card);
 }
 
 export async function createUserCard(draft: UserCardDraft): Promise<UserCard> {
@@ -66,10 +93,19 @@ export async function parseUserCard(rawOcrText: string): Promise<ParsedUserCardP
 export async function processUserCard(
   rawOcrText: string,
   imageBase64?: string,
-  options?: { designId?: string; isPrimary?: boolean; backImageBase64?: string },
+  options?: {
+    designId?: string;
+    isPrimary?: boolean;
+    backImageBase64?: string;
+    enhanceScanImage?: boolean;
+  },
 ): Promise<UserCard> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), PROCESS_USER_CARD_TIMEOUT_MS);
+  const timeoutMs =
+    options?.enhanceScanImage === false
+      ? PROCESS_USER_CARD_TIMEOUT_MS
+      : PROCESS_USER_CARD_WITH_ENHANCE_TIMEOUT_MS;
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const formData = new FormData();
@@ -85,6 +121,9 @@ export async function processUserCard(
     }
     if (options?.isPrimary) {
       formData.append('is_primary', 'true');
+    }
+    if (options?.enhanceScanImage === false) {
+      formData.append('enhance_scan_image', 'false');
     }
 
     const token = await getAccessToken();

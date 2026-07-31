@@ -20,6 +20,7 @@ import {
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { useOfflineAutoSync } from '../hooks/useOfflineAutoSync';
+import { useOfflineScanReviewPrompt } from '../hooks/useOfflineScanReviewPrompt';
 import { useAuth } from '../context/AuthContext';
 import { useShareLink } from '../context/ShareLinkContext';
 import { useAppTheme } from '../context/ThemeContext';
@@ -34,6 +35,8 @@ import { ManageAccountScreen } from '../screens/ManageAccountScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { ReorderMyCardsScreen } from '../screens/ReorderMyCardsScreen';
 import { ScanScreen } from '../screens/ScanScreen';
+import { ScanEnhancementLoadingScreen } from '../screens/ScanEnhancementLoadingScreen';
+import { ScanImageReviewScreen } from '../screens/ScanImageReviewScreen';
 import { ShareMyCardScreen } from '../screens/ShareMyCardScreen';
 import { SharedCardPreviewScreen } from '../screens/SharedCardPreviewScreen';
 import type { CapturedCard } from '../types/card';
@@ -54,6 +57,12 @@ export type MainStackParamList = {
   Scan: undefined;
   CardDetail: { card: CapturedCard };
   MyCardScan: undefined;
+  ScanImageReview:
+    | { kind: 'captured'; card: CapturedCard; errorMessage?: string }
+    | { kind: 'user'; card: UserCard; errorMessage?: string };
+  ScanEnhancementLoading:
+    | { kind: 'captured'; cardId: string; card: CapturedCard }
+    | { kind: 'user'; cardId: string; card: UserCard };
   MyCardForm:
     | { mode: 'create'; parsedPreview?: ParsedUserCardPreview }
     | { mode: 'edit'; card: UserCard };
@@ -124,6 +133,16 @@ function MainNavigator({
         options={{ title: 'All Collected' }}
       />
       <MainStack.Screen name="Scan" component={ScanScreen} options={{ title: 'Scan Card' }} />
+      <MainStack.Screen
+        name="ScanImageReview"
+        component={ScanImageReviewScreen}
+        options={{ title: 'Review Scan' }}
+      />
+      <MainStack.Screen
+        name="ScanEnhancementLoading"
+        component={ScanEnhancementLoadingScreen}
+        options={{ title: 'Processing', headerBackVisible: false, gestureEnabled: false }}
+      />
       <MainStack.Screen
         name="CardDetail"
         component={CardDetailScreen}
@@ -196,6 +215,7 @@ export function AppNavigator(): React.JSX.Element {
   userRef.current = user;
 
   useOfflineAutoSync(Boolean(user));
+  useOfflineScanReviewPrompt(Boolean(user));
 
   const navigationTheme = useMemo(
     () => ({

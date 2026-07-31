@@ -227,11 +227,8 @@ export function useUserCards(): UseUserCardsResult {
   useEffect(() => {
 
     return onOfflineSyncComplete(() => {
-
       void fetchUserCards();
-
     });
-
   }, [fetchUserCards]);
 
 

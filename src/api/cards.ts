@@ -4,6 +4,8 @@ import { getAccessToken } from './authToken';
 import { ApiClientError, apiDelete, apiGet, apiPatch, apiPost, apiPut } from './client';
 
 const PROCESS_CARD_TIMEOUT_MS = 60_000;
+const SCAN_IMAGE_ENHANCEMENT_TIMEOUT_MS = 120_000;
+const FIELD_ENHANCEMENT_TIMEOUT_MS = 60_000;
 
 type CapturedCardApiPayload = CapturedCard & { id?: string };
 
@@ -17,6 +19,31 @@ function normalizeCapturedCard(card: CapturedCardApiPayload): CapturedCard {
 export async function listCards(): Promise<CapturedCard[]> {
   const cards = await apiGet<CapturedCardApiPayload[]>(`${API_V1_PREFIX}/cards`);
   return cards.map(normalizeCapturedCard);
+}
+
+export async function retryCardScanEnhancement(cardId: string): Promise<CapturedCard> {
+  const card = await apiPost<CapturedCardApiPayload>(
+    `${API_V1_PREFIX}/cards/${cardId}/scan-image-enhancement/retry`,
+    {},
+    { timeoutMs: SCAN_IMAGE_ENHANCEMENT_TIMEOUT_MS },
+  );
+  return normalizeCapturedCard(card);
+}
+
+export async function confirmCardScanEnhancement(cardId: string): Promise<CapturedCard> {
+  const card = await apiPost<CapturedCardApiPayload>(
+    `${API_V1_PREFIX}/cards/${cardId}/scan-image-enhancement/confirm`,
+    {},
+  );
+  return normalizeCapturedCard(card);
+}
+
+export async function discardCardScanEnhancement(cardId: string): Promise<CapturedCard> {
+  const card = await apiPost<CapturedCardApiPayload>(
+    `${API_V1_PREFIX}/cards/${cardId}/scan-image-enhancement/discard`,
+    {},
+  );
+  return normalizeCapturedCard(card);
 }
 
 export async function processCard(
@@ -188,6 +215,7 @@ export async function enhanceCard(cardId: string): Promise<CapturedCard> {
   const card = await apiPost<CapturedCardApiPayload>(
     `${API_V1_PREFIX}/cards/${cardId}/enhance`,
     {},
+    { timeoutMs: FIELD_ENHANCEMENT_TIMEOUT_MS },
   );
   return normalizeCapturedCard(card);
 }

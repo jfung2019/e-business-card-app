@@ -1,22 +1,18 @@
-import React, { useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
+import { ScanSubmissionLoadingView } from '../components/ScanSubmissionLoadingView';
 import { ScanSuccessPanel } from '../components/ScanSuccessPanel';
 import { useAppTheme } from '../context/ThemeContext';
 import { useProcessUserCard } from '../hooks/useProcessUserCard';
+import { useScanSubmissionProgress } from '../hooks/useScanSubmissionProgress';
 import type { MainStackParamList } from '../navigation/AppNavigator';
 import type { WalletThemeColors } from '../theme/appTheme';
 import { scanBusinessCard, type OcrSource } from '../services/ocr';
 import { mergeCardOcrText } from '../utils/mergeCardOcrText';
+import { shouldOpenScanImageReview } from '../utils/scanImageReview';
 
 type ScanNavigation = NativeStackNavigationProp<MainStackParamList, 'MyCardScan'>;
 
@@ -157,12 +153,22 @@ export function MyCardScanScreen(): React.JSX.Element {
   const [frontOcrText, setFrontOcrText] = useState<string | null>(null);
   const [frontImageBase64, setFrontImageBase64] = useState<string | null>(null);
   const [awaitingBackCapture, setAwaitingBackCapture] = useState(false);
-  const [submissionVariant, setSubmissionVariant] = useState<'frontOnly' | 'frontAndBack'>(
-    'frontOnly',
-  );
 
   const isSuccess = state.status === 'success' && userCard !== null;
   const isBusy = state.status === 'loading';
+  const { progressWidth, showProgress, showResult, isHolding } = useScanSubmissionProgress(
+    isBusy,
+    isSuccess,
+  );
+  const pendingImageReview =
+    userCard !== null &&
+    shouldOpenScanImageReview(userCard.scan_image_enhancement_status, isOfflineDraft);
+
+  useEffect(() => {
+    if (showResult && pendingImageReview && userCard) {
+      navigation.replace('ScanImageReview', { kind: 'user', card: userCard });
+    }
+  }, [isOfflineDraft, navigation, pendingImageReview, showResult, userCard]);
 
   const handleScanFront = async (source: OcrSource) => {
     reset();
@@ -194,7 +200,6 @@ export function MyCardScanScreen(): React.JSX.Element {
       return;
     }
 
-    setSubmissionVariant(backImageBase64 ? 'frontAndBack' : 'frontOnly');
     await submitScan({
       ocrText: mergeCardOcrText(frontOcrText, backOcrText),
       imageBase64: frontImageBase64,
@@ -231,7 +236,6 @@ export function MyCardScanScreen(): React.JSX.Element {
     setFrontOcrText(null);
     setFrontImageBase64(null);
     setAwaitingBackCapture(false);
-    setSubmissionVariant('frontOnly');
     navigation.navigate('Collection');
   };
 
@@ -245,7 +249,6 @@ export function MyCardScanScreen(): React.JSX.Element {
     setFrontOcrText(null);
     setFrontImageBase64(null);
     setAwaitingBackCapture(false);
-    setSubmissionVariant('frontOnly');
     navigation.navigate('MyCardForm', { mode: 'edit', card });
   };
 
@@ -274,6 +277,16 @@ export function MyCardScanScreen(): React.JSX.Element {
       </Text>
     </Pressable>
   );
+
+  if (showProgress) {
+    return (
+      <ScanSubmissionLoadingView
+        progressWidth={progressWidth}
+        isHolding={isHolding}
+        preset="submit"
+      />
+    );
+  }
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -344,22 +357,11 @@ export function MyCardScanScreen(): React.JSX.Element {
         </>
       )}
 
-      {isBusy && (
-        <View style={styles.feedback}>
-          <ActivityIndicator size="large" color={wallet.title} />
-          <Text style={styles.feedbackText}>
-            {submissionVariant === 'frontAndBack'
-              ? 'Saving front and back scans...'
-              : 'Saving your card scan...'}
-          </Text>
-        </View>
-      )}
-
       {scanError ? <Text style={styles.errorText}>{scanError}</Text> : null}
 
       {state.status === 'error' && <Text style={styles.errorText}>{state.message}</Text>}
 
-      {isSuccess && userCard && (
+      {showResult && isSuccess && userCard && !pendingImageReview && (
         <ScanSuccessPanel
           coreFields={userCard.core_fields}
           title={isOfflineDraft ? 'Saved offline' : 'Card added!'}
