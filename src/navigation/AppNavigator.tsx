@@ -163,7 +163,7 @@ function MainNavigator({
       <MainStack.Screen
         name="ReorderMyCards"
         component={ReorderMyCardsScreen}
-        options={{ title: 'Reorder Cards' }}
+        options={{ title: 'Reorder' }}
       />
       <MainStack.Screen
         name="ShareMyCard"

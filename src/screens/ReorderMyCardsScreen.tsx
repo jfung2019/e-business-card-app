@@ -9,11 +9,12 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
-import DraggableFlatList, {
+import {
+  NestableDraggableFlatList,
+  NestableScrollContainer,
   type RenderItemParams,
   ScaleDecorator,
 } from 'react-native-draggable-flatlist';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { MyCardFace } from '../components/MyCardFace';
 import { reorderUserCards } from '../api/userCards';
@@ -31,8 +32,10 @@ function createStyles(wallet: WalletThemeColors) {
     screen: {
       flex: 1,
       backgroundColor: wallet.background,
+    },
+    scrollContent: {
       padding: 20,
-      gap: 16,
+      paddingBottom: 40,
     },
     introCard: {
       backgroundColor: wallet.surface,
@@ -40,7 +43,7 @@ function createStyles(wallet: WalletThemeColors) {
       borderWidth: 1,
       borderColor: wallet.border,
       padding: 16,
-      gap: 6,
+      marginBottom: 16,
     },
     eyebrow: {
       color: wallet.accentMuted,
@@ -54,20 +57,17 @@ function createStyles(wallet: WalletThemeColors) {
       fontSize: 24,
       fontWeight: '700',
       letterSpacing: -0.2,
+      marginTop: 6,
     },
     hint: {
       color: wallet.subtitle,
       fontSize: 14,
       lineHeight: 20,
-    },
-    list: {
-      gap: 12,
-      paddingBottom: 24,
+      marginTop: 6,
     },
     row: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 12,
       backgroundColor: wallet.surface,
       borderRadius: 18,
       borderWidth: 1,
@@ -77,32 +77,21 @@ function createStyles(wallet: WalletThemeColors) {
     rowActive: {
       opacity: 0.9,
     },
-    handle: {
-      fontSize: 20,
-      color: wallet.title,
-      width: 34,
-      height: 48,
-      borderRadius: 17,
-      backgroundColor: wallet.background,
-      textAlign: 'center',
-      lineHeight: 48,
-      overflow: 'hidden',
-    },
     cardWrap: {
       flex: 1,
-      gap: 8,
     },
     rowMeta: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      gap: 10,
+      marginBottom: 8,
     },
     cardName: {
       color: wallet.title,
       fontSize: 14,
       fontWeight: '700',
       flex: 1,
+      marginRight: 10,
     },
     primaryBadge: {
       color: wallet.addButtonText,
@@ -114,17 +103,27 @@ function createStyles(wallet: WalletThemeColors) {
       fontSize: 11,
       fontWeight: '700',
     },
+    separator: {
+      height: 12,
+    },
     errorText: {
       color: wallet.error,
       fontWeight: '600',
       textAlign: 'center',
+      marginTop: 16,
+    },
+    emptyText: {
+      color: wallet.subtitle,
+      fontSize: 14,
+      textAlign: 'center',
+      paddingVertical: 20,
     },
     saveButton: {
       backgroundColor: wallet.addButton,
       borderRadius: 999,
       paddingVertical: 14,
       alignItems: 'center',
-      marginTop: 'auto',
+      marginTop: 20,
     },
     saveButtonDisabled: {
       opacity: 0.7,
@@ -142,7 +141,7 @@ export function ReorderMyCardsScreen(): React.JSX.Element {
   const route = useRoute<ReorderRoute>();
   const { wallet } = useAppTheme();
   const styles = useMemo(() => createStyles(wallet), [wallet]);
-  const [cards, setCards] = useState(route.params.cards);
+  const [cards, setCards] = useState<UserCard[]>(() => route.params.cards ?? []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -167,11 +166,13 @@ export function ReorderMyCardsScreen(): React.JSX.Element {
     <ScaleDecorator>
       <Pressable
         onLongPress={drag}
+        delayLongPress={200}
         disabled={isActive}
         style={[styles.row, isActive && styles.rowActive]}
+        accessibilityRole="button"
+        accessibilityLabel="Long press and drag to reorder card"
       >
-        <Text style={styles.handle}>≡</Text>
-        <View style={styles.cardWrap}>
+        <View style={styles.cardWrap} pointerEvents="none">
           <View style={styles.rowMeta}>
             <Text style={styles.cardName} numberOfLines={1}>
               {item.core_fields.name || 'Untitled card'}
@@ -187,36 +188,46 @@ export function ReorderMyCardsScreen(): React.JSX.Element {
   );
 
   return (
-    <GestureHandlerRootView style={styles.screen}>
-      <View style={styles.introCard}>
-        <Text style={styles.eyebrow}>Card order</Text>
-        <Text style={styles.title}>Choose what people see first</Text>
-        <Text style={styles.hint}>
-          Long-press the handle and drag to reorder. The first card becomes your primary card.
-        </Text>
-      </View>
-
-      <DraggableFlatList
-        data={cards}
-        keyExtractor={item => item._id}
-        onDragEnd={({ data }) => setCards(data)}
-        renderItem={renderItem}
-        contentContainerStyle={styles.list}
-      />
-
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-      <Pressable
-        onPress={() => void handleSave()}
-        disabled={saving}
-        style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+    <View style={styles.screen}>
+      <NestableScrollContainer
+        style={styles.screen}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
       >
-        {saving ? (
-          <ActivityIndicator color={wallet.addButtonText} />
-        ) : (
-          <Text style={styles.saveButtonText}>Save order</Text>
-        )}
-      </Pressable>
-    </GestureHandlerRootView>
+        <View style={styles.introCard}>
+          <Text style={styles.eyebrow}>Card order</Text>
+          <Text style={styles.title}>Choose what people see first</Text>
+          <Text style={styles.hint}>
+            Long-press a card and drag to reorder. The first card becomes your primary card.
+          </Text>
+        </View>
+
+        <NestableDraggableFlatList
+          data={cards}
+          keyExtractor={item => item._id}
+          onDragEnd={({ data }) => setCards(data)}
+          renderItem={renderItem}
+          activationDistance={20}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>No cards available to reorder right now.</Text>
+          }
+        />
+
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+        <Pressable
+          onPress={() => void handleSave()}
+          disabled={saving}
+          style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+        >
+          {saving ? (
+            <ActivityIndicator color={wallet.addButtonText} />
+          ) : (
+            <Text style={styles.saveButtonText}>Save order</Text>
+          )}
+        </Pressable>
+      </NestableScrollContainer>
+    </View>
   );
 }
