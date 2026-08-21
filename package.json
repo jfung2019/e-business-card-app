@@ -3,7 +3,8 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "android": "react-native run-android",
+    "android": "react-native run-android --mode devDebug --appId com.megaannumai.ebusinesscard.dev",
+    "android:prod": "react-native run-android --mode prodDebug --appId com.megaannumai.ebusinesscard",
     "android:win": "powershell -ExecutionPolicy Bypass -File ./scripts/run-android-win.ps1",
     "android:win:prod": "powershell -ExecutionPolicy Bypass -File ./scripts/run-android-win.ps1 -Prod",
     "android:win:device": "powershell -ExecutionPolicy Bypass -File ./scripts/run-android-win.ps1 -Device",
@@ -35,6 +36,7 @@
     "react-native-nitro-image": "^0.15.1",
     "react-native-nitro-modules": "^0.36.1",
     "react-native-reanimated": "^4.4.1",
+    "react-native-reorderable-list": "^0.18.1",
     "react-native-safe-area-context": "^5.4.0",
     "react-native-screens": "^4.10.0",
     "react-native-vision-camera": "^5.1.1",
