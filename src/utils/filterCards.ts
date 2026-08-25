@@ -1,6 +1,11 @@
-import type { CapturedCard } from '../types/card';
+import type { CoreFields } from '../types/card';
 
-function searchableText(card: CapturedCard): string {
+interface FilterableCard {
+  core_fields: CoreFields;
+  custom_fields: Record<string, string>;
+}
+
+function searchableText(card: FilterableCard): string {
   const { core_fields, custom_fields } = card;
   const parts = [
     core_fields.name,
@@ -17,7 +22,7 @@ function searchableText(card: CapturedCard): string {
     .toLowerCase();
 }
 
-export function filterCollectedCards(cards: CapturedCard[], query: string): CapturedCard[] {
+export function filterCardsByQuery<T extends FilterableCard>(cards: T[], query: string): T[] {
   const trimmed = query.trim().toLowerCase();
   if (!trimmed) {
     return cards;

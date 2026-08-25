@@ -14,7 +14,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 
 import { DesignPicker } from '../components/DesignPicker';
-import { getMyCardDisplayHeight, MY_CARD_WIDTH, MyCardFace } from '../components/MyCardFace';
+import { MY_CARD_WIDTH, MyCardFace } from '../components/MyCardFace';
 import { createUserCard, deleteUserCard, updateUserCard, updateUserCardWalletDisplay } from '../api/userCards';
 import { ApiClientError } from '../api/client';
 import {
@@ -119,9 +119,7 @@ function createStyles(wallet: WalletThemeColors) {
       alignItems: 'center',
       gap: 10,
       marginBottom: 8,
-    },
-    previewCardSlot: {
-      width: '100%',
+      alignSelf: 'center',
     },
     previewHint: {
       color: wallet.subtitle,
@@ -442,23 +440,17 @@ export function MyCardFormScreen(): React.JSX.Element {
 
       <View style={styles.previewWrap}>
         <Text style={styles.previewLabel}>Live preview</Text>
-        <View
-          style={[
-            styles.previewCardSlot,
-            { height: getMyCardDisplayHeight(previewCard) },
-          ]}
-        >
-          <MyCardFace
-            card={previewCard}
-            compact
-            onWalletDisplayChange={(_cardId, nextDisplay) => setWalletDisplay(nextDisplay)}
-            onPhotoFaceChange={(_cardId, nextFace) => setPhotoFace(nextFace)}
-          />
-        </View>
+        <MyCardFace
+          card={previewCard}
+          compact
+          controlsBelow
+          onWalletDisplayChange={(_cardId, nextDisplay) => setWalletDisplay(nextDisplay)}
+          onPhotoFaceChange={(_cardId, nextFace) => setPhotoFace(nextFace)}
+        />
         {userCardHasScanImage(previewCard) ? (
           <Text style={styles.previewHint}>
-            Tap ⇄ to switch between your design and scan photo
-            {previewCard.scan_image_back_url ? ', or ⇆ for front/back.' : '.'}
+            Use the buttons below the preview to switch between design and scan
+            {previewCard.scan_image_back_url ? ', or front and back views.' : '.'}
           </Text>
         ) : null}
       </View>
