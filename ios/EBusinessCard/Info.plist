@@ -37,6 +37,8 @@
 	<string>Scan business cards with the camera</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Pick a business card photo from your library</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Save scanned business card photos to your library</string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

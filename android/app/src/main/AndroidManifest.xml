@@ -18,6 +18,14 @@
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         tools:node="remove" />
 
+    <!--
+      Saving a scanned card photo to the gallery only needs legacy write access
+      pre-scoped-storage; Android 10+ writes via MediaStore need no permission.
+    -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+
     <!-- Android 11+: allow resolving https/http VIEW intents (open links in browser). -->
     <queries>
         <intent>
