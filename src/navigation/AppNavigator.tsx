@@ -24,9 +24,9 @@ import { useOfflineScanReviewPrompt } from '../hooks/useOfflineScanReviewPrompt'
 import { useAuth } from '../context/AuthContext';
 import { useShareLink } from '../context/ShareLinkContext';
 import { useAppTheme } from '../context/ThemeContext';
+import { AllCardsScreen } from '../screens/AllCardsScreen';
 import { CardDetailScreen } from '../screens/CardDetailScreen';
 import { ChangePasswordScreen } from '../screens/ChangePasswordScreen';
-import { CollectedCardsScreen } from '../screens/CollectedCardsScreen';
 import { CollectionScreen } from '../screens/CollectionScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { MyCardFormScreen } from '../screens/MyCardFormScreen';
@@ -53,7 +53,7 @@ export type AuthStackParamList = {
 
 export type MainStackParamList = {
   Collection: undefined;
-  CollectedCards: undefined;
+  AllCards: { initialMode: 'my' | 'collected' };
   Scan: undefined;
   CardDetail: { card: CapturedCard };
   MyCardScan: undefined;
@@ -128,9 +128,9 @@ function MainNavigator({
         options={{ title: 'Manage account' }}
       />
       <MainStack.Screen
-        name="CollectedCards"
-        component={CollectedCardsScreen}
-        options={{ title: 'All Collected' }}
+        name="AllCards"
+        component={AllCardsScreen}
+        options={{ title: 'All Cards' }}
       />
       <MainStack.Screen name="Scan" component={ScanScreen} options={{ title: 'Scan Card' }} />
       <MainStack.Screen

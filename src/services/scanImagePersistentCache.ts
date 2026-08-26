@@ -4,6 +4,15 @@ import type { ImageSourcePropType } from 'react-native';
 import { API_BASE_URL } from '../config/apiConfig';
 
 const KEY_PREFIX = '@ebc/scanImageCache/';
+const SQLITE_FULL_MARKER = 'SQLITE_FULL';
+
+function isSqliteFullError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    (error.message.includes(SQLITE_FULL_MARKER) ||
+      error.message.includes('database or disk is full'))
+  );
+}
 
 export function normalizeScanImageCacheKey(uriOrPath: string): string {
   if (uriOrPath.startsWith(API_BASE_URL)) {
@@ -47,7 +56,20 @@ export async function writePersistedScanImageSource(
     return;
   }
   const cacheKey = normalizeScanImageCacheKey(resolvedUri);
-  await AsyncStorage.setItem(storageKey(cacheKey), uri);
+  try {
+    await AsyncStorage.setItem(storageKey(cacheKey), uri);
+  } catch (error) {
+    if (isSqliteFullError(error)) {
+      try {
+        await clearScanImagePersistentCache();
+        await AsyncStorage.setItem(storageKey(cacheKey), uri);
+      } catch {
+        // Keep render path resilient even when persistent image cache cannot be written.
+      }
+      return;
+    }
+    throw error;
+  }
 }
 
 export async function clearScanImagePersistentCache(): Promise<void> {

@@ -228,13 +228,22 @@ export function CollectionScreen(): React.JSX.Element {
         <View style={styles.myCardsSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>My cards</Text>
-            {userCards.length > 1 && !userCards.some(card => isLocalUserCardId(card._id)) ? (
-              <Pressable
-                onPress={() => navigation.navigate('ReorderMyCards', { cards: userCards })}
-              >
-                <Text style={styles.sectionAction}>Reorder</Text>
-              </Pressable>
-            ) : null}
+            <View style={styles.sectionTitleActions}>
+              {userCards.length > 0 ? (
+                <Pressable
+                  onPress={() => navigation.navigate('AllCards', { initialMode: 'my' })}
+                >
+                  <Text style={styles.sectionAction}>See all</Text>
+                </Pressable>
+              ) : null}
+              {userCards.length > 1 && !userCards.some(card => isLocalUserCardId(card._id)) ? (
+                <Pressable
+                  onPress={() => navigation.navigate('ReorderMyCards', { cards: userCards })}
+                >
+                  <Text style={styles.sectionAction}>Reorder</Text>
+                </Pressable>
+              ) : null}
+            </View>
           </View>
 
           {bannerVisible ? (
@@ -330,7 +339,9 @@ export function CollectionScreen(): React.JSX.Element {
               <Text style={styles.sectionTitle}>Collected</Text>
               <View style={styles.sectionTitleActions}>
                 {hasMoreCollected ? (
-                  <Pressable onPress={() => navigation.navigate('CollectedCards')}>
+                  <Pressable
+                    onPress={() => navigation.navigate('AllCards', { initialMode: 'collected' })}
+                  >
                     <Text style={styles.sectionAction}>See all</Text>
                   </Pressable>
                 ) : null}
@@ -394,7 +405,7 @@ export function CollectionScreen(): React.JSX.Element {
               />
               {hasMoreCollected ? (
                 <Pressable
-                  onPress={() => navigation.navigate('CollectedCards')}
+                  onPress={() => navigation.navigate('AllCards', { initialMode: 'collected' })}
                   style={styles.seeAllButton}
                 >
                   <Text style={styles.seeAllButtonText}>

@@ -6,6 +6,7 @@ import {
   View,
 } from 'react-native';
 
+import { useAppTheme } from '../context/ThemeContext';
 import { getCardDesign } from '../theme/cardDesigns';
 import type { PhotoFace, UserCard, WalletDisplay } from '../types/userCard';
 import {
@@ -25,6 +26,8 @@ interface MyCardFaceProps {
   card: UserCard;
   onPress?: () => void;
   compact?: boolean;
+  /** Renders scan/back controls under the card instead of overlay badges on the card. */
+  controlsBelow?: boolean;
   onWalletDisplayChange?: (cardId: string, walletDisplay: WalletDisplay) => void;
   onPhotoFaceChange?: (cardId: string, photoFace: PhotoFace) => void;
 }
@@ -74,14 +77,69 @@ function FlipBadge({
   );
 }
 
+function BelowCardControls({
+  showPhoto,
+  photoFace,
+  hasBackPhoto,
+  onFlip,
+  onFlipFace,
+}: {
+  showPhoto: boolean;
+  photoFace: PhotoFace;
+  hasBackPhoto: boolean;
+  onFlip: () => void;
+  onFlipFace: () => void;
+}): React.JSX.Element {
+  const { wallet } = useAppTheme();
+
+  return (
+    <View style={styles.belowControlsRow}>
+      {showPhoto && hasBackPhoto ? (
+        <Pressable
+          onPress={onFlipFace}
+          hitSlop={8}
+          style={({ pressed }) => [
+            styles.belowControlButton,
+            { borderColor: wallet.border },
+            pressed && styles.belowControlButtonPressed,
+          ]}
+          accessibilityLabel={photoFace === 'front' ? 'Show back view' : 'Show front view'}
+          accessibilityRole="button"
+        >
+          <Text style={[styles.belowControlText, { color: wallet.title }]}>
+            {photoFace === 'front' ? 'Back view' : 'Front view'}
+          </Text>
+        </Pressable>
+      ) : null}
+      <Pressable
+        onPress={onFlip}
+        hitSlop={8}
+        style={({ pressed }) => [
+          styles.belowControlButton,
+          { borderColor: wallet.border },
+          pressed && styles.belowControlButtonPressed,
+        ]}
+        accessibilityLabel="Switch card style"
+        accessibilityRole="button"
+      >
+        <Text style={[styles.belowControlText, { color: wallet.title }]}>
+          {showPhoto ? '⇄ Design' : '⇄ Scan'}
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
+
 function TemplateCardFace({
   card,
   showFlip,
   onFlip,
+  controlsBelow,
 }: {
   card: UserCard;
   showFlip: boolean;
   onFlip?: () => void;
+  controlsBelow?: boolean;
 }): React.JSX.Element {
   const design = getCardDesign(card.design_id);
   const { core_fields } = card;
@@ -94,7 +152,7 @@ function TemplateCardFace({
           <Text style={[styles.company, { color: design.text }]} numberOfLines={1}>
             {core_fields.company_name ?? core_fields.name}
           </Text>
-          {showFlip && onFlip ? (
+          {showFlip && onFlip && !controlsBelow ? (
             <FlipBadge
               onFlip={onFlip}
               variant="classic"
@@ -132,11 +190,13 @@ export function getMyCardDisplayHeight(card: UserCard): number {
 function MyCardFaceContent({
   card,
   compact,
+  controlsBelow,
   onWalletDisplayChange,
   onPhotoFaceChange,
 }: {
   card: UserCard;
   compact?: boolean;
+  controlsBelow?: boolean;
   onWalletDisplayChange?: (cardId: string, walletDisplay: WalletDisplay) => void;
   onPhotoFaceChange?: (cardId: string, photoFace: PhotoFace) => void;
 }): React.JSX.Element {
@@ -164,7 +224,7 @@ function MyCardFaceContent({
     onPhotoFaceChange(card._id, photoFace === 'front' ? 'back' : 'front');
   };
 
-  return (
+  const cardBody = (
     <View
       style={[
         styles.cardShell,
@@ -182,7 +242,7 @@ function MyCardFaceContent({
             resizeMode="cover"
             variant="image"
           />
-          {hasBackPhoto ? (
+          {hasBackPhoto && !controlsBelow ? (
             <Pressable
               onPress={handleFlipFace}
               hitSlop={8}
@@ -196,20 +256,40 @@ function MyCardFaceContent({
               </Text>
             </Pressable>
           ) : null}
-          <FlipBadge
-            onFlip={handleFlip}
-            variant="photo"
-            textColor={design.text}
-            mutedColor={design.muted}
-          />
+          {!controlsBelow ? (
+            <FlipBadge
+              onFlip={handleFlip}
+              variant="photo"
+              textColor={design.text}
+              mutedColor={design.muted}
+            />
+          ) : null}
         </>
       ) : (
         <TemplateCardFace
           card={card}
           showFlip={hasScan}
           onFlip={hasScan ? handleFlip : undefined}
+          controlsBelow={controlsBelow}
         />
       )}
+    </View>
+  );
+
+  if (!controlsBelow || !hasScan) {
+    return cardBody;
+  }
+
+  return (
+    <View style={[styles.belowControlsWrap, compact && styles.belowControlsWrapCompact]}>
+      {cardBody}
+      <BelowCardControls
+        showPhoto={showPhoto}
+        photoFace={photoFace}
+        hasBackPhoto={hasBackPhoto}
+        onFlip={handleFlip}
+        onFlipFace={handleFlipFace}
+      />
     </View>
   );
 }
@@ -218,6 +298,7 @@ export function MyCardFace({
   card,
   onPress,
   compact = false,
+  controlsBelow = false,
   onWalletDisplayChange,
   onPhotoFaceChange,
 }: MyCardFaceProps): React.JSX.Element {
@@ -227,6 +308,7 @@ export function MyCardFace({
     <MyCardFaceContent
       card={card}
       compact={compact}
+      controlsBelow={controlsBelow}
       onWalletDisplayChange={onWalletDisplayChange}
       onPhotoFaceChange={onPhotoFaceChange}
     />
@@ -369,5 +451,32 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.4,
     textTransform: 'uppercase',
+  },
+  belowControlsWrap: {
+    width: MY_CARD_WIDTH,
+    gap: 12,
+  },
+  belowControlsWrapCompact: {
+    width: '100%',
+  },
+  belowControlsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  belowControlButton: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  belowControlButtonPressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.96 }],
+  },
+  belowControlText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
