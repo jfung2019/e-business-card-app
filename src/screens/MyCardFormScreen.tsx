@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -12,8 +12,11 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
+import ViewShot, { type ViewShotRef } from 'react-native-view-shot';
 
+import { CardImageComposer, type CardImageComposerRef } from '../components/CardImageComposer';
 import { DesignPicker } from '../components/DesignPicker';
+import { ExportCardModal, type CardExportOption } from '../components/ExportCardModal';
 import { MY_CARD_WIDTH, MyCardFace } from '../components/MyCardFace';
 import { createUserCard, deleteUserCard, updateUserCard, updateUserCardWalletDisplay } from '../api/userCards';
 import { ApiClientError } from '../api/client';
@@ -24,6 +27,7 @@ import {
   removeQueuedUserScan,
   updateQueuedUserScan,
 } from '../services/offlineUserCardQueue';
+import { exportCardAsPdf, saveCardPhotosToAlbum } from '../services/cardExport';
 import { useAppTheme } from '../context/ThemeContext';
 import type { MainStackParamList } from '../navigation/AppNavigator';
 import { DEFAULT_CARD_DESIGN_ID } from '../theme/cardDesigns';
@@ -31,6 +35,7 @@ import type { WalletThemeColors } from '../theme/appTheme';
 import type { CoreFields } from '../types/card';
 import type { UserCard, UserCardDraft, PhotoFace, WalletDisplay } from '../types/userCard';
 import { formatCustomFieldLabel } from '../utils/formatCustomFieldLabel';
+import { useAuthenticatedImageSource } from '../utils/scanImage';
 import { userCardHasScanImage } from '../utils/walletDisplay';
 import {
   normalizeCustomFields as normalizeStoredCustomFields,
@@ -197,6 +202,34 @@ function createStyles(wallet: WalletThemeColors) {
       color: wallet.error,
       fontWeight: '600',
     },
+    exportButton: {
+      alignSelf: 'stretch',
+      backgroundColor: wallet.addButton,
+      borderRadius: 999,
+      paddingVertical: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: 44,
+    },
+    exportButtonText: {
+      color: wallet.addButtonText,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    actionButtonPressed: {
+      opacity: 0.88,
+    },
+    offscreenCapture: {
+      position: 'absolute',
+      top: -10000,
+      left: 0,
+      width: MY_CARD_WIDTH,
+    },
+    offscreenComposer: {
+      position: 'absolute',
+      top: -10000,
+      left: 0,
+    },
     saveButton: {
       backgroundColor: wallet.addButton,
       borderRadius: 999,
@@ -272,6 +305,10 @@ export function MyCardFormScreen(): React.JSX.Element {
   const [photoFace, setPhotoFace] = useState<PhotoFace>(card?.photo_face ?? 'front');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportBusyOption, setExportBusyOption] = useState<CardExportOption | null>(null);
+  const exportShotRef = useRef<ViewShotRef>(null);
+  const exportComposerRef = useRef<CardImageComposerRef>(null);
 
   const previewCard: UserCard = {
     _id: card?._id ?? 'preview',
@@ -290,6 +327,17 @@ export function MyCardFormScreen(): React.JSX.Element {
     created_at: card?.created_at ?? '',
     updated_at: card?.updated_at ?? '',
   };
+
+  const previewCardHasScan = userCardHasScanImage(previewCard);
+  const previewCardFrontSource = useAuthenticatedImageSource(
+    previewCardHasScan ? previewCard.scan_image_front_url ?? previewCard.scan_image_url : null,
+  );
+  const previewCardBackSource = useAuthenticatedImageSource(
+    previewCardHasScan ? previewCard.scan_image_back_url : null,
+  );
+  const previewCardScanImages = [previewCardFrontSource, previewCardBackSource]
+    .map(source => (source && typeof source === 'object' && 'uri' in source ? source.uri : null))
+    .filter((uri): uri is string => Boolean(uri));
 
   const updateField = (key: keyof CoreFields, value: string) => {
     setFields(previous => ({ ...previous, [key]: value }));
@@ -424,7 +472,59 @@ export function MyCardFormScreen(): React.JSX.Element {
     );
   };
 
+  const openExportModal = () => {
+    setError(null);
+    setShowExportModal(true);
+  };
+
+  const closeExportModal = () => {
+    if (exportBusyOption) {
+      return;
+    }
+    setShowExportModal(false);
+  };
+
+  const handleExportSelect = (option: CardExportOption) => {
+    void (async () => {
+      setExportBusyOption(option);
+      setError(null);
+      try {
+        let images = previewCardScanImages;
+        let aspectRatioOverride: number | undefined;
+        if (images.length === 0) {
+          const captured = await exportShotRef.current?.capture?.();
+          images = captured ? [captured] : [];
+        } else if (images.length > 1) {
+          const composed = await exportComposerRef.current?.capture();
+          if (!composed) {
+            throw new Error('Unable to combine front and back for export.');
+          }
+          images = [composed.uri];
+          aspectRatioOverride = composed.width / composed.height;
+        }
+        if (images.length === 0) {
+          throw new Error('No card image available to export.');
+        }
+        const fileName = `${fields.name?.trim() || 'my-business-card'}.pdf`;
+        if (option === 'pdf') {
+          await exportCardAsPdf(images, fileName, aspectRatioOverride);
+        } else {
+          await saveCardPhotosToAlbum(images);
+          Alert.alert('Saved', 'Saved to your photo library.');
+        }
+        setShowExportModal(false);
+      } catch (exportError) {
+        const message =
+          exportError instanceof Error ? exportError.message : 'Unable to export this card.';
+        setError(message);
+      } finally {
+        setExportBusyOption(null);
+      }
+    })();
+  };
+
   return (
+    <>
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.introCard}>
         <Text style={styles.eyebrow}>{mode === 'edit' ? 'Edit card' : 'New card'}</Text>
@@ -452,6 +552,15 @@ export function MyCardFormScreen(): React.JSX.Element {
             Use the buttons below the preview to switch between design and scan
             {previewCard.scan_image_back_url ? ', or front and back views.' : '.'}
           </Text>
+        ) : null}
+
+        {mode === 'edit' && card ? (
+          <Pressable
+            onPress={openExportModal}
+            style={({ pressed }) => [styles.exportButton, pressed && styles.actionButtonPressed]}
+          >
+            <Text style={styles.exportButtonText}>Export digital card</Text>
+          </Pressable>
         ) : null}
       </View>
 
@@ -549,5 +658,29 @@ export function MyCardFormScreen(): React.JSX.Element {
         </Pressable>
       ) : null}
     </ScrollView>
+
+    {mode === 'edit' && card && !previewCardHasScan ? (
+      <View style={styles.offscreenCapture} collapsable={false}>
+        <ViewShot ref={exportShotRef} options={{ format: 'png', result: 'data-uri' }}>
+          <MyCardFace card={previewCard} />
+        </ViewShot>
+      </View>
+    ) : null}
+
+    <View style={styles.offscreenComposer}>
+      <CardImageComposer
+        ref={exportComposerRef}
+        frontUri={previewCardScanImages[0] ?? null}
+        backUri={previewCardScanImages[1] ?? null}
+      />
+    </View>
+
+    <ExportCardModal
+      visible={showExportModal}
+      busyOption={exportBusyOption}
+      onSelect={handleExportSelect}
+      onCancel={closeExportModal}
+    />
+    </>
   );
 }
