@@ -303,7 +303,7 @@ export function CollectionScreen(): React.JSX.Element {
                 />
                 <SecondaryButton label="Share my card" onPress={handleShareMyCard} />
                 <SecondaryButton
-                  label="Download my digital card"
+                  label="Export digital card"
                   onPress={handleDownloadMyCard}
                 />
               </View>

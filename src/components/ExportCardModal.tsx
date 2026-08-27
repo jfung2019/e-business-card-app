@@ -39,12 +39,6 @@ function createStyles(scan: ScanThemeColors) {
       fontWeight: '700',
       textAlign: 'center',
     },
-    subtitle: {
-      color: scan.creamMuted,
-      fontSize: 13,
-      lineHeight: 18,
-      textAlign: 'center',
-    },
     primaryButton: {
       marginTop: 4,
       width: '100%',
@@ -106,7 +100,6 @@ export function ExportCardModal({
       <Pressable style={styles.backdrop} onPress={isBusy ? undefined : onCancel}>
         <Pressable style={styles.panel} onPress={() => {}}>
           <Text style={styles.title}>Export digital card</Text>
-          <Text style={styles.subtitle}>Choose how you'd like to save this card.</Text>
 
           <Pressable
             onPress={() => onSelect('pdf')}
