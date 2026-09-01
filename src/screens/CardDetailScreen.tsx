@@ -183,6 +183,10 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
   const customFieldKeys = sortCustomFieldKeys(
     Object.keys(editing ? draftCustomFields : custom_fields),
   );
+  const whatsapp = custom_fields.whatsapp?.trim() || null;
+  const otherCustomFields = Object.fromEntries(
+    Object.entries(custom_fields).filter(([key]) => key !== 'whatsapp'),
+  );
   const localScanImages = queuedScan
     ? [
         { label: queuedScan.backImageBase64 ? 'Front scan' : 'Original scan', uri: toDataUri(queuedScan.imageBase64) },
@@ -431,6 +435,14 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
     setDraftCustomFields(card.custom_fields);
     setEditing(false);
     setError(null);
+  };
+
+  const openWhatsapp = (value: string) => {
+    const digits = value.replace(/\D/g, '');
+    if (!digits) {
+      return;
+    }
+    void Linking.openURL(`https://wa.me/${digits}`);
   };
 
   const openField = (key: keyof CoreFields, value: string) => {
@@ -737,7 +749,7 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
         </View>
       ) : null}
 
-      {!editing && CONTACT_FIELD_LABELS.some(({ key }) => core_fields[key]) ? (
+      {!editing && (CONTACT_FIELD_LABELS.some(({ key }) => core_fields[key]) || whatsapp) ? (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Contact details</Text>
           {CONTACT_FIELD_LABELS.map(({ key, label }) => {
@@ -756,11 +768,20 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
               </Pressable>
             );
           })}
+          {whatsapp ? (
+            <Pressable
+              onPress={() => openWhatsapp(whatsapp)}
+              style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+            >
+              <Text style={styles.label}>WhatsApp</Text>
+              <Text style={[styles.value, styles.valueLink]}>{whatsapp}</Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
 
-      {!editing && Object.keys(custom_fields).length > 0 ? (
-        <CustomFieldsList customFields={custom_fields} />
+      {!editing && Object.keys(otherCustomFields).length > 0 ? (
+        <CustomFieldsList customFields={otherCustomFields} />
       ) : null}
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}

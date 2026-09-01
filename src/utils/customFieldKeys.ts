@@ -34,7 +34,7 @@ export function normalizeCustomFields(
 }
 
 export function sortCustomFieldKeys(keys: string[]): string[] {
-  const priority = ['address_en', 'address_cn', 'alternate_name_cn', 'phone_2', 'phone_3'];
+  const priority = ['address_en', 'address_cn', 'alternate_name_cn', 'phone_2', 'phone_3', 'whatsapp'];
   const canonicalKeys = [...new Set(keys.map(canonicalCustomFieldKey))];
 
   return canonicalKeys.sort((left, right) => {

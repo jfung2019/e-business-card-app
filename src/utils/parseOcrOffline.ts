@@ -6,6 +6,7 @@ const EMAIL_PATTERN = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
 const PHONE_PATTERN = /(?:\+?\d[\d\s().-]{6,}\d)/;
 const WEBSITE_PATTERN = /(?:https?:\/\/)?(?:www\.)?[a-z0-9][-a-z0-9.]*\.[a-z]{2,}(?:\/\S*)?/i;
 const CJK_PATTERN = /[\u4e00-\u9fff\u3400-\u4dbf]/;
+const WHATSAPP_PATTERN = /whats\s*app/i;
 
 const EN_ADDRESS_HINTS = [
   /\broom\b/i,
@@ -137,14 +138,33 @@ function extractContactLines(lines: string[]): {
   email: string | null;
   phones: string[];
   website: string | null;
+  whatsapp: string | null;
   remaining: string[];
 } {
   let email: string | null = null;
   const phones: string[] = [];
   let website: string | null = null;
+  let whatsapp: string | null = null;
   const remaining: string[] = [];
 
-  for (const line of lines) {
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+
+    if (!whatsapp && WHATSAPP_PATTERN.test(line)) {
+      const sameLineMatch = line.match(PHONE_PATTERN);
+      if (sameLineMatch) {
+        whatsapp = cleanLine(sameLineMatch[0]);
+        continue;
+      }
+      const nextLine = lines[index + 1];
+      const nextLineMatch = nextLine?.match(PHONE_PATTERN);
+      if (nextLineMatch && cleanLine(nextLine) === cleanLine(nextLineMatch[0])) {
+        whatsapp = cleanLine(nextLineMatch[0]);
+        index += 1;
+        continue;
+      }
+    }
+
     const emailMatch = line.match(EMAIL_PATTERN);
     if (!email && emailMatch) {
       email = emailMatch[0];
@@ -171,7 +191,7 @@ function extractContactLines(lines: string[]): {
     remaining.push(line);
   }
 
-  return { email, phones, website, remaining };
+  return { email, phones, website, whatsapp, remaining };
 }
 
 function pickName(lines: string[]): string {
@@ -279,7 +299,7 @@ export function parseOcrOffline(rawOcrText: string): {
 } {
   const { frontLines, backLines } = splitFrontAndBack(rawOcrText);
   const allLines = [...frontLines, ...backLines];
-  const { email, phones, website, remaining } = extractContactLines(allLines);
+  const { email, phones, website, whatsapp, remaining } = extractContactLines(allLines);
 
   const frontRemaining = extractContactLines(frontLines).remaining;
   const backRemaining = extractContactLines(backLines).remaining;
@@ -303,6 +323,9 @@ export function parseOcrOffline(rawOcrText: string): {
   }
   if (phones.length > 2) {
     custom_fields.phone_3 = phones[2];
+  }
+  if (whatsapp) {
+    custom_fields.whatsapp = whatsapp;
   }
 
   classified.extras.forEach((line, index) => {
