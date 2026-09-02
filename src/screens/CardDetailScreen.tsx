@@ -183,9 +183,9 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
   const customFieldKeys = sortCustomFieldKeys(
     Object.keys(editing ? draftCustomFields : custom_fields),
   );
-  const whatsapp = custom_fields.whatsapp?.trim() || null;
+  const whatsapp = custom_fields.WhatsApp?.trim() || null;
   const otherCustomFields = Object.fromEntries(
-    Object.entries(custom_fields).filter(([key]) => key !== 'whatsapp'),
+    Object.entries(custom_fields).filter(([key]) => key !== 'WhatsApp'),
   );
   const localScanImages = queuedScan
     ? [

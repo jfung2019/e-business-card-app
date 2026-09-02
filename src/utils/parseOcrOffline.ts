@@ -325,7 +325,7 @@ export function parseOcrOffline(rawOcrText: string): {
     custom_fields.phone_3 = phones[2];
   }
   if (whatsapp) {
-    custom_fields.whatsapp = whatsapp;
+    custom_fields.WhatsApp = whatsapp;
   }
 
   classified.extras.forEach((line, index) => {
