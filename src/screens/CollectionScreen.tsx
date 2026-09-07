@@ -1,6 +1,7 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -11,9 +12,13 @@ import {
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import ViewShot, { type ViewShotRef } from 'react-native-view-shot';
 
 import { MyCardCarousel } from '../components/MyCardCarousel';
 import { ApiTargetBanner } from '../components/ApiTargetBanner';
+import { CardImageComposer, type CardImageComposerRef } from '../components/CardImageComposer';
+import { ExportCardModal, type CardExportOption } from '../components/ExportCardModal';
+import { MyCardFace, MY_CARD_WIDTH } from '../components/MyCardFace';
 import { MyCardsBanner } from '../components/MyCardsBanner';
 import { ProfileAvatarButton } from '../components/ProfileAvatarButton';
 import { SecondaryButton } from '../components/SecondaryButton';
@@ -26,10 +31,13 @@ import { useMyCardsBanner } from '../hooks/useMyCardsBanner';
 import { useUserCards } from '../hooks/useUserCards';
 import type { MainStackParamList } from '../navigation/AppNavigator';
 import { useAppTheme } from '../context/ThemeContext';
+import { exportCardAsPdf, saveCardPhotosToAlbum } from '../services/cardExport';
 import type { WalletThemeColors } from '../theme/appTheme';
 import type { CapturedCard } from '../types/card';
 import type { UserCard } from '../types/userCard';
 import { isLocalUserCardId } from '../services/offlineUserCardQueue';
+import { useAuthenticatedImageSource } from '../utils/scanImage';
+import { userCardHasScanImage } from '../utils/walletDisplay';
 import { APP_DISPLAY_NAME } from '../config/appEnvironment';
 
 type CollectionNavigation = NativeStackNavigationProp<MainStackParamList, 'Collection'>;
@@ -52,6 +60,34 @@ export function CollectionScreen(): React.JSX.Element {
   const { visible: bannerVisible, dismiss: dismissBanner } = useMyCardsBanner(
     userCards.length > 0,
   );
+
+  const [activeMyCardIndex, setActiveMyCardIndex] = useState(0);
+  const [showMyCardExportModal, setShowMyCardExportModal] = useState(false);
+  const [myCardExportBusyOption, setMyCardExportBusyOption] = useState<CardExportOption | null>(
+    null,
+  );
+  const myCardShotRef = useRef<ViewShotRef>(null);
+  const myCardComposerRef = useRef<CardImageComposerRef>(null);
+
+  useEffect(() => {
+    if (activeMyCardIndex > userCards.length - 1) {
+      setActiveMyCardIndex(0);
+    }
+  }, [activeMyCardIndex, userCards.length]);
+
+  const activeMyCard = userCards[activeMyCardIndex] ?? userCards[0] ?? null;
+  const activeMyCardHasScan = activeMyCard ? userCardHasScanImage(activeMyCard) : false;
+  const activeMyCardFrontSource = useAuthenticatedImageSource(
+    activeMyCardHasScan
+      ? activeMyCard?.scan_image_front_url ?? activeMyCard?.scan_image_url
+      : null,
+  );
+  const activeMyCardBackSource = useAuthenticatedImageSource(
+    activeMyCardHasScan ? activeMyCard?.scan_image_back_url : null,
+  );
+  const activeMyCardScanImages = [activeMyCardFrontSource, activeMyCardBackSource]
+    .map(source => (source && typeof source === 'object' && 'uri' in source ? source.uri : null))
+    .filter((uri): uri is string => Boolean(uri));
 
   const refreshAll = useCallback(async () => {
     await syncQueuedScans();
@@ -85,6 +121,64 @@ export function CollectionScreen(): React.JSX.Element {
     }
     navigation.navigate('ShareMyCard', { cardId: cardToShare._id });
   }, [navigation, userCards]);
+
+  const handleDownloadMyCard = useCallback(() => {
+    if (!activeMyCard) {
+      return;
+    }
+    setShowMyCardExportModal(true);
+  }, [activeMyCard]);
+
+  const closeMyCardExportModal = useCallback(() => {
+    if (myCardExportBusyOption) {
+      return;
+    }
+    setShowMyCardExportModal(false);
+  }, [myCardExportBusyOption]);
+
+  const handleMyCardExportSelect = useCallback(
+    (option: CardExportOption) => {
+      void (async () => {
+        if (!activeMyCard) {
+          return;
+        }
+        setMyCardExportBusyOption(option);
+        try {
+          let images = activeMyCardScanImages;
+          let aspectRatioOverride: number | undefined;
+          if (images.length === 0) {
+            const captured = await myCardShotRef.current?.capture?.();
+            images = captured ? [captured] : [];
+          } else if (images.length > 1) {
+            const composed = await myCardComposerRef.current?.capture();
+            if (!composed) {
+              throw new Error('Unable to combine front and back for export.');
+            }
+            images = [composed.uri];
+            aspectRatioOverride = composed.width / composed.height;
+          }
+          if (images.length === 0) {
+            throw new Error('No card image available to export.');
+          }
+          const fileName = `${activeMyCard.core_fields.name?.trim() || 'my-business-card'}.pdf`;
+          if (option === 'pdf') {
+            await exportCardAsPdf(images, fileName, aspectRatioOverride);
+          } else {
+            await saveCardPhotosToAlbum(images);
+            Alert.alert('Saved', 'Saved to your photo library.');
+          }
+          setShowMyCardExportModal(false);
+        } catch (exportError) {
+          const message =
+            exportError instanceof Error ? exportError.message : 'Unable to export this card.';
+          Alert.alert('Export failed', message);
+        } finally {
+          setMyCardExportBusyOption(null);
+        }
+      })();
+    },
+    [activeMyCard, activeMyCardScanImages],
+  );
 
   const previewCards = useMemo(
     () => cards.slice(0, COLLECTION_PREVIEW_LIMIT),
@@ -134,13 +228,22 @@ export function CollectionScreen(): React.JSX.Element {
         <View style={styles.myCardsSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>My cards</Text>
-            {userCards.length > 1 && !userCards.some(card => isLocalUserCardId(card._id)) ? (
-              <Pressable
-                onPress={() => navigation.navigate('ReorderMyCards', { cards: userCards })}
-              >
-                <Text style={styles.sectionAction}>Reorder</Text>
-              </Pressable>
-            ) : null}
+            <View style={styles.sectionTitleActions}>
+              {userCards.length > 0 ? (
+                <Pressable
+                  onPress={() => navigation.navigate('AllCards', { initialMode: 'my' })}
+                >
+                  <Text style={styles.sectionAction}>See all</Text>
+                </Pressable>
+              ) : null}
+              {userCards.length > 1 && !userCards.some(card => isLocalUserCardId(card._id)) ? (
+                <Pressable
+                  onPress={() => navigation.navigate('ReorderMyCards', { cards: userCards })}
+                >
+                  <Text style={styles.sectionAction}>Reorder</Text>
+                </Pressable>
+              ) : null}
+            </View>
           </View>
 
           {bannerVisible ? (
@@ -187,6 +290,7 @@ export function CollectionScreen(): React.JSX.Element {
                 onPhotoFaceChange={(cardId, photoFace) => {
                   void setUserCardPhotoFace(cardId, photoFace);
                 }}
+                onActiveIndexChange={setActiveMyCardIndex}
               />
               <View style={styles.myCardActions}>
                 <SecondaryButton
@@ -198,6 +302,10 @@ export function CollectionScreen(): React.JSX.Element {
                   onPress={() => navigation.navigate('MyCardForm', { mode: 'create' })}
                 />
                 <SecondaryButton label="Share my card" onPress={handleShareMyCard} />
+                <SecondaryButton
+                  label="Export digital card"
+                  onPress={handleDownloadMyCard}
+                />
               </View>
             </>
           ) : null}
@@ -231,7 +339,9 @@ export function CollectionScreen(): React.JSX.Element {
               <Text style={styles.sectionTitle}>Collected</Text>
               <View style={styles.sectionTitleActions}>
                 {hasMoreCollected ? (
-                  <Pressable onPress={() => navigation.navigate('CollectedCards')}>
+                  <Pressable
+                    onPress={() => navigation.navigate('AllCards', { initialMode: 'collected' })}
+                  >
                     <Text style={styles.sectionAction}>See all</Text>
                   </Pressable>
                 ) : null}
@@ -295,7 +405,7 @@ export function CollectionScreen(): React.JSX.Element {
               />
               {hasMoreCollected ? (
                 <Pressable
-                  onPress={() => navigation.navigate('CollectedCards')}
+                  onPress={() => navigation.navigate('AllCards', { initialMode: 'collected' })}
                   style={styles.seeAllButton}
                 >
                   <Text style={styles.seeAllButtonText}>
@@ -308,6 +418,29 @@ export function CollectionScreen(): React.JSX.Element {
         </View>
 
       </ScrollView>
+
+      {activeMyCard && !activeMyCardHasScan ? (
+        <View style={styles.offscreenCapture} collapsable={false}>
+          <ViewShot ref={myCardShotRef} options={{ format: 'png', result: 'data-uri' }}>
+            <MyCardFace card={activeMyCard} />
+          </ViewShot>
+        </View>
+      ) : null}
+
+      <View style={styles.offscreenComposer}>
+        <CardImageComposer
+          ref={myCardComposerRef}
+          frontUri={activeMyCardScanImages[0] ?? null}
+          backUri={activeMyCardScanImages[1] ?? null}
+        />
+      </View>
+
+      <ExportCardModal
+        visible={showMyCardExportModal}
+        busyOption={myCardExportBusyOption}
+        onSelect={handleMyCardExportSelect}
+        onCancel={closeMyCardExportModal}
+      />
     </View>
   );
 }
@@ -414,6 +547,17 @@ const createStyles = (wallet: WalletThemeColors) =>
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
+  },
+  offscreenCapture: {
+    position: 'absolute',
+    top: -10000,
+    left: 0,
+    width: MY_CARD_WIDTH,
+  },
+  offscreenComposer: {
+    position: 'absolute',
+    top: -10000,
+    left: 0,
   },
   emptyMyCards: {
     gap: 10,

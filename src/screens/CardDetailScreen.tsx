@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -17,10 +17,13 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ApiClientError } from '../api/client';
 import { applyCardEnhancement, deleteCard, updateCard } from '../api/cards';
+import { CardImageComposer, type CardImageComposerRef } from '../components/CardImageComposer';
 import { CustomFieldsList } from '../components/CustomFieldsList';
 import { ScanImage } from '../components/ScanImage';
+import { ExportCardModal, type CardExportOption } from '../components/ExportCardModal';
 import type { MainStackParamList } from '../navigation/AppNavigator';
 import { useAppTheme } from '../context/ThemeContext';
+import { exportCardAsPdf, saveCardPhotosToAlbum } from '../services/cardExport';
 import { upsertCachedCard } from '../services/cardCollectionCache';
 import type { WalletThemeColors } from '../theme/appTheme';
 import type { CapturedCard, CoreFields } from '../types/card';
@@ -39,6 +42,7 @@ import {
   sortCustomFieldKeys,
 } from '../utils/customFieldKeys';
 import { formatCustomFieldLabel } from '../utils/formatCustomFieldLabel';
+import { useAuthenticatedImageSource } from '../utils/scanImage';
 
 type CardDetailProps = NativeStackScreenProps<MainStackParamList, 'CardDetail'>;
 type CardDetailNavigation = NativeStackNavigationProp<MainStackParamList, 'CardDetail'>;
@@ -127,6 +131,9 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
   const [suggestionDrafts, setSuggestionDrafts] = useState<Record<string, string>>({});
   const [savingEdits, setSavingEdits] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportBusyOption, setExportBusyOption] = useState<CardExportOption | null>(null);
+  const exportComposerRef = useRef<CardImageComposerRef>(null);
 
   const isLocalCard = isLocalCardId(card._id);
   const {
@@ -176,6 +183,10 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
   const customFieldKeys = sortCustomFieldKeys(
     Object.keys(editing ? draftCustomFields : custom_fields),
   );
+  const whatsapp = custom_fields.WhatsApp?.trim() || null;
+  const otherCustomFields = Object.fromEntries(
+    Object.entries(custom_fields).filter(([key]) => key !== 'WhatsApp'),
+  );
   const localScanImages = queuedScan
     ? [
         { label: queuedScan.backImageBase64 ? 'Front scan' : 'Original scan', uri: toDataUri(queuedScan.imageBase64) },
@@ -190,6 +201,14 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
         { label: scan_image_back_url ? 'Front scan' : 'Original scan', url: scan_image_front_url ?? scan_image_url },
         { label: 'Back scan', url: scan_image_back_url },
       ].filter((image): image is { label: string; url: string } => Boolean(image.url));
+
+  const remoteFrontImageSource = useAuthenticatedImageSource(scan_image_front_url ?? scan_image_url);
+  const remoteBackImageSource = useAuthenticatedImageSource(scan_image_back_url);
+  const exportImages = localScanImages.length
+    ? localScanImages.map(image => image.uri)
+    : [remoteFrontImageSource, remoteBackImageSource]
+        .map(source => (source && typeof source === 'object' && 'uri' in source ? source.uri : null))
+        .filter((uri): uri is string => Boolean(uri));
 
   const quickActions: QuickAction[] = [];
   const showOfflineBanner =
@@ -367,11 +386,63 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
     })();
   };
 
+  const openExportModal = () => {
+    setError(null);
+    setShowExportModal(true);
+  };
+
+  const closeExportModal = () => {
+    if (exportBusyOption) {
+      return;
+    }
+    setShowExportModal(false);
+  };
+
+  const handleExportSelect = (option: CardExportOption) => {
+    void (async () => {
+      setExportBusyOption(option);
+      setError(null);
+      try {
+        let images = exportImages;
+        let aspectRatioOverride: number | undefined;
+        if (images.length > 1) {
+          const composed = await exportComposerRef.current?.capture();
+          if (!composed) {
+            throw new Error('Unable to combine front and back for export.');
+          }
+          images = [composed.uri];
+          aspectRatioOverride = composed.width / composed.height;
+        }
+        if (option === 'pdf') {
+          await exportCardAsPdf(images, `${displayName || 'business-card'}.pdf`, aspectRatioOverride);
+        } else {
+          await saveCardPhotosToAlbum(images);
+          Alert.alert('Saved', 'Saved to your photo library.');
+        }
+        setShowExportModal(false);
+      } catch (exportError) {
+        const message =
+          exportError instanceof Error ? exportError.message : 'Unable to export this card.';
+        setError(message);
+      } finally {
+        setExportBusyOption(null);
+      }
+    })();
+  };
+
   const cancelEditing = () => {
     setDraftCoreFields(card.core_fields);
     setDraftCustomFields(card.custom_fields);
     setEditing(false);
     setError(null);
+  };
+
+  const openWhatsapp = (value: string) => {
+    const digits = value.replace(/\D/g, '');
+    if (!digits) {
+      return;
+    }
+    void Linking.openURL(`https://wa.me/${digits}`);
   };
 
   const openField = (key: keyof CoreFields, value: string) => {
@@ -389,6 +460,7 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
   };
 
   return (
+    <>
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       {localScanImages.length > 0 ? (
         <View style={styles.section}>
@@ -416,6 +488,15 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
             </View>
           ))}
         </View>
+      ) : null}
+
+      {exportImages.length > 0 ? (
+        <Pressable
+          onPress={openExportModal}
+          style={({ pressed }) => [styles.exportButton, pressed && styles.actionButtonPressed]}
+        >
+          <Text style={styles.exportButtonText}>Export digital card</Text>
+        </Pressable>
       ) : null}
 
       <View style={styles.heroCard}>
@@ -668,7 +749,7 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
         </View>
       ) : null}
 
-      {!editing && CONTACT_FIELD_LABELS.some(({ key }) => core_fields[key]) ? (
+      {!editing && (CONTACT_FIELD_LABELS.some(({ key }) => core_fields[key]) || whatsapp) ? (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Contact details</Text>
           {CONTACT_FIELD_LABELS.map(({ key, label }) => {
@@ -687,11 +768,20 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
               </Pressable>
             );
           })}
+          {whatsapp ? (
+            <Pressable
+              onPress={() => openWhatsapp(whatsapp)}
+              style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+            >
+              <Text style={styles.label}>WhatsApp</Text>
+              <Text style={[styles.value, styles.valueLink]}>{whatsapp}</Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
 
-      {!editing && Object.keys(custom_fields).length > 0 ? (
-        <CustomFieldsList customFields={custom_fields} />
+      {!editing && Object.keys(otherCustomFields).length > 0 ? (
+        <CustomFieldsList customFields={otherCustomFields} />
       ) : null}
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -708,6 +798,20 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
         )}
       </Pressable>
     </ScrollView>
+    <View style={styles.offscreenCapture}>
+      <CardImageComposer
+        ref={exportComposerRef}
+        frontUri={exportImages[0] ?? null}
+        backUri={exportImages[1] ?? null}
+      />
+    </View>
+    <ExportCardModal
+      visible={showExportModal}
+      busyOption={exportBusyOption}
+      onSelect={handleExportSelect}
+      onCancel={closeExportModal}
+    />
+    </>
   );
 }
 const cardShadow = {
@@ -965,6 +1069,24 @@ const createStyles = (wallet: WalletThemeColors) =>
   },
   editEntryButtonText: {
     color: wallet.accentMuted,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  exportButton: {
+    backgroundColor: wallet.addButton,
+    borderRadius: 999,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
+  },
+  offscreenCapture: {
+    position: 'absolute',
+    top: -10000,
+    left: 0,
+  },
+  exportButtonText: {
+    color: wallet.addButtonText,
     fontSize: 14,
     fontWeight: '600',
   },
