@@ -27,10 +27,15 @@ DerivedData
 build/
 .idea
 .gradle
+**/.gradle/
 local.properties
+android/local.properties
 *.iml
 *.hprof
 .cxx/
+**/.cxx/
+android/app/.cxx/
+android/.kotlin/
 *.keystore
 !debug.keystore
 .kotlin/

@@ -17,15 +17,6 @@ jest.mock('react-native-reanimated', () => {
     withSpring: value => value,
   };
 });
-jest.mock('react-native-draggable-flatlist', () => {
-  const React = require('react');
-  const { FlatList } = require('react-native');
-  return {
-    __esModule: true,
-    default: FlatList,
-    ScaleDecorator: ({ children }) => React.createElement(React.Fragment, null, children),
-  };
-});
 
 jest.mock('@react-native-firebase/app', () => ({
   __esModule: true,
