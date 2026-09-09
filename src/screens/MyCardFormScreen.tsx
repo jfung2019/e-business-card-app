@@ -472,6 +472,32 @@ export function MyCardFormScreen(): React.JSX.Element {
     );
   };
 
+  const handleWalletDisplayChange = (_cardId: string, nextDisplay: WalletDisplay) => {
+    setWalletDisplay(nextDisplay);
+    if (!card) {
+      return;
+    }
+    if (isLocalUserCardId(card._id)) {
+      void updateQueuedUserScan(localUserCardIdToQueueId(card._id), {
+        wallet_display: nextDisplay,
+      });
+    } else {
+      void updateUserCardWalletDisplay(card._id, { walletDisplay: nextDisplay }).catch(() => {});
+    }
+  };
+
+  const handlePhotoFaceChange = (_cardId: string, nextFace: PhotoFace) => {
+    setPhotoFace(nextFace);
+    if (!card) {
+      return;
+    }
+    if (isLocalUserCardId(card._id)) {
+      void updateQueuedUserScan(localUserCardIdToQueueId(card._id), { photo_face: nextFace });
+    } else {
+      void updateUserCardWalletDisplay(card._id, { photoFace: nextFace }).catch(() => {});
+    }
+  };
+
   const openExportModal = () => {
     setError(null);
     setShowExportModal(true);
@@ -544,8 +570,8 @@ export function MyCardFormScreen(): React.JSX.Element {
           card={previewCard}
           compact
           controlsBelow
-          onWalletDisplayChange={(_cardId, nextDisplay) => setWalletDisplay(nextDisplay)}
-          onPhotoFaceChange={(_cardId, nextFace) => setPhotoFace(nextFace)}
+          onWalletDisplayChange={handleWalletDisplayChange}
+          onPhotoFaceChange={handlePhotoFaceChange}
         />
         {userCardHasScanImage(previewCard) ? (
           <Text style={styles.previewHint}>

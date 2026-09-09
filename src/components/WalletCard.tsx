@@ -10,6 +10,7 @@ import {
 import { getWalletPalette, type WalletCardPalette } from '../theme/wallet';
 import type { CapturedCard, PhotoFace } from '../types/card';
 import { hasScanImage, nextWalletDisplay, showsWalletPhoto } from '../utils/walletDisplay';
+import { CardFaceControls } from './CardFaceControls';
 import { CardPhotoFlip } from './CardPhotoFlip';
 
 const CARD_BORDER_RADIUS = 22;
@@ -55,77 +56,14 @@ export function getCardDisplayHeight(card: CapturedCard): number {
   return hasScanImage(card) ? WALLET_CARD_SCAN_HEIGHT : WALLET_CARD_FULL_HEIGHT;
 }
 
-function WalletFlipBadge({
-  onFlip,
-  variant,
-  palette,
-}: {
-  onFlip: () => void;
-  variant: 'photo' | 'classic';
-  palette?: WalletCardPalette;
-}): React.JSX.Element {
-  const isPhoto = variant === 'photo';
-
-  if (isPhoto) {
-    return (
-      <Pressable
-        onPress={onFlip}
-        hitSlop={8}
-        style={styles.photoBadge}
-        accessibilityLabel="Switch wallet card style"
-        accessibilityRole="button"
-      >
-        <Text style={[styles.flipIcon, styles.flipIconOnPhoto]}>⇄</Text>
-        <Text style={styles.scanBadgeText}>Scan</Text>
-      </Pressable>
-    );
-  }
-
-  return (
-    <Pressable
-      onPress={onFlip}
-      hitSlop={8}
-      style={styles.classicBadgeRow}
-      accessibilityLabel="Switch wallet card style"
-      accessibilityRole="button"
-    >
-      <Text style={[styles.flipIcon, { color: palette?.text ?? '#111111' }]}>⇄</Text>
-      <Text style={[styles.sourceLabel, { color: palette?.muted ?? '#6B6B6B' }]}>Scan</Text>
-    </Pressable>
-  );
-}
-
-function WalletFaceBadge({
-  face,
-  onFlipFace,
-}: {
-  face: PhotoFace;
-  onFlipFace: () => void;
-}): React.JSX.Element {
-  return (
-    <Pressable
-      onPress={onFlipFace}
-      hitSlop={8}
-      style={styles.faceBadge}
-      accessibilityLabel="Flip photo face"
-      accessibilityRole="button"
-    >
-      <Text style={styles.flipIcon}>⇆</Text>
-      <Text style={styles.faceBadgeText}>{face === 'front' ? 'Back' : 'Front'}</Text>
-    </Pressable>
-  );
-}
-
 function ClassicCardFace({
   card,
   palette,
-  showFlip,
-  onFlip,
+  hasScan,
 }: {
   card: CapturedCard;
   palette: WalletCardPalette;
-  showFlip: boolean;
-  onFlip?: () => void;
+  hasScan: boolean;
 }): React.JSX.Element {
   const brand = getBrand(card);
   const contactDetail = getContactDetail(card);
@@ -138,11 +76,9 @@ function ClassicCardFace({
           <Text style={[styles.brand, { color: palette.text }]} numberOfLines={1}>
             {brand}
           </Text>
-          {showFlip && onFlip ? (
-            <WalletFlipBadge onFlip={onFlip} variant="classic" palette={palette} />
-          ) : (
+          {!hasScan ? (
             <Text style={[styles.sourceLabel, { color: palette.muted }]}>Scan</Text>
-          )}
+          ) : null}
         </View>
         <View style={styles.bottomRow}>
           <Text style={[styles.detailLabel, { color: palette.muted }]}>
@@ -206,6 +142,18 @@ function WalletCardFace({
     onPhotoFaceChange(card._id, photoFace === 'front' ? 'back' : 'front');
   };
 
+  const handleShowBack = (): void => {
+    if (!hasBackPhoto) {
+      return;
+    }
+    if (!showPhoto) {
+      onWalletDisplayChange?.(card._id, 'photo');
+      onPhotoFaceChange?.(card._id, 'back');
+      return;
+    }
+    handleFlipFace();
+  };
+
   if (!hasScan) {
     return (
       <Pressable
@@ -213,7 +161,7 @@ function WalletCardFace({
         style={({ pressed }) => [styles.cardWrapper, pressed && styles.pressed]}
       >
         <View style={[styles.frontCard, { backgroundColor: palette.background }]}>
-          <ClassicCardFace card={card} palette={palette} showFlip={false} />
+          <ClassicCardFace card={card} palette={palette} hasScan={false} />
         </View>
       </Pressable>
     );
@@ -243,10 +191,6 @@ function WalletCardFace({
               resizeMode="cover"
               variant="background"
             />
-            <WalletFlipBadge onFlip={handleFlip} variant="photo" />
-            {hasBackPhoto ? (
-              <WalletFaceBadge face={photoFace} onFlipFace={handleFlipFace} />
-            ) : null}
           </View>
         </Animated.View>
 
@@ -255,14 +199,15 @@ function WalletCardFace({
           style={[styles.faceLayer, { opacity: classicOpacity }]}
         >
           <View style={[styles.fill, { backgroundColor: palette.background }]}>
-            <ClassicCardFace
-              card={card}
-              palette={palette}
-              showFlip
-              onFlip={handleFlip}
-            />
+            <ClassicCardFace card={card} palette={palette} hasScan />
           </View>
         </Animated.View>
+
+        <CardFaceControls
+          onScanToggle={handleFlip}
+          showFlipFace={hasBackPhoto}
+          onFlipFace={handleShowBack}
+        />
       </View>
     </Pressable>
   );
@@ -377,56 +322,5 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     width: '100%',
     height: '100%',
-  },
-  photoBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    zIndex: 2,
-  },
-  faceBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    position: 'absolute',
-    top: 12,
-    left: 12,
-    zIndex: 2,
-  },
-  faceBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.4,
-  },
-  classicBadgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 4,
-  },
-  flipIcon: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  flipIconOnPhoto: {
-    color: '#FFFFFF',
-  },
-  scanBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.4,
   },
 });
