@@ -195,12 +195,8 @@ function MyCardFaceContent({
       ) : (
         <TemplateCardFace card={card} />
       )}
-      {!controlsBelow && hasScan ? (
-        <CardFaceControls
-          onScanToggle={handleFlip}
-          showFlipFace={hasBackPhoto}
-          onFlipFace={handleShowBack}
-        />
+      {!controlsBelow && hasBackPhoto ? (
+        <CardFaceControls showFlipFace={hasBackPhoto} onFlipFace={handleShowBack} />
       ) : null}
     </View>
   );
