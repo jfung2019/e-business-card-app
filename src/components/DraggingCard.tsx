@@ -25,7 +25,7 @@ export const DraggingCard: React.FC<DraggingCardProps> = memo(
   ({ item, isPrimary, preview }) => {
     const { wallet } = useAppTheme();
     const styles = useMemo(() => createCardStyles(wallet), [wallet]);
-
+// this is for testing
     return (
       <View style={styles.cell} pointerEvents="none">
         <View
