@@ -20,6 +20,7 @@ import { applyCardEnhancement, deleteCard, updateCard } from '../api/cards';
 import { CardImageComposer, type CardImageComposerRef } from '../components/CardImageComposer';
 import { CustomFieldsList } from '../components/CustomFieldsList';
 import { ScanImage } from '../components/ScanImage';
+import { ConfirmModal } from '../components/ConfirmModal';
 import { ExportCardModal, type CardExportOption } from '../components/ExportCardModal';
 import type { MainStackParamList } from '../navigation/AppNavigator';
 import { useAppTheme } from '../context/ThemeContext';
@@ -134,6 +135,7 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportBusyOption, setExportBusyOption] = useState<CardExportOption | null>(null);
   const exportComposerRef = useRef<CardImageComposerRef>(null);
+  const [pendingWhatsapp, setPendingWhatsapp] = useState<string | null>(null);
 
   const isLocalCard = isLocalCardId(card._id);
   const {
@@ -241,6 +243,13 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
       key: 'website',
       label: 'Website',
       onPress: () => void Linking.openURL(normalizeWebsite(website)),
+    });
+  }
+  if (whatsapp) {
+    quickActions.push({
+      key: 'whatsapp',
+      label: 'WhatsApp',
+      onPress: () => setPendingWhatsapp(whatsapp),
     });
   }
 
@@ -398,6 +407,20 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
     setShowExportModal(false);
   };
 
+  const confirmWhatsapp = () => {
+    if (pendingWhatsapp) {
+      const digits = pendingWhatsapp.replace(/\D/g, '');
+      if (digits) {
+        void Linking.openURL(`https://wa.me/${digits}`);
+      }
+    }
+    setPendingWhatsapp(null);
+  };
+
+  const cancelWhatsapp = () => {
+    setPendingWhatsapp(null);
+  };
+
   const handleExportSelect = (option: CardExportOption) => {
     void (async () => {
       setExportBusyOption(option);
@@ -435,14 +458,6 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
     setDraftCustomFields(card.custom_fields);
     setEditing(false);
     setError(null);
-  };
-
-  const openWhatsapp = (value: string) => {
-    const digits = value.replace(/\D/g, '');
-    if (!digits) {
-      return;
-    }
-    void Linking.openURL(`https://wa.me/${digits}`);
   };
 
   const openField = (key: keyof CoreFields, value: string) => {
@@ -770,7 +785,7 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
           })}
           {whatsapp ? (
             <Pressable
-              onPress={() => openWhatsapp(whatsapp)}
+              onPress={() => setPendingWhatsapp(whatsapp)}
               style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
             >
               <Text style={styles.label}>WhatsApp</Text>
@@ -810,6 +825,14 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
       busyOption={exportBusyOption}
       onSelect={handleExportSelect}
       onCancel={closeExportModal}
+    />
+    <ConfirmModal
+      visible={Boolean(pendingWhatsapp)}
+      title="Open WhatsApp"
+      message={pendingWhatsapp ? `Start a WhatsApp chat with ${pendingWhatsapp}?` : undefined}
+      confirmLabel="Yes"
+      onConfirm={confirmWhatsapp}
+      onCancel={cancelWhatsapp}
     />
     </>
   );
