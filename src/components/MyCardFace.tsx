@@ -14,6 +14,7 @@ import {
   showsUserCardPhoto,
   userCardHasScanImage,
 } from '../utils/walletDisplay';
+import { CardFaceControls } from './CardFaceControls';
 import { CardPhotoFlip } from './CardPhotoFlip';
 
 export const MY_CARD_WIDTH = 300;
@@ -30,51 +31,6 @@ interface MyCardFaceProps {
   controlsBelow?: boolean;
   onWalletDisplayChange?: (cardId: string, walletDisplay: WalletDisplay) => void;
   onPhotoFaceChange?: (cardId: string, photoFace: PhotoFace) => void;
-}
-
-function FlipBadge({
-  onFlip,
-  variant,
-  textColor,
-  mutedColor,
-}: {
-  onFlip: () => void;
-  variant: 'photo' | 'classic';
-  textColor: string;
-  mutedColor: string;
-}): React.JSX.Element {
-  const handlePress = (event: { stopPropagation?: () => void }) => {
-    event.stopPropagation?.();
-    onFlip();
-  };
-
-  if (variant === 'photo') {
-    return (
-      <Pressable
-        onPress={handlePress}
-        hitSlop={8}
-        style={styles.photoBadge}
-        accessibilityLabel="Switch card style"
-        accessibilityRole="button"
-      >
-        <Text style={[styles.flipIcon, styles.flipIconOnPhoto]}>⇄</Text>
-        <Text style={styles.scanBadgeText}>Scan</Text>
-      </Pressable>
-    );
-  }
-
-  return (
-    <Pressable
-      onPress={handlePress}
-      hitSlop={8}
-      style={styles.classicBadgeRow}
-      accessibilityLabel="Switch card style"
-      accessibilityRole="button"
-    >
-      <Text style={[styles.flipIcon, { color: textColor }]}>⇄</Text>
-      <Text style={[styles.sourceLabel, { color: mutedColor }]}>Scan</Text>
-    </Pressable>
-  );
 }
 
 function BelowCardControls({
@@ -130,17 +86,7 @@ function BelowCardControls({
   );
 }
 
-function TemplateCardFace({
-  card,
-  showFlip,
-  onFlip,
-  controlsBelow,
-}: {
-  card: UserCard;
-  showFlip: boolean;
-  onFlip?: () => void;
-  controlsBelow?: boolean;
-}): React.JSX.Element {
+function TemplateCardFace({ card }: { card: UserCard }): React.JSX.Element {
   const design = getCardDesign(card.design_id);
   const { core_fields } = card;
 
@@ -152,14 +98,7 @@ function TemplateCardFace({
           <Text style={[styles.company, { color: design.text }]} numberOfLines={1}>
             {core_fields.company_name ?? core_fields.name}
           </Text>
-          {showFlip && onFlip && !controlsBelow ? (
-            <FlipBadge
-              onFlip={onFlip}
-              variant="classic"
-              textColor={design.text}
-              mutedColor={design.muted}
-            />
-          ) : card.is_primary ? (
+          {card.is_primary ? (
             <Text style={[styles.primaryBadge, { color: design.muted }]}>Primary</Text>
           ) : null}
         </View>
@@ -224,6 +163,18 @@ function MyCardFaceContent({
     onPhotoFaceChange(card._id, photoFace === 'front' ? 'back' : 'front');
   };
 
+  const handleShowBack = (): void => {
+    if (!hasBackPhoto) {
+      return;
+    }
+    if (!showPhoto) {
+      onWalletDisplayChange?.(card._id, 'photo');
+      onPhotoFaceChange?.(card._id, 'back');
+      return;
+    }
+    handleFlipFace();
+  };
+
   const cardBody = (
     <View
       style={[
@@ -233,46 +184,20 @@ function MyCardFaceContent({
       ]}
     >
       {showPhoto ? (
-        <>
-          <CardPhotoFlip
-            frontPhotoUrl={frontPhotoUrl}
-            backPhotoUrl={backPhotoUrl}
-            photoFace={photoFace}
-            style={styles.scanPhoto}
-            resizeMode="cover"
-            variant="image"
-          />
-          {hasBackPhoto && !controlsBelow ? (
-            <Pressable
-              onPress={handleFlipFace}
-              hitSlop={8}
-              style={styles.faceBadge}
-              accessibilityLabel="Flip photo face"
-              accessibilityRole="button"
-            >
-              <Text style={[styles.flipIcon, styles.flipIconOnPhoto]}>⇆</Text>
-              <Text style={styles.scanBadgeText}>
-                {photoFace === 'front' ? 'Back' : 'Front'}
-              </Text>
-            </Pressable>
-          ) : null}
-          {!controlsBelow ? (
-            <FlipBadge
-              onFlip={handleFlip}
-              variant="photo"
-              textColor={design.text}
-              mutedColor={design.muted}
-            />
-          ) : null}
-        </>
-      ) : (
-        <TemplateCardFace
-          card={card}
-          showFlip={hasScan}
-          onFlip={hasScan ? handleFlip : undefined}
-          controlsBelow={controlsBelow}
+        <CardPhotoFlip
+          frontPhotoUrl={frontPhotoUrl}
+          backPhotoUrl={backPhotoUrl}
+          photoFace={photoFace}
+          style={styles.scanPhoto}
+          resizeMode="cover"
+          variant="image"
         />
+      ) : (
+        <TemplateCardFace card={card} />
       )}
+      {!controlsBelow && hasBackPhoto ? (
+        <CardFaceControls showFlipFace={hasBackPhoto} onFlipFace={handleShowBack} />
+      ) : null}
     </View>
   );
 
@@ -400,57 +325,6 @@ const styles = StyleSheet.create({
   detail: {
     fontSize: 12,
     fontWeight: '500',
-  },
-  photoBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    zIndex: 2,
-  },
-  faceBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    position: 'absolute',
-    top: 12,
-    left: 12,
-    zIndex: 2,
-  },
-  classicBadgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 4,
-  },
-  flipIcon: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  flipIconOnPhoto: {
-    color: '#FFFFFF',
-  },
-  scanBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.4,
-  },
-  sourceLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
   },
   belowControlsWrap: {
     width: MY_CARD_WIDTH,

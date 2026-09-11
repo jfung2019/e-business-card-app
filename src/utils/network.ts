@@ -28,10 +28,10 @@ export async function isDeviceOnline(): Promise<boolean> {
   const timeoutId = setTimeout(() => controller.abort(), ONLINE_PROBE_TIMEOUT_MS);
 
   try {
-    const response = await fetch(`${API_BASE_URL}/docs`, {
+    const response = await fetch(`${API_BASE_URL}/health`, {
       method: 'GET',
       signal: controller.signal,
-      headers: { Accept: 'text/html' },
+      headers: { Accept: 'application/json' },
     });
     return response.ok;
   } catch {
