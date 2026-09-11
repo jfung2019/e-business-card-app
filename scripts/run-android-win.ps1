@@ -60,9 +60,13 @@ if ("$javaVersionLine" -match '"(\d+)') {
   Write-Host "JAVA_HOME=$env:JAVA_HOME"
 }
 
-$connectedDevices = & adb devices 2>$null |
-  Select-Object -Skip 1 |
-  Where-Object { $_ -match "\tdevice$" }
+# adb prints "daemon not running; starting now" on stderr. With
+# $ErrorActionPreference Stop, PowerShell treats that as a fatal error.
+cmd /c "adb start-server >nul 2>&1"
+$connectedDevices = @(
+  cmd /c "adb devices" |
+    Where-Object { $_ -match "\tdevice$" }
+)
 
 $hasPhysicalDevice = @($connectedDevices | Where-Object { $_ -notmatch "emulator-" }).Count -gt 0
 $arch = if ($Device -or $hasPhysicalDevice) { "arm64-v8a" } else { "x86_64" }

@@ -13,7 +13,7 @@ import { getAppEnvironment, type AppEnvironment } from './appEnvironment';
  *
  * Release builds always use `prod`. Dev flavor debug builds default to `dev`.
  * Change `DEBUG_API_TARGET` only when testing local API on a dev build.
- * Health check: {baseUrl}/docs (e.g. https://ebc.megaannum.ai/docs)
+ * Health check: {baseUrl}/health (e.g. https://ebc.megaannum.ai/health)
  */
 export type ApiTarget = 'prod' | 'dev' | 'local';
 
