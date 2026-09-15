@@ -93,3 +93,5 @@ yarn-error.log
 
 # screenshots
 store-assets/
+# Local card samples for QR testing (may contain personal WeChat QR codes)
+card_samples/

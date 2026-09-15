@@ -11,6 +11,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import Clipboard from '@react-native-clipboard/clipboard';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -39,10 +40,14 @@ import type { QueuedCardScan } from '../types/offlineQueue';
 import { formatScannedDate } from '../utils/formatDate';
 import { buildEditedFieldKeys } from '../utils/offlineFieldEdits';
 import {
+  canonicalCustomFieldKey,
+  findCustomFieldValue,
   normalizeCustomFields,
   sortCustomFieldKeys,
+  WECHAT_ID_KEY,
 } from '../utils/customFieldKeys';
 import { formatCustomFieldLabel } from '../utils/formatCustomFieldLabel';
+import { parseWechatQrUrls, WECHAT_QR_KEY } from '../utils/classifyQrPayload';
 import { useAuthenticatedImageSource } from '../utils/scanImage';
 
 type CardDetailProps = NativeStackScreenProps<MainStackParamList, 'CardDetail'>;
@@ -60,6 +65,12 @@ const CORE_FIELD_LABELS: Array<{ key: keyof CoreFields; label: string }> = [
 const CONTACT_FIELD_LABELS = CORE_FIELD_LABELS.filter(({ key }) =>
   (['email', 'phone', 'website'] as const).includes(key as 'email' | 'phone' | 'website'),
 );
+
+/** Opens the WeChat app. Deeper schemes are undocumented and version-specific. */
+const WECHAT_APP_URL = 'weixin://';
+
+/** Save the card image, then hand off to WeChat. */
+type WechatQrStage = 'prompt' | 'saved';
 
 type QuickAction = {
   key: string;
@@ -136,6 +147,10 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
   const [exportBusyOption, setExportBusyOption] = useState<CardExportOption | null>(null);
   const exportComposerRef = useRef<CardImageComposerRef>(null);
   const [pendingWhatsapp, setPendingWhatsapp] = useState<string | null>(null);
+  const [pendingWechat, setPendingWechat] = useState<string | null>(null);
+  const [wechatError, setWechatError] = useState<string | null>(null);
+  const [wechatQrStage, setWechatQrStage] = useState<WechatQrStage | null>(null);
+  const [savingWechatQr, setSavingWechatQr] = useState(false);
 
   const isLocalCard = isLocalCardId(card._id);
   const {
@@ -186,8 +201,18 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
     Object.keys(editing ? draftCustomFields : custom_fields),
   );
   const whatsapp = custom_fields.WhatsApp?.trim() || null;
+  const wechat = findCustomFieldValue(custom_fields, WECHAT_ID_KEY);
+  // ID first: pasting it into Add Contacts beats sending the user off to scan
+  // an image. The QR is the fallback for cards that print no ID.
+  const wechatQrUrls = parseWechatQrUrls(custom_fields[WECHAT_QR_KEY]);
+  const hasWechatQr = !wechat && wechatQrUrls.length > 0;
   const otherCustomFields = Object.fromEntries(
-    Object.entries(custom_fields).filter(([key]) => key !== 'WhatsApp'),
+    Object.entries(custom_fields).filter(
+      ([key]) =>
+        key !== 'WhatsApp' &&
+        key !== WECHAT_QR_KEY &&
+        canonicalCustomFieldKey(key) !== WECHAT_ID_KEY,
+    ),
   );
   const localScanImages = queuedScan
     ? [
@@ -250,6 +275,19 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
       key: 'whatsapp',
       label: 'WhatsApp',
       onPress: () => setPendingWhatsapp(whatsapp),
+    });
+  }
+  if (wechat) {
+    quickActions.push({
+      key: 'wechat',
+      label: 'WeChat',
+      onPress: () => promptWechat(wechat),
+    });
+  } else if (hasWechatQr) {
+    quickActions.push({
+      key: 'wechat-qr',
+      label: 'WeChat',
+      onPress: () => promptWechatQr(),
     });
   }
 
@@ -419,6 +457,96 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
 
   const cancelWhatsapp = () => {
     setPendingWhatsapp(null);
+  };
+
+  /**
+   * WeChat has no add-friend deep link: a chat only exists once both sides are
+   * friends. Copying the ID and opening the app is as far as we can take the
+   * user, who then pastes it into Add Contacts.
+   */
+  /** Opens the prompt fresh, so a previous failure is not shown again. */
+  const promptWechat = (wechatId: string) => {
+    setWechatError(null);
+    setPendingWechat(wechatId);
+  };
+
+  const confirmWechat = () => {
+    const wechatId = pendingWechat;
+    if (!wechatId) {
+      return;
+    }
+    Clipboard.setString(wechatId);
+    setWechatError(null);
+    void (async () => {
+      try {
+        await Linking.openURL(WECHAT_APP_URL);
+        setPendingWechat(null);
+      } catch {
+        // Keep the modal open so the failure is reported where the tap happened.
+        setWechatError(
+          'WeChat is not installed on this device. The ID has been copied — install WeChat, then paste it in Add Contacts.',
+        );
+      }
+    })();
+  };
+
+  const cancelWechat = () => {
+    setPendingWechat(null);
+    setWechatError(null);
+  };
+
+  /**
+   * A WeChat QR cannot be opened as a link -- the payload is meant for WeChat's
+   * own scanner -- so the card image is saved to Photos and the user scans it
+   * from there. This also sidesteps the card carrying two WeChat codes: the
+   * user picks the right one in WeChat.
+   */
+  const promptWechatQr = () => {
+    setWechatError(null);
+    setWechatQrStage('prompt');
+  };
+
+  /**
+   * Two stages in one styled modal: save the card image, then hand the user to
+   * WeChat. Splitting them keeps the instructions on screen while WeChat opens,
+   * and avoids a second system alert in a different visual style.
+   */
+  const confirmWechatQr = () => {
+    if (wechatQrStage === 'saved') {
+      void (async () => {
+        try {
+          await Linking.openURL(WECHAT_APP_URL);
+          setWechatQrStage(null);
+        } catch {
+          setWechatError(
+            'WeChat is not installed on this device. The card image is saved in your Photos.',
+          );
+        }
+      })();
+      return;
+    }
+
+    void (async () => {
+      setSavingWechatQr(true);
+      setWechatError(null);
+      try {
+        await saveCardPhotosToAlbum(exportImages);
+        setWechatQrStage('saved');
+      } catch (saveError) {
+        setWechatError(
+          saveError instanceof Error
+            ? saveError.message
+            : 'Could not save the card image to Photos.',
+        );
+      } finally {
+        setSavingWechatQr(false);
+      }
+    })();
+  };
+
+  const cancelWechatQr = () => {
+    setWechatQrStage(null);
+    setWechatError(null);
   };
 
   const handleExportSelect = (option: CardExportOption) => {
@@ -764,7 +892,8 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
         </View>
       ) : null}
 
-      {!editing && (CONTACT_FIELD_LABELS.some(({ key }) => core_fields[key]) || whatsapp) ? (
+      {!editing &&
+      (CONTACT_FIELD_LABELS.some(({ key }) => core_fields[key]) || whatsapp || wechat) ? (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Contact details</Text>
           {CONTACT_FIELD_LABELS.map(({ key, label }) => {
@@ -790,6 +919,15 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
             >
               <Text style={styles.label}>WhatsApp</Text>
               <Text style={[styles.value, styles.valueLink]}>{whatsapp}</Text>
+            </Pressable>
+          ) : null}
+          {wechat ? (
+            <Pressable
+              onPress={() => promptWechat(wechat)}
+              style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+            >
+              <Text style={styles.label}>WeChat</Text>
+              <Text style={[styles.value, styles.valueLink]}>{wechat}</Text>
             </Pressable>
           ) : null}
         </View>
@@ -833,6 +971,41 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
       confirmLabel="Yes"
       onConfirm={confirmWhatsapp}
       onCancel={cancelWhatsapp}
+    />
+    <ConfirmModal
+      visible={wechatQrStage !== null}
+      title={wechatQrStage === 'saved' ? 'Card saved to Photos' : 'WeChat QR code'}
+      message={
+        wechatQrStage === 'saved'
+          ? 'In WeChat: Discover → Scan, tap the album icon, and choose this card. WeChat reads the QR code from the photo.'
+          : savingWechatQr
+            ? 'Saving the card image...'
+            : `This card has ${wechatQrUrls.length > 1 ? 'WeChat QR codes' : 'a WeChat QR code'} but no WeChat ID. Save the card image to Photos, then scan it from your album in WeChat.`
+      }
+      errorMessage={wechatError}
+      confirmLabel={
+        wechatQrStage === 'saved'
+          ? 'Open WeChat'
+          : savingWechatQr
+            ? 'Saving...'
+            : 'Save to Photos'
+      }
+      cancelLabel={wechatQrStage === 'saved' ? 'Done' : 'Cancel'}
+      onConfirm={confirmWechatQr}
+      onCancel={cancelWechatQr}
+    />
+    <ConfirmModal
+      visible={Boolean(pendingWechat)}
+      title="Open WeChat"
+      message={
+        pendingWechat
+          ? `WeChat ID "${pendingWechat}" will be copied. In WeChat, tap Contacts → Add Contacts, then paste it to search.`
+          : undefined
+      }
+      errorMessage={wechatError}
+      confirmLabel={wechatError ? 'Try again' : 'Copy & Open'}
+      onConfirm={confirmWechat}
+      onCancel={cancelWechat}
     />
     </>
   );

@@ -10,6 +10,7 @@ import DocumentScanner from 'react-native-document-scanner-plugin';
 import { AppState, InteractionManager } from 'react-native';
 
 import { compressScanImageForUpload } from '../utils/compressScanImage';
+import { detectWechatQrUrls } from './qrDetect';
 
 export type OcrSource = 'camera' | 'gallery';
 
@@ -17,6 +18,8 @@ export interface CardScanResult {
   imageUri: string;
   imageBase64: string;
   ocrText: string;
+  /** WeChat QR codes found on this side of the card. Empty when there are none. */
+  wechatQrUrls: string[];
 }
 
 type PickedImage = { uri: string; base64?: string };
@@ -246,6 +249,11 @@ export async function scanBusinessCard(
   }
 
   const { uri: imageUri } = picked;
+  // Read QR codes off the original image: the upload copy is downscaled to
+  // 1280px at quality 65, which a small printed card QR may not survive.
+  // Runs first so a card whose text fails OCR can still yield its QR.
+  const wechatQrUrls = await detectWechatQrUrls(imageUri);
+
   let ocrText = '';
   try {
     ocrText = await recognizeText(imageUri);
@@ -257,5 +265,5 @@ export async function scanBusinessCard(
     }
   }
   const imageBase64 = await compressScanImageForUpload(imageUri);
-  return { imageUri, imageBase64, ocrText };
+  return { imageUri, imageBase64, ocrText, wechatQrUrls };
 }

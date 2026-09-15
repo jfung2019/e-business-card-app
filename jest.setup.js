@@ -18,6 +18,27 @@ jest.mock('react-native-reanimated', () => {
   };
 });
 
+jest.mock('react-native-qr-kit', () => ({
+  __esModule: true,
+  default: {
+    decodeMultiple: jest.fn(() => Promise.resolve({ success: true, results: [] })),
+  },
+}));
+
+jest.mock('@react-native-ml-kit/barcode-scanning', () => ({
+  __esModule: true,
+  default: { scan: jest.fn(() => Promise.resolve([])) },
+  BarcodeFormat: { QR_CODE: 256, CODE_128: 1, UNKNOWN: -1, ALL_FORMATS: 0 },
+}));
+
+jest.mock('@react-native-clipboard/clipboard', () => ({
+  __esModule: true,
+  default: {
+    setString: jest.fn(),
+    getString: jest.fn(() => Promise.resolve('')),
+  },
+}));
+
 jest.mock('@react-native-firebase/app', () => ({
   __esModule: true,
   default: jest.fn(() => ({})),

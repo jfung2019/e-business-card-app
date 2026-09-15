@@ -1,12 +1,18 @@
 import type { CoreFields } from '../types/card';
 
 import { BACK_SECTION_LABEL } from './mergeCardOcrText';
+import { WECHAT_ID_KEY } from './customFieldKeys';
 
 const EMAIL_PATTERN = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
 const PHONE_PATTERN = /(?:\+?\d[\d\s().-]{6,}\d)/;
 const WEBSITE_PATTERN = /(?:https?:\/\/)?(?:www\.)?[a-z0-9][-a-z0-9.]*\.[a-z]{2,}(?:\/\S*)?/i;
 const CJK_PATTERN = /[\u4e00-\u9fff\u3400-\u4dbf]/;
 const WHATSAPP_PATTERN = /whats\s*app/i;
+/** Label preceding a WeChat ID, e.g. "WeChat:", "微信號", "Weixin ID". */
+const WECHAT_LABEL_PATTERN =
+  /(?:we\s*chat|wei\s*xin|微\s*信)\s*(?:id|no\.?|number|account|帐号|賬號|账号|號|号)?\s*[:：]?\s*/i;
+/** WeChat IDs: start with a letter, 6-20 chars of letters/digits/_/-. */
+const WECHAT_ID_PATTERN = /[A-Za-z][A-Za-z0-9_-]{5,19}/;
 
 const EN_ADDRESS_HINTS = [
   /\broom\b/i,
@@ -134,17 +140,49 @@ function splitFrontAndBack(rawOcrText: string): { frontLines: string[]; backLine
   return { frontLines, backLines };
 }
 
+/**
+ * Pull a WeChat ID out of the text following a WeChat label.
+ *
+ * Cards often print "WeChat" and "WhatsApp" side by side as QR captions, so a
+ * bare "WhatsApp" after the label is a neighbouring caption, not an ID.
+ * Some contacts use a phone number as their WeChat ID, so allow that too.
+ */
+function extractWechatValue(text: string): string | null {
+  const value = cleanLine(text.replace(WECHAT_LABEL_PATTERN, ''));
+  if (!value || WHATSAPP_PATTERN.test(value)) {
+    return null;
+  }
+
+  // A whole phone number may be the ID, and those contain spaces.
+  const phoneMatch = value.match(PHONE_PATTERN);
+  if (phoneMatch && cleanLine(phoneMatch[0]) === value) {
+    return value;
+  }
+
+  // Otherwise the remainder must be exactly one token. Prose such as
+  // "Welcome to contact us via WeChat." leaves several words behind, and
+  // picking the first ID-shaped word out of it yields nonsense like "Welcome".
+  if (/\s/.test(value)) {
+    return null;
+  }
+
+  const idMatch = value.match(WECHAT_ID_PATTERN);
+  return idMatch && cleanLine(idMatch[0]) === value ? value : null;
+}
+
 function extractContactLines(lines: string[]): {
   email: string | null;
   phones: string[];
   website: string | null;
   whatsapp: string | null;
+  wechat: string | null;
   remaining: string[];
 } {
   let email: string | null = null;
   const phones: string[] = [];
   let website: string | null = null;
   let whatsapp: string | null = null;
+  let wechat: string | null = null;
   const remaining: string[] = [];
 
   for (let index = 0; index < lines.length; index += 1) {
@@ -160,6 +198,24 @@ function extractContactLines(lines: string[]): {
       const nextLineMatch = nextLine?.match(PHONE_PATTERN);
       if (nextLineMatch && cleanLine(nextLine) === cleanLine(nextLineMatch[0])) {
         whatsapp = cleanLine(nextLineMatch[0]);
+        index += 1;
+        continue;
+      }
+    }
+
+    if (!wechat && WECHAT_LABEL_PATTERN.test(line)) {
+      const sameLine = extractWechatValue(line);
+      if (sameLine) {
+        wechat = sameLine;
+        continue;
+      }
+      // Only a caption that is *nothing but* the label may claim the next line.
+      // Otherwise "www.wechatpay.com" would swallow whatever follows it.
+      const isBareLabel = cleanLine(line.replace(WECHAT_LABEL_PATTERN, '')) === '';
+      const nextLine = isBareLabel ? lines[index + 1] : undefined;
+      const nextValue = nextLine ? extractWechatValue(nextLine) : null;
+      if (nextValue && nextLine && cleanLine(nextLine) === nextValue) {
+        wechat = nextValue;
         index += 1;
         continue;
       }
@@ -191,7 +247,7 @@ function extractContactLines(lines: string[]): {
     remaining.push(line);
   }
 
-  return { email, phones, website, whatsapp, remaining };
+  return { email, phones, website, whatsapp, wechat, remaining };
 }
 
 function pickName(lines: string[]): string {
@@ -299,7 +355,7 @@ export function parseOcrOffline(rawOcrText: string): {
 } {
   const { frontLines, backLines } = splitFrontAndBack(rawOcrText);
   const allLines = [...frontLines, ...backLines];
-  const { email, phones, website, whatsapp, remaining } = extractContactLines(allLines);
+  const { email, phones, website, whatsapp, wechat, remaining } = extractContactLines(allLines);
 
   const frontRemaining = extractContactLines(frontLines).remaining;
   const backRemaining = extractContactLines(backLines).remaining;
@@ -315,8 +371,8 @@ export function parseOcrOffline(rawOcrText: string): {
   if (classified.address_cn) {
     custom_fields.address_cn = classified.address_cn;
   }
-  if (classified.alternate_name_ch) {
-    custom_fields.alternate_name_cn = classified.alternate_name_ch;
+  if (classified.alternate_name_cn) {
+    custom_fields.alternate_name_cn = classified.alternate_name_cn;
   }
   if (phones.length > 1) {
     custom_fields.phone_2 = phones[1];
@@ -326,6 +382,9 @@ export function parseOcrOffline(rawOcrText: string): {
   }
   if (whatsapp) {
     custom_fields.WhatsApp = whatsapp;
+  }
+  if (wechat) {
+    custom_fields[WECHAT_ID_KEY] = wechat;
   }
 
   classified.extras.forEach((line, index) => {
