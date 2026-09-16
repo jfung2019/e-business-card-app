@@ -10,6 +10,7 @@ const EXACT_LABELS: Record<string, string> = {
   phone_2: 'phone 2',
   phone_3: 'phone 3',
   WhatsApp: 'WhatsApp',
+  wechat_id: 'WeChat',
 };
 
 /**

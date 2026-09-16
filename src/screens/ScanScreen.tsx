@@ -11,6 +11,7 @@ import { useScanSubmissionProgress } from '../hooks/useScanSubmissionProgress';
 import type { MainStackParamList } from '../navigation/AppNavigator';
 import type { WalletThemeColors } from '../theme/appTheme';
 import { scanBusinessCard, type OcrSource } from '../services/ocr';
+import { mergeWechatQrUrls } from '../services/qrDetect';
 import { mergeCardOcrText } from '../utils/mergeCardOcrText';
 import { shouldOpenScanImageReview } from '../utils/scanImageReview';
 
@@ -152,6 +153,7 @@ export function ScanScreen(): React.JSX.Element {
   const [scanError, setScanError] = useState<string | null>(null);
   const [frontOcrText, setFrontOcrText] = useState<string | null>(null);
   const [frontImageBase64, setFrontImageBase64] = useState<string | null>(null);
+  const [frontWechatQrUrls, setFrontWechatQrUrls] = useState<string[]>([]);
   const [awaitingBackCapture, setAwaitingBackCapture] = useState(false);
 
   const isSuccess = state.status === 'success' && capturedCard !== null;
@@ -176,6 +178,7 @@ export function ScanScreen(): React.JSX.Element {
     setAwaitingBackCapture(false);
     setFrontOcrText(null);
     setFrontImageBase64(null);
+    setFrontWechatQrUrls([]);
 
     try {
       const result = await scanBusinessCard(source);
@@ -185,6 +188,7 @@ export function ScanScreen(): React.JSX.Element {
 
       setFrontOcrText(result.ocrText);
       setFrontImageBase64(result.imageBase64);
+      setFrontWechatQrUrls(result.wechatQrUrls);
       setAwaitingBackCapture(true);
     } catch (error) {
       const message =
@@ -193,7 +197,11 @@ export function ScanScreen(): React.JSX.Element {
     }
   };
 
-  const finalizeSubmission = async (backImageBase64?: string, backOcrText?: string) => {
+  const finalizeSubmission = async (
+    backImageBase64?: string,
+    backOcrText?: string,
+    backWechatQrUrls: string[] = [],
+  ) => {
     if (!frontOcrText || !frontImageBase64) {
       setScanError('Front card image is missing. Please scan the front again.');
       setAwaitingBackCapture(false);
@@ -204,10 +212,13 @@ export function ScanScreen(): React.JSX.Element {
       ocrText: mergeCardOcrText(frontOcrText, backOcrText),
       imageBase64: frontImageBase64,
       backImageBase64,
+      // A WeChat QR is often printed on the back only.
+      wechatQrUrls: mergeWechatQrUrls(frontWechatQrUrls, backWechatQrUrls),
     });
     setAwaitingBackCapture(false);
     setFrontOcrText(null);
     setFrontImageBase64(null);
+    setFrontWechatQrUrls([]);
   };
 
   const handleScanBack = async (source: OcrSource) => {
@@ -217,7 +228,7 @@ export function ScanScreen(): React.JSX.Element {
       if (!result) {
         return;
       }
-      await finalizeSubmission(result.imageBase64, result.ocrText);
+      await finalizeSubmission(result.imageBase64, result.ocrText, result.wechatQrUrls);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Failed to capture the back image.';
