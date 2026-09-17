@@ -1,6 +1,10 @@
 /** Canonical MongoDB/API key for a contact's WeChat ID. */
 export const WECHAT_ID_KEY = 'wechat_id';
 
+/** Canonical MongoDB/API keys for a contact's localized postal address. */
+export const ADDRESS_EN_KEY = 'address_en';
+export const ADDRESS_CN_KEY = 'address_cn';
+
 /** Canonical MongoDB/API keys for localized custom fields. */
 const CUSTOM_FIELD_KEY_ALIASES: Record<string, string> = {
   address_ch: 'address_cn',
@@ -98,8 +102,8 @@ export function normalizeCustomFields(
 
 export function sortCustomFieldKeys(keys: string[]): string[] {
   const priority = [
-    'address_en',
-    'address_cn',
+    ADDRESS_EN_KEY,
+    ADDRESS_CN_KEY,
     'alternate_name_cn',
     'phone_2',
     'phone_3',

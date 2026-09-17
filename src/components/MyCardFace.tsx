@@ -8,6 +8,11 @@ import {
 
 import { useAppTheme } from '../context/ThemeContext';
 import { getCardDesign } from '../theme/cardDesigns';
+import {
+  ADDRESS_CN_KEY,
+  ADDRESS_EN_KEY,
+  findCustomFieldValue,
+} from '../utils/customFieldKeys';
 import type { PhotoFace, UserCard, WalletDisplay } from '../types/userCard';
 import {
   nextUserCardWalletDisplay,
@@ -22,6 +27,7 @@ export const MY_CARD_HEIGHT = 176;
 const SCAN_CARD_ASPECT_RATIO = 1.586;
 export const MY_CARD_SCAN_HEIGHT = Math.round(MY_CARD_WIDTH / SCAN_CARD_ASPECT_RATIO);
 const CARD_BORDER_RADIUS = 22;
+const ADDRESS_BAND_LINES = 3;
 
 interface MyCardFaceProps {
   card: UserCard;
@@ -86,9 +92,25 @@ function BelowCardControls({
   );
 }
 
-function TemplateCardFace({ card }: { card: UserCard }): React.JSX.Element {
+function TemplateCardFace({
+  card,
+  reserveControlSpace,
+}: {
+  card: UserCard;
+  /** The back-view toggle overlays bottom-right; keep the address clear of it. */
+  reserveControlSpace: boolean;
+}): React.JSX.Element {
   const design = getCardDesign(card.design_id);
   const { core_fields } = card;
+  const addressCn = findCustomFieldValue(card.custom_fields, ADDRESS_CN_KEY);
+  const addressEn = findCustomFieldValue(card.custom_fields, ADDRESS_EN_KEY);
+  const hasBothAddresses = Boolean(addressCn && addressEn);
+  // The band holds three lines. They are split by where the overflow actually
+  // is: an English address leads with the unit and street and runs ~66 chars
+  // against a ~52 budget, so it needs the second line, while a Chinese address
+  // fits one line far more often. A lone address takes the whole band.
+  const addressCnLines = hasBothAddresses ? 1 : ADDRESS_BAND_LINES;
+  const addressEnLines = hasBothAddresses ? 2 : ADDRESS_BAND_LINES;
 
   return (
     <View style={styles.templateRoot}>
@@ -118,6 +140,35 @@ function TemplateCardFace({ card }: { card: UserCard }): React.JSX.Element {
           ) : null}
         </View>
       </View>
+      {addressCn || addressEn ? (
+        <View
+          style={[
+            styles.addressBand,
+            { backgroundColor: design.band },
+            reserveControlSpace && styles.addressBandInset,
+          ]}
+        >
+          {addressCn ? (
+            <Text
+              style={[styles.addressLine, { color: design.text }]}
+              numberOfLines={addressCnLines}
+              // A Chinese address runs country to unit, so the tail is the part
+              // worth keeping when it does not fit.
+              ellipsizeMode="head"
+            >
+              {addressCn}
+            </Text>
+          ) : null}
+          {addressEn ? (
+            <Text
+              style={[styles.addressLine, { color: design.muted }]}
+              numberOfLines={addressEnLines}
+            >
+              {addressEn}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -193,7 +244,10 @@ function MyCardFaceContent({
           variant="image"
         />
       ) : (
-        <TemplateCardFace card={card} />
+        <TemplateCardFace
+          card={card}
+          reserveControlSpace={!controlsBelow && hasBackPhoto}
+        />
       )}
       {!controlsBelow && hasBackPhoto ? (
         <CardFaceControls showFlipFace={hasBackPhoto} onFlipFace={handleShowBack} />
@@ -290,7 +344,8 @@ const styles = StyleSheet.create({
   cardInner: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingVertical: 18,
+    paddingTop: 16,
+    paddingBottom: 10,
     justifyContent: 'space-between',
   },
   topRow: {
@@ -301,7 +356,7 @@ const styles = StyleSheet.create({
   },
   company: {
     flex: 1,
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '600',
     fontStyle: 'italic',
   },
@@ -312,18 +367,33 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   bottomBlock: {
-    gap: 4,
+    gap: 2,
   },
   name: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '700',
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '500',
   },
   detail: {
-    fontSize: 12,
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  addressBand: {
+    paddingHorizontal: 20,
+    paddingTop: 7,
+    paddingBottom: 9,
+  },
+  // Clears the single 34pt back-view button pinned to bottom-right.
+  addressBandInset: {
+    paddingRight: 56,
+  },
+  addressLine: {
+    fontSize: 10,
+    // Explicit: Android clips CJK descenders at the default line height.
+    lineHeight: 13,
     fontWeight: '500',
   },
   belowControlsWrap: {
