@@ -9,6 +9,11 @@ import {
 } from 'react-native';
 import { getWalletPalette, type WalletCardPalette } from '../theme/wallet';
 import type { CapturedCard, PhotoFace } from '../types/card';
+import {
+  ADDRESS_CN_KEY,
+  ADDRESS_EN_KEY,
+  findCustomFieldValue,
+} from '../utils/customFieldKeys';
 import { hasScanImage, nextWalletDisplay, showsWalletPhoto } from '../utils/walletDisplay';
 import { CardFaceControls } from './CardFaceControls';
 import { CardPhotoFlip } from './CardPhotoFlip';
@@ -17,6 +22,7 @@ const CARD_BORDER_RADIUS = 22;
 const SCAN_CARD_ASPECT_RATIO = 1.586;
 const WALLET_HORIZONTAL_PADDING = 48;
 const CROSSFADE_MS = 200;
+const ADDRESS_BAND_LINES = 3;
 
 export const WALLET_CARD_FULL_HEIGHT = 196;
 export const WALLET_CARD_SCAN_HEIGHT = Math.round(
@@ -67,6 +73,15 @@ function ClassicCardFace({
 }): React.JSX.Element {
   const brand = getBrand(card);
   const contactDetail = getContactDetail(card);
+  const addressCn = findCustomFieldValue(card.custom_fields, ADDRESS_CN_KEY);
+  const addressEn = findCustomFieldValue(card.custom_fields, ADDRESS_EN_KEY);
+  const hasBothAddresses = Boolean(addressCn && addressEn);
+  // The band holds three lines. They are split by where the overflow actually
+  // is: an English address leads with the unit and street and runs ~66 chars
+  // against a ~52 budget, so it needs the second line, while a Chinese address
+  // fits one line far more often. A lone address takes the whole band.
+  const addressCnLines = hasBothAddresses ? 1 : ADDRESS_BAND_LINES;
+  const addressEnLines = hasBothAddresses ? 2 : ADDRESS_BAND_LINES;
 
   return (
     <>
@@ -89,6 +104,37 @@ function ClassicCardFace({
           </Text>
         </View>
       </View>
+      {addressCn || addressEn ? (
+        <View
+          style={[
+            styles.addressBand,
+            { backgroundColor: palette.band },
+            // A scanned card overlays the face toggles bottom-right; keep the
+            // address clear of them instead of running underneath.
+            hasScan && styles.addressBandInset,
+          ]}
+        >
+          {addressCn ? (
+            <Text
+              style={[styles.addressLine, { color: palette.text }]}
+              numberOfLines={addressCnLines}
+              // A Chinese address runs country to unit, so the tail is the part
+              // worth keeping when it does not fit.
+              ellipsizeMode="head"
+            >
+              {addressCn}
+            </Text>
+          ) : null}
+          {addressEn ? (
+            <Text
+              style={[styles.addressLine, { color: palette.muted }]}
+              numberOfLines={addressEnLines}
+            >
+              {addressEn}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
     </>
   );
 }
@@ -322,5 +368,20 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     width: '100%',
     height: '100%',
+  },
+  addressBand: {
+    paddingHorizontal: 22,
+    paddingTop: 8,
+    paddingBottom: 10,
+  },
+  // Clears the two 34pt face-toggle buttons pinned to bottom-right.
+  addressBandInset: {
+    paddingRight: 96,
+  },
+  addressLine: {
+    fontSize: 10,
+    // Explicit: Android clips CJK descenders at the default line height.
+    lineHeight: 13,
+    fontWeight: '500',
   },
 });
