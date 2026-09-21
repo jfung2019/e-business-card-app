@@ -214,7 +214,7 @@ export function MyCardScanScreen(): React.JSX.Element {
   const handleScanBack = async (source: OcrSource) => {
     setScanError(null);
     try {
-      const result = await scanBusinessCard(source, { requireText: false });
+      const result = await scanBusinessCard(source, { requireText: false, side: 'back' });
       if (!result) {
         return;
       }

@@ -6,9 +6,12 @@ import {
 import TextRecognition, {
   TextRecognitionScript,
 } from '@react-native-ml-kit/text-recognition';
-import DocumentScanner from 'react-native-document-scanner-plugin';
 import { AppState, InteractionManager } from 'react-native';
 
+import {
+  openCardScanner,
+  type CardScannerSide,
+} from './cardScanner/cardScannerController';
 import { compressScanImageForUpload } from '../utils/compressScanImage';
 import { detectWechatQrUrls } from './qrDetect';
 
@@ -151,25 +154,22 @@ async function scanWithCameraFallback(): Promise<PickedImage | null> {
   return { uri: asset.uri, base64: asset.base64 ?? undefined };
 }
 
-async function scanWithDocumentCamera(): Promise<string | null> {
+/**
+ * Opens the in-app card scanner: one card, detected and captured
+ * automatically, and the user is done in a single shot.
+ *
+ * Replaces `react-native-document-scanner-plugin`, whose iOS backend
+ * (VisionKit's `VNDocumentCameraViewController`) is a multi-page document
+ * scanner with no page limit — users scanned several cards and only the first
+ * was ever kept.
+ */
+async function scanWithCardScanner(side: CardScannerSide): Promise<string | null> {
   await runAfterInteractions();
   try {
-    const { scannedImages, status } = await withActivityRetry(() =>
-      DocumentScanner.scanDocument({
-        maxNumDocuments: 1,
-        croppedImageQuality: 90,
-      }),
-    );
-
-    if (status === 'cancel' || !scannedImages?.length) {
-      return null;
-    }
-
-    return scannedImages[0] ?? null;
-  } catch (error) {
-    if (!isActivityRegistryError(error)) {
-      throw error;
-    }
+    return await openCardScanner(side);
+  } catch {
+    // Camera or OpenCV unavailable: fall back to a plain camera capture
+    // rather than blocking the scan entirely.
     const fallback = await scanWithCameraFallback();
     return fallback?.uri ?? null;
   }
@@ -232,6 +232,8 @@ export function isNoTextDetectedError(error: unknown): boolean {
 export interface ScanBusinessCardOptions {
   /** When false, returns empty ocrText if no text is found (used for optional back scans). */
   requireText?: boolean;
+  /** Which side is being captured — drives the scanner's on-screen prompt. */
+  side?: CardScannerSide;
 }
 
 export async function scanBusinessCard(
@@ -241,7 +243,9 @@ export async function scanBusinessCard(
   const requireText = options?.requireText !== false;
   const picked: PickedImage | null =
     source === 'camera'
-      ? await scanWithDocumentCamera().then((uri) => (uri ? { uri } : null))
+      ? await scanWithCardScanner(options?.side ?? 'front').then((uri) =>
+          uri ? { uri } : null,
+        )
       : await pickGalleryImageUri();
 
   if (!picked) {
