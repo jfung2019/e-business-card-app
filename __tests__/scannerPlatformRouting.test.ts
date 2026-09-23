@@ -1,8 +1,11 @@
 import { AppState, Platform } from 'react-native';
 import DocumentScanner from 'react-native-document-scanner-plugin';
 
-import { scanBusinessCard } from '../src/services/ocr';
-import { openCardScanner } from '../src/services/cardScanner/cardScannerController';
+import { scanBusinessCard, scanBusinessCardBothSides } from '../src/services/ocr';
+import {
+  openCardScanner,
+  openCardScannerBothSides,
+} from '../src/services/cardScanner/cardScannerController';
 
 jest.mock('react-native-document-scanner-plugin', () => ({
   __esModule: true,
@@ -12,6 +15,7 @@ jest.mock('react-native-document-scanner-plugin', () => ({
 jest.mock('../src/services/cardScanner/cardScannerController', () => ({
   __esModule: true,
   openCardScanner: jest.fn(),
+  openCardScannerBothSides: jest.fn(),
 }));
 
 jest.mock('../src/services/qrDetect', () => ({
@@ -32,6 +36,7 @@ jest.mock('@react-native-ml-kit/text-recognition', () => ({
 
 const scanDocument = DocumentScanner.scanDocument as jest.Mock;
 const openScanner = openCardScanner as jest.Mock;
+const openBothSides = openCardScannerBothSides as jest.Mock;
 
 /**
  * The two platforms deliberately use different scanners. Android's ML Kit
@@ -54,6 +59,7 @@ describe('scanner platform routing', () => {
   beforeEach(() => {
     scanDocument.mockReset();
     openScanner.mockReset();
+    openBothSides.mockReset();
   });
 
   afterEach(() => {
@@ -100,5 +106,29 @@ describe('scanner platform routing', () => {
     scanDocument.mockResolvedValue({ status: 'cancel', scannedImages: [] });
 
     await expect(scanBusinessCard('camera')).resolves.toBeNull();
+  });
+
+  it('analyzes both sides from one scanner session', async () => {
+    openBothSides.mockResolvedValue({
+      front: 'file:///tmp/front.jpg',
+      back: 'file:///tmp/back.jpg',
+    });
+
+    const pair = await scanBusinessCardBothSides();
+
+    expect(pair?.front).toMatchObject({ imageUri: 'file:///tmp/front.jpg', ocrText: 'Jane Doe' });
+    expect(pair?.back).toMatchObject({ imageUri: 'file:///tmp/back.jpg' });
+  });
+
+  it('leaves the back empty when it was skipped', async () => {
+    openBothSides.mockResolvedValue({ front: 'file:///tmp/front.jpg', back: null });
+
+    await expect(scanBusinessCardBothSides()).resolves.toMatchObject({ back: null });
+  });
+
+  it('returns null when the combined scan is cancelled', async () => {
+    openBothSides.mockResolvedValue(null);
+
+    await expect(scanBusinessCardBothSides()).resolves.toBeNull();
   });
 });

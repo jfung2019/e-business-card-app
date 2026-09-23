@@ -6,12 +6,22 @@
  * scanner drops in without touching the scan screens.
  */
 
-type ScannerResolver = (imageUri: string | null) => void;
+/** Resolves with one URI per captured side, in order, or `null` on cancel. */
+type ScannerResolver = (imageUris: string[] | null) => void;
 
 export type CardScannerSide = 'front' | 'back';
 
 export interface CardScannerRequest {
-  side: CardScannerSide;
+  /**
+   * Sides to capture in one camera session, in order. Every side after the
+   * first is optional — the scanner offers Skip for it.
+   */
+  sides: readonly CardScannerSide[];
+}
+
+export interface CardScannerPair {
+  front: string;
+  back: string | null;
 }
 
 type Listener = (request: CardScannerRequest | null) => void;
@@ -24,15 +34,7 @@ export function setCardScannerListener(next: Listener | null): void {
   listener = next;
 }
 
-/**
- * Opens the scanner and resolves with a local image URI, or `null` when the
- * user backs out.
- *
- * @throws If the scanner host is not mounted, or a scan is already running.
- */
-export function openCardScanner(
-  side: CardScannerSide = 'front',
-): Promise<string | null> {
+function openScanner(sides: readonly CardScannerSide[]): Promise<string[] | null> {
   if (!listener) {
     return Promise.reject(
       new Error('Card scanner is unavailable. Please restart the app.'),
@@ -42,18 +44,46 @@ export function openCardScanner(
     return Promise.reject(new Error('A scan is already in progress.'));
   }
 
-  return new Promise<string | null>((resolve) => {
+  return new Promise<string[] | null>((resolve) => {
     pending = resolve;
-    listener?.({ side });
+    listener?.({ sides });
   });
 }
 
+/**
+ * Opens the scanner and resolves with a local image URI, or `null` when the
+ * user backs out.
+ *
+ * @throws If the scanner host is not mounted, or a scan is already running.
+ */
+export async function openCardScanner(
+  side: CardScannerSide = 'front',
+): Promise<string | null> {
+  const uris = await openScanner([side]);
+  return uris?.[0] ?? null;
+}
+
+/**
+ * Captures the front and then, optionally, the back in a single camera
+ * session — no round trip back to the calling screen between the two.
+ * Resolves `null` when the user backs out before the front is kept.
+ *
+ * @throws If the scanner host is not mounted, or a scan is already running.
+ */
+export async function openCardScannerBothSides(): Promise<CardScannerPair | null> {
+  const uris = await openScanner(['front', 'back']);
+  if (!uris?.[0]) {
+    return null;
+  }
+  return { front: uris[0], back: uris[1] ?? null };
+}
+
 /** Called by the scanner host when the user finishes or cancels. */
-export function finishCardScan(imageUri: string | null): void {
+export function finishCardScan(imageUris: string[] | null): void {
   const resolve = pending;
   pending = null;
   listener?.(null);
-  resolve?.(imageUri);
+  resolve?.(imageUris);
 }
 
 /** Test seam: drops any in-flight scan without resolving the UI. */

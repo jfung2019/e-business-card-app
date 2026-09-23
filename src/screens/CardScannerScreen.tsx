@@ -1,12 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   StyleSheet,
   Text,
   View,
   type LayoutChangeEvent,
 } from 'react-native';
+import { launchImageLibrary } from 'react-native-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 import { scheduleOnRN } from 'react-native-worklets';
@@ -32,7 +34,10 @@ import {
   type PreparedPhoto,
 } from '../services/cardScanner/cardPhoto';
 import type { CardScannerSide } from '../services/cardScanner/cardScannerController';
-import { detectCardQuad, detectCardQuadInImage } from '../services/cardScanner/detectCardQuad';
+import {
+  detectCardQuadInImage,
+  detectCardQuadLive,
+} from '../services/cardScanner/detectCardQuad';
 import {
   containRect,
   defaultCropQuad,
@@ -63,6 +68,9 @@ const SMOOTHING = 0.45;
  */
 const AUTO_CAPTURE_COOLDOWN_MS = 1200;
 
+/** How long a clean crop stays on screen before the scanner moves on by itself. */
+const ACCEPTED_CONFIRM_MS = 1400;
+
 /**
  * Portrait 16:9. The frame output is physically rotated to match, so the
  * preview, the frame thumbnail and the overlay all share this aspect.
@@ -78,18 +86,21 @@ const RING_RADIUS = (SHUTTER_SIZE - RING_STROKE) / 2;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
 interface CardScannerScreenProps {
-  side: CardScannerSide;
-  onComplete: (imageUri: string | null) => void;
+  /** Sides to capture in this session, in order. Sides after the first can be skipped. */
+  sides: readonly CardScannerSide[];
+  /** One URI per captured side, in order, or `null` when the user cancels. */
+  onComplete: (imageUris: string[] | null) => void;
 }
 
 /**
  * - scanning:   live preview, detector running, auto-capture armed
  * - capturing:  shutter fired, camera still active until the photo lands
  * - processing: preparing the photo, re-detecting edges, warping
- * - review:     one cropped card — Retake / Crop / Next
+ * - accepted:   crop succeeded — brief confirmation, then moves on by itself
+ * - review:     full check — Retake / Crop / Next (no edges found, or after a crop)
  * - cropping:   corner editor over the original photo
  */
-type Phase = 'scanning' | 'capturing' | 'processing' | 'review' | 'cropping';
+type Phase = 'scanning' | 'capturing' | 'processing' | 'accepted' | 'review' | 'cropping';
 
 interface ScanResult {
   rawUri: string;
@@ -106,7 +117,11 @@ function toFileUri(path: string): string {
   return path.startsWith('file://') ? path : `file://${path}`;
 }
 
-export function CardScannerScreen({ side, onComplete }: CardScannerScreenProps): React.JSX.Element {
+function sideLabel(side: CardScannerSide): string {
+  return side === 'front' ? 'Front' : 'Back';
+}
+
+export function CardScannerScreen({ sides, onComplete }: CardScannerScreenProps): React.JSX.Element {
   const { scan } = useAppTheme();
   const insets = useSafeAreaInsets();
   const { hasPermission, requestPermission } = useCameraPermission();
@@ -119,6 +134,11 @@ export function CardScannerScreen({ side, onComplete }: CardScannerScreenProps):
   const devices = useCameraDevices();
   const device = backDevice ?? devices[0];
   const devicesLoaded = devices.length > 0;
+
+  const [sideIndex, setSideIndex] = useState(0);
+  const side: CardScannerSide = sides[sideIndex] ?? 'front';
+  const canSkipSide = sideIndex > 0;
+  const hasMoreSides = sideIndex < sides.length - 1;
 
   const [phase, setPhase] = useState<Phase>('scanning');
   const [liveQuad, setLiveQuad] = useState<CardQuad | null>(null);
@@ -135,10 +155,13 @@ export function CardScannerScreen({ side, onComplete }: CardScannerScreenProps):
   const quadRef = useRef<CardQuad | null>(null);
   const steadyRef = useRef(0);
   const lastDetectionAtRef = useRef(0);
+  const detectingRef = useRef(false);
   const autoArmedAtRef = useRef(0);
   const resultRef = useRef<ScanResult | null>(null);
   resultRef.current = result;
-  const handedOffUriRef = useRef<string | null>(null);
+  /** Final images of sides already kept this session. */
+  const capturedRef = useRef<string[]>([]);
+  const completedRef = useRef(false);
 
   /**
    * Phase lives in both a ref and state. The ref is what the async capture
@@ -164,19 +187,29 @@ export function CardScannerScreen({ side, onComplete }: CardScannerScreenProps):
     }
   }, [hasPermission, requestPermission]);
 
-  // Leaving the scanner any way other than "Next" must not strand temp files.
+  // Leaving the scanner without handing the images off must not strand temp
+  // files: the in-progress scan always goes, kept sides go unless completed.
   useEffect(
     () => () => {
       const current = resultRef.current;
-      if (!current) {
-        return;
+      const kept = completedRef.current ? capturedRef.current : [];
+      const leftovers = [
+        ...(completedRef.current ? [] : capturedRef.current),
+        ...(current ? [current.rawUri, current.photo.uri, current.croppedUri] : []),
+      ].filter((uri) => !uri || !kept.includes(uri));
+      if (leftovers.length > 0) {
+        void discardScanFiles(leftovers);
       }
-      const keep = handedOffUriRef.current;
-      void discardScanFiles(
-        [current.rawUri, current.photo.uri, current.croppedUri].filter((uri) => uri !== keep),
-      );
     },
     [],
+  );
+
+  const complete = useCallback(
+    (imageUris: string[] | null) => {
+      completedRef.current = imageUris !== null;
+      onComplete(imageUris);
+    },
+    [onComplete],
   );
 
   const photoOutput = usePhotoOutput({
@@ -184,26 +217,14 @@ export function CardScannerScreen({ side, onComplete }: CardScannerScreenProps):
     qualityPrioritization: 'quality',
   });
 
-  const capture = useCallback(
-    async (mode: CaptureMode) => {
-      if (phaseRef.current !== 'scanning') {
-        return;
-      }
-      const liveQuadAtCapture = quadRef.current;
-      changePhase('capturing');
-      setError(null);
-
-      let rawUri: string | null = null;
+  /**
+   * Shared tail of every capture: bake orientation, find the card, dewarp.
+   * A clean crop goes to the brief confirmation; anything else to full review.
+   */
+  const processStill = useCallback(
+    async (rawUri: string, liveQuadAtCapture: CardQuad | null, mode: CaptureMode) => {
       let prepared: PreparedPhoto | null = null;
       try {
-        const photo = await photoOutput.capturePhoto({}, {});
-        try {
-          rawUri = toFileUri(await photo.saveToTemporaryFileAsync());
-        } finally {
-          photo.dispose();
-        }
-
-        // The photo is on disk; the camera can stop while we process.
         changePhase('processing');
         prepared = await prepareCapturedPhoto(rawUri);
 
@@ -221,7 +242,7 @@ export function CardScannerScreen({ side, onComplete }: CardScannerScreenProps):
           croppedUri,
           mode,
         });
-        changePhase('review');
+        changePhase(croppedUri ? 'accepted' : 'review');
       } catch (captureError) {
         void discardScanFiles([rawUri, prepared?.uri]);
         setError(
@@ -231,26 +252,95 @@ export function CardScannerScreen({ side, onComplete }: CardScannerScreenProps):
         changePhase('scanning');
       }
     },
-    [changePhase, photoOutput, resetDetection],
+    [changePhase, resetDetection],
   );
 
+  const capture = useCallback(
+    async (mode: CaptureMode) => {
+      if (phaseRef.current !== 'scanning') {
+        return;
+      }
+      const liveQuadAtCapture = quadRef.current;
+      changePhase('capturing');
+      setError(null);
+
+      let rawUri: string;
+      try {
+        const photo = await photoOutput.capturePhoto({}, {});
+        try {
+          rawUri = toFileUri(await photo.saveToTemporaryFileAsync());
+        } finally {
+          photo.dispose();
+        }
+      } catch (captureError) {
+        setError(
+          captureError instanceof Error ? captureError.message : 'Could not capture the card.',
+        );
+        resetDetection();
+        changePhase('scanning');
+        return;
+      }
+
+      // The photo is on disk; the camera can stop while we process.
+      await processStill(rawUri, liveQuadAtCapture, mode);
+    },
+    [changePhase, photoOutput, processStill, resetDetection],
+  );
+
+  const handlePickFromLibrary = useCallback(async () => {
+    if (phaseRef.current !== 'scanning') {
+      return;
+    }
+    changePhase('processing');
+    setError(null);
+    try {
+      const picked = await launchImageLibrary({ mediaType: 'photo', selectionLimit: 1 });
+      if (picked.errorCode) {
+        throw new Error(picked.errorMessage || 'Unable to open your photos.');
+      }
+      const uri = picked.assets?.[0]?.uri;
+      if (picked.didCancel || !uri) {
+        changePhase('scanning');
+        return;
+      }
+      await processStill(uri, null, 'library');
+    } catch (pickError) {
+      setError(pickError instanceof Error ? pickError.message : 'Unable to open your photos.');
+      changePhase('scanning');
+    }
+  }, [changePhase, processStill]);
+
   /**
-   * Receives a detection sample on the JS thread, runs OpenCV over it, and
-   * auto-captures once the card has held still long enough.
+   * Receives a detection sample on the JS thread, runs the detector over it
+   * (Apple Vision on iOS, OpenCV otherwise), and auto-captures once the card
+   * has held still long enough.
    */
   const handleSample = useCallback(
-    (
+    async (
       luma: string,
       width: number,
       height: number,
       orientation: LumaSample['orientation'],
       isMirrored: boolean,
     ) => {
-      if (phaseRef.current !== 'scanning') {
+      // One detection at a time: a sample that arrives while the previous one
+      // is still in Vision is dropped rather than queued, so the overlay never
+      // lags behind the camera.
+      if (phaseRef.current !== 'scanning' || detectingRef.current) {
         return;
       }
 
-      const detected = detectCardQuad({ luma, width, height, orientation, isMirrored });
+      detectingRef.current = true;
+      let detected: CardQuad | null;
+      try {
+        detected = await detectCardQuadLive({ luma, width, height, orientation, isMirrored });
+      } finally {
+        detectingRef.current = false;
+      }
+      // The user may have tapped the shutter while Vision was running.
+      if (phaseRef.current !== 'scanning') {
+        return;
+      }
       const now = Date.now();
 
       if (!detected) {
@@ -329,8 +419,12 @@ export function CardScannerScreen({ side, onComplete }: CardScannerScreenProps):
   }, []);
 
   const handleCancel = useCallback(() => {
-    onComplete(null);
-  }, [onComplete]);
+    complete(null);
+  }, [complete]);
+
+  const handleSkip = useCallback(() => {
+    complete([...capturedRef.current]);
+  }, [complete]);
 
   const handleRetake = useCallback(() => {
     const current = resultRef.current;
@@ -365,15 +459,40 @@ export function CardScannerScreen({ side, onComplete }: CardScannerScreenProps):
     [changePhase],
   );
 
+  /** Keeps the current side and moves to the next one, or finishes. */
   const handleNext = useCallback(() => {
     const current = resultRef.current;
     if (!current) {
       return;
     }
     const finalUri = current.croppedUri ?? current.photo.uri;
-    handedOffUriRef.current = finalUri;
-    onComplete(finalUri);
-  }, [onComplete]);
+    void discardScanFiles(
+      [current.rawUri, current.photo.uri, current.croppedUri].filter((uri) => uri !== finalUri),
+    );
+    capturedRef.current = [...capturedRef.current, finalUri];
+    resultRef.current = null;
+    setResult(null);
+
+    if (!hasMoreSides) {
+      complete([...capturedRef.current]);
+      return;
+    }
+    setError(null);
+    setSideIndex((index) => index + 1);
+    resetDetection();
+    // The front is usually still in view: give the user a moment to flip it.
+    autoArmedAtRef.current = Date.now() + AUTO_CAPTURE_COOLDOWN_MS;
+    changePhase('scanning');
+  }, [changePhase, complete, hasMoreSides, resetDetection]);
+
+  // A clean crop needs no decision: show it briefly, then move on.
+  useEffect(() => {
+    if (phase !== 'accepted') {
+      return;
+    }
+    const timer = setTimeout(handleNext, ACCEPTED_CONFIRM_MS);
+    return () => clearTimeout(timer);
+  }, [handleNext, phase]);
 
   const previewRect = useMemo(
     () =>
@@ -391,12 +510,15 @@ export function CardScannerScreen({ side, onComplete }: CardScannerScreenProps):
       return 'Capturing…';
     }
     if (!liveQuad) {
+      if (canSkipSide) {
+        return 'Flip the card and point the camera at the back';
+      }
       return side === 'front'
         ? 'Point the camera at the front of the card'
         : 'Point the camera at the back of the card';
     }
     return 'Hold still — capturing automatically';
-  }, [error, liveQuad, phase, side]);
+  }, [canSkipSide, error, liveQuad, phase, side]);
 
   if (!hasPermission) {
     return (
@@ -422,6 +544,7 @@ export function CardScannerScreen({ side, onComplete }: CardScannerScreenProps):
         captureMode={result.mode}
         isCropped={result.croppedUri !== null}
         isBusy={isRewarping}
+        isLastSide={!hasMoreSides}
         onRetake={handleRetake}
         onCrop={() => changePhase('cropping')}
         onNext={handleNext}
@@ -468,6 +591,7 @@ export function CardScannerScreen({ side, onComplete }: CardScannerScreenProps):
   }
 
   const isCameraBusy = phase === 'capturing' || phase === 'processing';
+  const acceptedUri = phase === 'accepted' ? result?.croppedUri ?? null : null;
 
   return (
     <View style={styles.cameraContainer}>
@@ -477,6 +601,7 @@ export function CardScannerScreen({ side, onComplete }: CardScannerScreenProps):
           device={device}
           // Stays active through 'capturing' so the photo can land; stops
           // during processing, which leaves the last frame frozen on screen.
+          // Stays mounted through 'accepted' so the next side starts instantly.
           isActive={phase === 'scanning' || phase === 'capturing'}
           outputs={outputs}
           resizeMode="contain"
@@ -496,6 +621,21 @@ export function CardScannerScreen({ side, onComplete }: CardScannerScreenProps):
             <ActivityIndicator color={scan.gold} size="large" />
           </View>
         ) : null}
+        {acceptedUri ? (
+          <View style={styles.acceptedOverlay}>
+            <Image
+              source={{ uri: acceptedUri }}
+              style={[styles.acceptedImage, { borderColor: scan.gold }]}
+              resizeMode="contain"
+            />
+            <Text style={[styles.acceptedText, { color: scan.gold }]}>
+              {`${sideLabel(side)} captured`}
+            </Text>
+            <Text style={styles.subHint}>
+              {hasMoreSides ? 'Next: the back side' : 'Reading your card…'}
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
@@ -511,7 +651,8 @@ export function CardScannerScreen({ side, onComplete }: CardScannerScreenProps):
           accessibilityLabel={liveQuad ? 'Card detected' : 'Looking for a card'}
           style={[styles.chip, liveQuad && { backgroundColor: scan.gold }]}>
           <Text style={[styles.chipText, liveQuad && styles.chipTextOnGold]}>
-            {side === 'front' ? 'FRONT' : 'BACK'} · AUTO
+            {side === 'front' ? 'FRONT' : 'BACK'}
+            {sides.length > 1 ? ` · ${sideIndex + 1}/${sides.length}` : ' · AUTO'}
           </Text>
         </View>
 
@@ -525,43 +666,94 @@ export function CardScannerScreen({ side, onComplete }: CardScannerScreenProps):
       </View>
 
       <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 20 }]}>
-        <Text style={styles.hint}>{hint}</Text>
+        {phase === 'accepted' ? (
+          <View style={styles.acceptedActions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Retake this side"
+              style={styles.chip}
+              onPress={handleRetake}>
+              <Text style={styles.chipText}>Retake</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Adjust the crop"
+              style={styles.chip}
+              onPress={() => changePhase('cropping')}>
+              <Text style={styles.chipText}>Adjust crop</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <>
+            <Text style={styles.hint}>{hint}</Text>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Capture card"
-          accessibilityHint="Takes the photo now instead of waiting for auto capture"
-          disabled={phase !== 'scanning'}
-          style={styles.shutterHitArea}
-          onPress={() => void capture('manual')}>
-          <Svg width={SHUTTER_SIZE} height={SHUTTER_SIZE} style={StyleSheet.absoluteFill}>
-            <Circle
-              cx={SHUTTER_SIZE / 2}
-              cy={SHUTTER_SIZE / 2}
-              r={RING_RADIUS}
-              stroke="rgba(255, 255, 255, 0.35)"
-              strokeWidth={RING_STROKE}
-              fill="none"
-            />
-            {/* Fills clockwise from 12 o'clock as the card steadies. */}
-            <Circle
-              cx={SHUTTER_SIZE / 2}
-              cy={SHUTTER_SIZE / 2}
-              r={RING_RADIUS}
-              stroke={scan.gold}
-              strokeWidth={RING_STROKE}
-              strokeLinecap="round"
-              strokeDasharray={`${RING_CIRCUMFERENCE} ${RING_CIRCUMFERENCE}`}
-              strokeDashoffset={RING_CIRCUMFERENCE * (1 - progress)}
-              rotation={-90}
-              origin={`${SHUTTER_SIZE / 2}, ${SHUTTER_SIZE / 2}`}
-              fill="none"
-            />
-          </Svg>
-          <View style={[styles.shutterInner, phase !== 'scanning' && styles.shutterDisabled]} />
-        </Pressable>
+            <View style={styles.shutterRow}>
+              <View style={styles.shutterSide}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Choose from photos"
+                  disabled={phase !== 'scanning'}
+                  style={styles.chip}
+                  onPress={() => void handlePickFromLibrary()}>
+                  <Text style={styles.chipText}>Photos</Text>
+                </Pressable>
+              </View>
 
-        <Text style={styles.subHint}>Hold steady for auto capture, or tap to capture now</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Capture card"
+                accessibilityHint="Takes the photo now instead of waiting for auto capture"
+                disabled={phase !== 'scanning'}
+                style={styles.shutterHitArea}
+                onPress={() => void capture('manual')}>
+                <Svg width={SHUTTER_SIZE} height={SHUTTER_SIZE} style={StyleSheet.absoluteFill}>
+                  <Circle
+                    cx={SHUTTER_SIZE / 2}
+                    cy={SHUTTER_SIZE / 2}
+                    r={RING_RADIUS}
+                    stroke="rgba(255, 255, 255, 0.35)"
+                    strokeWidth={RING_STROKE}
+                    fill="none"
+                  />
+                  {/* Fills clockwise from 12 o'clock as the card steadies. */}
+                  <Circle
+                    cx={SHUTTER_SIZE / 2}
+                    cy={SHUTTER_SIZE / 2}
+                    r={RING_RADIUS}
+                    stroke={scan.gold}
+                    strokeWidth={RING_STROKE}
+                    strokeLinecap="round"
+                    strokeDasharray={`${RING_CIRCUMFERENCE} ${RING_CIRCUMFERENCE}`}
+                    strokeDashoffset={RING_CIRCUMFERENCE * (1 - progress)}
+                    rotation={-90}
+                    origin={`${SHUTTER_SIZE / 2}, ${SHUTTER_SIZE / 2}`}
+                    fill="none"
+                  />
+                </Svg>
+                <View style={[styles.shutterInner, phase !== 'scanning' && styles.shutterDisabled]} />
+              </Pressable>
+
+              <View style={styles.shutterSide}>
+                {canSkipSide ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Skip the back side"
+                    disabled={phase !== 'scanning'}
+                    style={styles.chip}
+                    onPress={handleSkip}>
+                    <Text style={styles.chipText}>Skip</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            </View>
+
+            <Text style={styles.subHint}>
+              {canSkipSide
+                ? 'No back to add? Tap Skip'
+                : 'Hold steady for auto capture, or tap to capture now'}
+            </Text>
+          </>
+        )}
       </View>
     </View>
   );
@@ -634,6 +826,44 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     textAlign: 'center',
+  },
+  shutterRow: {
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  shutterSide: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  acceptedOverlay: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.72)',
+    bottom: 0,
+    gap: 10,
+    justifyContent: 'center',
+    left: 0,
+    paddingHorizontal: 32,
+    position: 'absolute',
+    right: 0,
+    top: 0,
+  },
+  acceptedImage: {
+    aspectRatio: 1.586,
+    borderRadius: 12,
+    borderWidth: 2,
+    width: '100%',
+  },
+  acceptedText: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: 6,
+  },
+  acceptedActions: {
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'center',
   },
   shutterHitArea: {
     alignItems: 'center',

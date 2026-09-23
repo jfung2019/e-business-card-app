@@ -1,5 +1,13 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -10,11 +18,22 @@ import { useProcessUserCard } from '../hooks/useProcessUserCard';
 import { useScanSubmissionProgress } from '../hooks/useScanSubmissionProgress';
 import type { MainStackParamList } from '../navigation/AppNavigator';
 import type { WalletThemeColors } from '../theme/appTheme';
-import { scanBusinessCard, type OcrSource } from '../services/ocr';
+import {
+  scanBusinessCard,
+  scanBusinessCardBothSides,
+  type OcrSource,
+} from '../services/ocr';
 import { mergeCardOcrText } from '../utils/mergeCardOcrText';
 import { shouldOpenScanImageReview } from '../utils/scanImageReview';
 
 type ScanNavigation = NativeStackNavigationProp<MainStackParamList, 'MyCardScan'>;
+
+/**
+ * iOS opens the in-app scanner straight away and captures front and back in
+ * one camera session. Android keeps the step-by-step screen around ML Kit's
+ * document scanner, which captures one page per launch.
+ */
+const USES_COMBINED_SCANNER = Platform.OS === 'ios';
 
 function createStyles(wallet: WalletThemeColors) {
   return StyleSheet.create({
@@ -135,6 +154,13 @@ function createStyles(wallet: WalletThemeColors) {
       fontWeight: '600',
       textAlign: 'center',
     },
+    working: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 14,
+      backgroundColor: wallet.background,
+    },
     captureReadyText: {
       color: wallet.title,
       fontWeight: '700',
@@ -153,6 +179,9 @@ export function MyCardScanScreen(): React.JSX.Element {
   const [frontOcrText, setFrontOcrText] = useState<string | null>(null);
   const [frontImageBase64, setFrontImageBase64] = useState<string | null>(null);
   const [awaitingBackCapture, setAwaitingBackCapture] = useState(false);
+  /** True from the moment the combined scanner opens until the scan is submitted. */
+  const [isCombinedScanRunning, setIsCombinedScanRunning] = useState(USES_COMBINED_SCANNER);
+  const autoLaunchedRef = useRef(false);
 
   const isSuccess = state.status === 'success' && userCard !== null;
   const isBusy = state.status === 'loading';
@@ -165,10 +194,54 @@ export function MyCardScanScreen(): React.JSX.Element {
     shouldOpenScanImageReview(userCard.scan_image_enhancement_status, isOfflineDraft);
 
   useEffect(() => {
-    if (showResult && pendingImageReview && userCard) {
+    if (!showResult || !userCard) {
+      return;
+    }
+    if (pendingImageReview) {
       navigation.replace('ScanImageReview', { kind: 'user', card: userCard });
+    } else if (!isOfflineDraft) {
+      // What needs checking after a scan is the extracted details, so land on
+      // the pre-filled form rather than a success screen.
+      navigation.replace('MyCardForm', { mode: 'edit', card: userCard });
     }
   }, [isOfflineDraft, navigation, pendingImageReview, showResult, userCard]);
+
+  const startCombinedScan = useCallback(async () => {
+    reset();
+    setScanError(null);
+    setAwaitingBackCapture(false);
+    setFrontOcrText(null);
+    setFrontImageBase64(null);
+    setIsCombinedScanRunning(true);
+
+    try {
+      const pair = await scanBusinessCardBothSides();
+      if (!pair) {
+        // Cancelled in the camera: there is nothing on this screen to go back to.
+        navigation.goBack();
+        return;
+      }
+      await submitScan({
+        ocrText: mergeCardOcrText(pair.front.ocrText, pair.back?.ocrText),
+        imageBase64: pair.front.imageBase64,
+        backImageBase64: pair.back?.imageBase64,
+        isPrimary: true,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to read text from image.';
+      setScanError(message);
+    } finally {
+      setIsCombinedScanRunning(false);
+    }
+  }, [navigation, reset, submitScan]);
+
+  useEffect(() => {
+    if (USES_COMBINED_SCANNER && !autoLaunchedRef.current) {
+      autoLaunchedRef.current = true;
+      void startCombinedScan();
+    }
+  }, [startCombinedScan]);
 
   const handleScanFront = async (source: OcrSource) => {
     reset();
@@ -288,6 +361,16 @@ export function MyCardScanScreen(): React.JSX.Element {
     );
   }
 
+  // Behind the scanner modal, then while OCR runs on the captured sides.
+  if (isCombinedScanRunning) {
+    return (
+      <View style={styles.working}>
+        <ActivityIndicator color={wallet.accentMuted} size="large" />
+        <Text style={styles.feedbackText}>Reading your card…</Text>
+      </View>
+    );
+  }
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       {!isSuccess && !awaitingBackCapture && (
@@ -319,7 +402,9 @@ export function MyCardScanScreen(): React.JSX.Element {
           </View>
 
           <View style={styles.buttonRow}>
-            {renderActionButton('Scan front', () => void handleScanFront('camera'))}
+            {renderActionButton('Scan front', () =>
+              void (USES_COMBINED_SCANNER ? startCombinedScan() : handleScanFront('camera')),
+            )}
             {renderActionButton(
               'Choose image',
               () => void handleScanFront('gallery'),

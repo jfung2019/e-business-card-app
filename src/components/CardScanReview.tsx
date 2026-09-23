@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '../context/ThemeContext';
 import type { CardScannerSide } from '../services/cardScanner/cardScannerController';
 
-export type CaptureMode = 'auto' | 'manual';
+export type CaptureMode = 'auto' | 'manual' | 'library';
 
 interface CardScanReviewProps {
   side: CardScannerSide;
@@ -14,6 +14,8 @@ interface CardScanReviewProps {
   /** False when no card edge was found and the image is the uncropped photo. */
   isCropped: boolean;
   isBusy: boolean;
+  /** Last side of the session: the primary button finishes instead of moving on. */
+  isLastSide: boolean;
   onRetake: () => void;
   onCrop: () => void;
   onNext: () => void;
@@ -29,6 +31,7 @@ export function CardScanReview({
   captureMode,
   isCropped,
   isBusy,
+  isLastSide,
   onRetake,
   onCrop,
   onNext,
@@ -37,7 +40,12 @@ export function CardScanReview({
   const insets = useSafeAreaInsets();
 
   const sideLabel = side === 'front' ? 'Front side' : 'Back side';
-  const modeLabel = captureMode === 'auto' ? 'Captured automatically' : 'Captured manually';
+  const modeLabel =
+    captureMode === 'auto'
+      ? 'Captured automatically'
+      : captureMode === 'manual'
+        ? 'Captured manually'
+        : 'Chosen from your photos';
 
   return (
     <View style={[styles.container, { backgroundColor: scan.background }]}>
@@ -88,7 +96,7 @@ export function CardScanReview({
           disabled={isBusy}
           style={[styles.primaryButton, { backgroundColor: scan.gold }, isBusy && styles.disabled]}
           onPress={onNext}>
-          <Text style={styles.primaryText}>{side === 'front' ? 'Next' : 'Done'}</Text>
+          <Text style={styles.primaryText}>{isLastSide ? 'Done' : 'Next'}</Text>
         </Pressable>
       </View>
     </View>

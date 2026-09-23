@@ -12,6 +12,11 @@ import {
 
 import { readImageAsBase64 } from '../../utils/imageBase64';
 import {
+  detectCardQuadInLumaNative,
+  detectCardQuadNative,
+  isNativeCardVisionAvailable,
+} from './nativeCardVision';
+import {
   isPlausibleCard,
   orderQuadCorners,
   quadArea,
@@ -157,14 +162,58 @@ export function detectCardQuad(sample: LumaSample): CardQuad | null {
   }
 }
 
+let warnedLiveFallback = false;
+
+/**
+ * Live detection used by the scanner: Apple Vision on iOS, OpenCV on Android
+ * or when the native module is missing. Same output space as
+ * {@link detectCardQuad} — normalized preview coordinates.
+ */
+export async function detectCardQuadLive(sample: LumaSample): Promise<CardQuad | null> {
+  const { luma, width, height } = sample;
+  if (
+    isNativeCardVisionAvailable() &&
+    typeof luma === 'string' &&
+    width > 0 &&
+    height > 0 &&
+    luma.length === width * height
+  ) {
+    try {
+      const quad = await detectCardQuadInLumaNative(luma, width, height);
+      return quad ? quadToPreviewSpace(quad, sample.orientation, sample.isMirrored) : null;
+    } catch (error) {
+      if (__DEV__ && !warnedLiveFallback) {
+        warnedLiveFallback = true;
+        console.warn('[cardScanner] native live detection failed, using OpenCV', error);
+      }
+    }
+  }
+  return detectCardQuad(sample);
+}
+
 /**
  * Still detection: finds the card in a captured, upright photo. Returns
  * corners in normalized image space, or `null`.
  *
  * More precise than the live quad — full-resolution input, no motion, no
  * smoothing lag — and it also gives manual captures a proposed crop.
+ *
+ * iOS uses Apple Vision's rectangle detector; OpenCV is the fallback.
  */
 export async function detectCardQuadInImage(imageUri: string): Promise<CardQuad | null> {
+  if (isNativeCardVisionAvailable()) {
+    try {
+      return await detectCardQuadNative(imageUri);
+    } catch (error) {
+      if (__DEV__) {
+        console.warn('[cardScanner] native still detection failed, using OpenCV', error);
+      }
+    }
+  }
+  return detectCardQuadInImageWithOpenCV(imageUri);
+}
+
+async function detectCardQuadInImageWithOpenCV(imageUri: string): Promise<CardQuad | null> {
   let color: Mat | null = null;
   let gray: Mat | null = null;
   let small: Mat | null = null;

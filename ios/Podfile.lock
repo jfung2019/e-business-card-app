@@ -51,6 +51,9 @@ PODS:
   - GoogleDataTransport (10.1.0):
     - nanopb (~> 3.30910.0)
     - PromisesObjC (~> 2.4)
+  - GoogleMLKit/BarcodeScanning (8.0.0):
+    - GoogleMLKit/MLKitCore
+    - MLKitBarcodeScanning (~> 7.0.0)
   - GoogleMLKit/MLKitCore (8.0.0):
     - MLKitCommon (~> 13.0.0)
   - GoogleMLKit/TextRecognition (8.0.0):
@@ -124,6 +127,9 @@ PODS:
     - ReactNativeDependencies
     - Yoga
   - MLImage (1.0.0-beta7)
+  - MLKitBarcodeScanning (7.0.0):
+    - MLKitCommon (~> 13.0)
+    - MLKitVision (~> 9.0)
   - MLKitCommon (13.0.0):
     - GoogleDataTransport (~> 10.0)
     - GoogleToolboxForMac/Logger (< 5.0, >= 4.2.1)
@@ -1726,6 +1732,8 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - react-native-qr-kit (1.0.1):
+    - React-Core
   - react-native-safe-area-context (5.8.0):
     - hermes-engine
     - RCTRequired
@@ -2237,6 +2245,28 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - RNCClipboard (1.16.3):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
   - RNFBApp (21.14.0):
     - Firebase/CoreOnly (= 11.11.0)
     - React-Core
@@ -2267,6 +2297,9 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - RNMLKitBarcodeScanning (2.0.0):
+    - GoogleMLKit/BarcodeScanning (= 8.0.0)
+    - React
   - RNMLKitTextRecognition (2.0.0):
     - GoogleMLKit/TextRecognition (= 8.0.0)
     - GoogleMLKit/TextRecognitionChinese (= 8.0.0)
@@ -2558,6 +2591,32 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - VisionCameraWorklets (5.1.1):
+    - hermes-engine
+    - NitroModules
+    - RCTRequired
+    - RCTTypeSafety
+    - React-callinvoker
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - RNWorklets
+    - VisionCamera
+    - Yoga
   - Yoga (0.0.0)
 
 DEPENDENCIES:
@@ -2610,6 +2669,7 @@ DEPENDENCIES:
   - react-native-document-scanner-plugin (from `../node_modules/react-native-document-scanner-plugin`)
   - react-native-image-picker (from `../node_modules/react-native-image-picker`)
   - "react-native-image-resizer (from `../node_modules/@bam.tech/react-native-image-resizer`)"
+  - react-native-qr-kit (from `../node_modules/react-native-qr-kit`)
   - react-native-safe-area-context (from `../node_modules/react-native-safe-area-context`)
   - react-native-view-shot (from `../node_modules/react-native-view-shot`)
   - React-NativeModulesApple (from `../node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios`)
@@ -2648,9 +2708,11 @@ DEPENDENCIES:
   - ReactCommon/turbomodule/core (from `../node_modules/react-native/ReactCommon`)
   - ReactNativeDependencies (from `../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec`)
   - "RNCAsyncStorage (from `../node_modules/@react-native-async-storage/async-storage`)"
+  - "RNCClipboard (from `../node_modules/@react-native-clipboard/clipboard`)"
   - "RNFBApp (from `../node_modules/@react-native-firebase/app`)"
   - "RNFBAuth (from `../node_modules/@react-native-firebase/auth`)"
   - RNGestureHandler (from `../node_modules/react-native-gesture-handler`)
+  - "RNMLKitBarcodeScanning (from `../node_modules/@react-native-ml-kit/barcode-scanning`)"
   - "RNMLKitTextRecognition (from `../node_modules/@react-native-ml-kit/text-recognition`)"
   - RNReanimated (from `../node_modules/react-native-reanimated`)
   - RNScreens (from `../node_modules/react-native-screens`)
@@ -2658,6 +2720,7 @@ DEPENDENCIES:
   - RNSVG (from `../node_modules/react-native-svg`)
   - RNWorklets (from `../node_modules/react-native-worklets`)
   - VisionCamera (from `../node_modules/react-native-vision-camera`)
+  - VisionCameraWorklets (from `../node_modules/react-native-vision-camera-worklets`)
   - Yoga (from `../node_modules/react-native/ReactCommon/yoga`)
 
 SPEC REPOS:
@@ -2676,6 +2739,7 @@ SPEC REPOS:
     - GoogleUtilities
     - GTMSessionFetcher
     - MLImage
+    - MLKitBarcodeScanning
     - MLKitCommon
     - MLKitTextRecognition
     - MLKitTextRecognitionChinese
@@ -2786,6 +2850,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-image-picker"
   react-native-image-resizer:
     :path: "../node_modules/@bam.tech/react-native-image-resizer"
+  react-native-qr-kit:
+    :path: "../node_modules/react-native-qr-kit"
   react-native-safe-area-context:
     :path: "../node_modules/react-native-safe-area-context"
   react-native-view-shot:
@@ -2862,12 +2928,16 @@ EXTERNAL SOURCES:
     :podspec: "../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec"
   RNCAsyncStorage:
     :path: "../node_modules/@react-native-async-storage/async-storage"
+  RNCClipboard:
+    :path: "../node_modules/@react-native-clipboard/clipboard"
   RNFBApp:
     :path: "../node_modules/@react-native-firebase/app"
   RNFBAuth:
     :path: "../node_modules/@react-native-firebase/auth"
   RNGestureHandler:
     :path: "../node_modules/react-native-gesture-handler"
+  RNMLKitBarcodeScanning:
+    :path: "../node_modules/@react-native-ml-kit/barcode-scanning"
   RNMLKitTextRecognition:
     :path: "../node_modules/@react-native-ml-kit/text-recognition"
   RNReanimated:
@@ -2882,6 +2952,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-worklets"
   VisionCamera:
     :path: "../node_modules/react-native-vision-camera"
+  VisionCameraWorklets:
+    :path: "../node_modules/react-native-vision-camera-worklets"
   Yoga:
     :path: "../node_modules/react-native/ReactCommon/yoga"
 
@@ -2904,6 +2976,7 @@ SPEC CHECKSUMS:
   hermes-engine: 668baf24b1447988c48c172eefad3b33e97b655e
   HtmlToPdf: 6cbe4287f325d540619e74fda5a53920b38b31b8
   MLImage: 2ab9c968e75f57911c16f4c9d9e8a8e9604a86a1
+  MLKitBarcodeScanning: 72c6437f13a900833b400136be53a8a5d86f42fa
   MLKitCommon: 26b779f072a182c1603d4c88a101c350cac837b1
   MLKitTextRecognition: 072488cfd29f1726733378661881f88db74ba3dc
   MLKitTextRecognitionChinese: 0e5335ca53ad9a36773fed1ef8b4abb177630fcd
@@ -2958,6 +3031,7 @@ SPEC CHECKSUMS:
   react-native-document-scanner-plugin: a852d8a2591da259a5610055c1f0fb58e3f40693
   react-native-image-picker: 09cea417bef3ee25008ad21d4426f9a1fc54ad84
   react-native-image-resizer: dfba4a3b2265b6e9cb6a6aade5465043ba61c9ff
+  react-native-qr-kit: a40acb98a771a6e614602b5dd53546a5c51e8af4
   react-native-safe-area-context: 0bbcdfba5c4a1b3203276f1ed9128e3239fdf199
   react-native-view-shot: ffca71c6d1e20e943307f776ec9c63779c1c763b
   React-NativeModulesApple: a092d89b58f635ebfab88048b0eda9fb516819fd
@@ -2997,9 +3071,11 @@ SPEC CHECKSUMS:
   ReactNativeDependencies: fa0a54b3f5319ae0e3b9aff32bfee7a424b88e66
   RecaptchaInterop: 11e0b637842dfb48308d242afc3f448062325aba
   RNCAsyncStorage: 10bc74ee47a3901f6a93857367bf60ecc020a0ba
+  RNCClipboard: 7a7d4557bfd3370b35c99dfecd92ae7b9fc4948a
   RNFBApp: a448037d2df74af9d374a0b765be12ff1e844dc0
   RNFBAuth: 006c81cb97cd6597a36f14ec332b229626283823
   RNGestureHandler: 4d6b58e58a2422c53f2c56cbd54e92a974509e59
+  RNMLKitBarcodeScanning: a1a23bcc83fea2a94e6b6ceeb3a0ff80d773392f
   RNMLKitTextRecognition: 2d7c3481b9dabc72f7e31c67025c28b2c8d653b0
   RNReanimated: ad1e820ef645ecd3055e7cbaab8055b4f6fdd5eb
   RNScreens: 8d318eb8905fa1d3439a1ce5d567f82ae8245657
@@ -3007,6 +3083,7 @@ SPEC CHECKSUMS:
   RNSVG: 394cfd0518613b144c65ffe69045f827b78a7a7c
   RNWorklets: 2dd3ec21113976f9cf85f2864b9d9d27d9dedbaa
   VisionCamera: e1ab4a461a807e735f75e88094463c4ab0a444f3
+  VisionCameraWorklets: 3240680414ca0604929d34e0564270877515ae64
   Yoga: c30c859b7e9b75e547b600b486fe33165f60de00
 
 PODFILE CHECKSUM: 6dad2d32e81c598a17ace04e8be89958726de776

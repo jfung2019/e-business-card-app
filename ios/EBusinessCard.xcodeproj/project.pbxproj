@@ -14,6 +14,8 @@
 		B2C3D4E51E5F6789012345A2 /* AppEnvironmentModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E51E5F6789012345A1 /* AppEnvironmentModule.swift */; };
 		B2C3D4E51E5F6789012345A4 /* AppEnvironmentModule.m in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E51E5F6789012345A3 /* AppEnvironmentModule.m */; };
 		BE9016A38899D1B9EF02036D /* Pods_EBusinessCard.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AE8C8C884E0409EBE9BE8ABF /* Pods_EBusinessCard.framework */; };
+		C4D5E6F71E5F6789012345B2 /* CardVisionModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D5E6F71E5F6789012345B1 /* CardVisionModule.swift */; };
+		C4D5E6F71E5F6789012345B4 /* CardVisionModule.m in Sources */ = {isa = PBXBuildFile; fileRef = C4D5E6F71E5F6789012345B3 /* CardVisionModule.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -30,6 +32,8 @@
 		B2C3D4E51E5F6789012345A1 /* AppEnvironmentModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppEnvironmentModule.swift; path = EBusinessCard/AppEnvironmentModule.swift; sourceTree = "<group>"; };
 		B2C3D4E51E5F6789012345A3 /* AppEnvironmentModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = AppEnvironmentModule.m; path = EBusinessCard/AppEnvironmentModule.m; sourceTree = "<group>"; };
 		C3D4E5F61E5F6789012345A3 /* Pods-EBusinessCard.proddebug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-EBusinessCard.proddebug.xcconfig"; path = "Target Support Files/Pods-EBusinessCard/Pods-EBusinessCard.proddebug.xcconfig"; sourceTree = "<group>"; };
+		C4D5E6F71E5F6789012345B1 /* CardVisionModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CardVisionModule.swift; path = EBusinessCard/CardVisionModule.swift; sourceTree = "<group>"; };
+		C4D5E6F71E5F6789012345B3 /* CardVisionModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = CardVisionModule.m; path = EBusinessCard/CardVisionModule.m; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
@@ -52,6 +56,8 @@
 				761780EC2CA45674006654EE /* AppDelegate.swift */,
 				B2C3D4E51E5F6789012345A1 /* AppEnvironmentModule.swift */,
 				B2C3D4E51E5F6789012345A3 /* AppEnvironmentModule.m */,
+				C4D5E6F71E5F6789012345B1 /* CardVisionModule.swift */,
+				C4D5E6F71E5F6789012345B3 /* CardVisionModule.m */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */,
 				13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */,
@@ -288,6 +294,8 @@
 				761780ED2CA45674006654EE /* AppDelegate.swift in Sources */,
 				B2C3D4E51E5F6789012345A2 /* AppEnvironmentModule.swift in Sources */,
 				B2C3D4E51E5F6789012345A4 /* AppEnvironmentModule.m in Sources */,
+				C4D5E6F71E5F6789012345B2 /* CardVisionModule.swift in Sources */,
+				C4D5E6F71E5F6789012345B4 /* CardVisionModule.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

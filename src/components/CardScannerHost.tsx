@@ -29,8 +29,8 @@ export function CardScannerHost(): React.JSX.Element | null {
     return () => setCardScannerListener(null);
   }, []);
 
-  const handleComplete = useCallback((imageUri: string | null) => {
-    finishCardScan(imageUri);
+  const handleComplete = useCallback((imageUris: string[] | null) => {
+    finishCardScan(imageUris);
   }, []);
 
   if (Platform.OS !== 'ios') {
@@ -45,7 +45,7 @@ export function CardScannerHost(): React.JSX.Element | null {
       statusBarTranslucent
       onRequestClose={() => finishCardScan(null)}>
       {request ? (
-        <CardScannerScreen side={request.side} onComplete={handleComplete} />
+        <CardScannerScreen sides={request.sides} onComplete={handleComplete} />
       ) : null}
     </Modal>
   );

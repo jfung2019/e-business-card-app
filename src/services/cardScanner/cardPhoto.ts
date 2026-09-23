@@ -11,6 +11,7 @@ import {
 } from 'react-native-fast-opencv';
 
 import { readImageAsBase64 } from '../../utils/imageBase64';
+import { isNativeCardVisionAvailable, warpCardPhotoNative } from './nativeCardVision';
 import { CARD_ASPECT_RATIO, type CardQuad } from './quadGeometry';
 
 /** Long edge of the dewarped card. The short edge follows the ISO ratio. */
@@ -62,8 +63,23 @@ function distance(ax: number, ay: number, bx: number, by: number): number {
  *
  * Output keeps the card's own orientation: a card photographed upright
  * (portrait design) comes out portrait instead of being squashed to landscape.
+ *
+ * iOS uses Core Image's CIPerspectiveCorrection; OpenCV is the fallback.
  */
 export async function warpCardPhoto(photo: PreparedPhoto, quad: CardQuad): Promise<string> {
+  if (isNativeCardVisionAvailable()) {
+    try {
+      return await warpCardPhotoNative(photo.uri, quad);
+    } catch (error) {
+      if (__DEV__) {
+        console.warn('[cardScanner] native warp failed, using OpenCV', error);
+      }
+    }
+  }
+  return warpCardPhotoWithOpenCV(photo, quad);
+}
+
+async function warpCardPhotoWithOpenCV(photo: PreparedPhoto, quad: CardQuad): Promise<string> {
   let source: Mat | null = null;
   let warped: Mat | null = null;
   let transform: Mat | null = null;
