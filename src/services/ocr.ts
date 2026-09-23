@@ -6,7 +6,8 @@ import {
 import TextRecognition, {
   TextRecognitionScript,
 } from '@react-native-ml-kit/text-recognition';
-import { AppState, InteractionManager } from 'react-native';
+import DocumentScanner from 'react-native-document-scanner-plugin';
+import { AppState, InteractionManager, Platform } from 'react-native';
 
 import {
   openCardScanner,
@@ -155,15 +156,48 @@ async function scanWithCameraFallback(): Promise<PickedImage | null> {
 }
 
 /**
- * Opens the in-app card scanner: one card, detected and captured
- * automatically, and the user is done in a single shot.
+ * Android's scanner: ML Kit's document scanner, which honours
+ * `maxNumDocuments` and closes itself after a single page.
+ */
+async function scanWithDocumentCamera(): Promise<string | null> {
+  await runAfterInteractions();
+  try {
+    const { scannedImages, status } = await withActivityRetry(() =>
+      DocumentScanner.scanDocument({
+        maxNumDocuments: 1,
+        croppedImageQuality: 90,
+      }),
+    );
+
+    if (status === 'cancel' || !scannedImages?.length) {
+      return null;
+    }
+
+    return scannedImages[0] ?? null;
+  } catch (error) {
+    if (!isActivityRegistryError(error)) {
+      throw error;
+    }
+    const fallback = await scanWithCameraFallback();
+    return fallback?.uri ?? null;
+  }
+}
+
+/**
+ * iOS-only: the in-app card scanner — one card, detected and captured
+ * automatically, done in a single shot.
  *
- * Replaces `react-native-document-scanner-plugin`, whose iOS backend
- * (VisionKit's `VNDocumentCameraViewController`) is a multi-page document
- * scanner with no page limit — users scanned several cards and only the first
- * was ever kept.
+ * Only iOS needs this. The plugin's iOS backend is VisionKit's
+ * `VNDocumentCameraViewController`, a multi-page document scanner that ignores
+ * `maxNumDocuments` entirely, so users scanned several cards and only the
+ * first was ever kept. ML Kit on Android already does the right thing, so
+ * Android stays on {@link scanWithDocumentCamera}.
  */
 async function scanWithCardScanner(side: CardScannerSide): Promise<string | null> {
+  if (Platform.OS !== 'ios') {
+    return scanWithDocumentCamera();
+  }
+
   await runAfterInteractions();
   try {
     return await openCardScanner(side);

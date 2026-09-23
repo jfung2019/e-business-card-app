@@ -1,5 +1,9 @@
 import {
+  clampPoint,
+  containRect,
+  defaultCropQuad,
   isPlausibleCard,
+  isValidCropQuad,
   lerpQuad,
   orderQuadCorners,
   quadAspectRatio,
@@ -36,6 +40,57 @@ describe('orderQuadCorners', () => {
       { x: 260, y: 45 },
       { x: 260, y: 171 },
       { x: 60, y: 171 },
+    ]);
+  });
+
+  it('orders a card rotated near 45 degrees clockwise', () => {
+    // A card rotated 40° — two corners sit at nearly the same height, which is
+    // what broke the old top-pair/bottom-pair split.
+    const angle = (40 * Math.PI) / 180;
+    const corners: QuadPoint[] = [
+      [-0.3, -0.19],
+      [0.3, -0.19],
+      [0.3, 0.19],
+      [-0.3, 0.19],
+    ].map(([dx, dy]) => ({
+      x: 0.5 + dx * Math.cos(angle) - dy * Math.sin(angle),
+      y: 0.5 + dx * Math.sin(angle) + dy * Math.cos(angle),
+    }));
+    const scrambled = [corners[2], corners[0], corners[3], corners[1]];
+
+    const ordered = orderQuadCorners(scrambled);
+    expect(ordered).not.toBeNull();
+
+    // Positive shoelace sum == clockwise on screen (y down). A counter-clockwise
+    // order would warp the card mirror-imaged.
+    let signed = 0;
+    for (let i = 0; i < 4; i += 1) {
+      const a = ordered![i];
+      const b = ordered![(i + 1) % 4];
+      signed += a.x * b.y - b.x * a.y;
+    }
+    expect(signed).toBeGreaterThan(0);
+    expect(isValidCropQuad(ordered!)).toBe(true);
+
+    // Starts at the corner nearest the top-left.
+    const sums = ordered!.map((p) => p.x + p.y);
+    expect(sums[0]).toBe(Math.min(...sums));
+  });
+
+  it('repairs corners a user dragged past each other', () => {
+    // Top-left and top-right swapped.
+    const crossed: QuadPoint[] = [
+      { x: 0.9, y: 0.1 },
+      { x: 0.1, y: 0.1 },
+      { x: 0.9, y: 0.9 },
+      { x: 0.1, y: 0.9 },
+    ];
+
+    expect(orderQuadCorners(crossed)).toEqual([
+      { x: 0.1, y: 0.1 },
+      { x: 0.9, y: 0.1 },
+      { x: 0.9, y: 0.9 },
+      { x: 0.1, y: 0.9 },
     ]);
   });
 
@@ -187,5 +242,75 @@ describe('lerpQuad', () => {
     const to = from.map((corner) => ({ x: corner.x + 10, y: corner.y })) as unknown as CardQuad;
 
     expect(lerpQuad(from, to, 0.5)[0]).toEqual({ x: 65, y: 45 });
+  });
+});
+
+describe('isValidCropQuad', () => {
+  it('accepts the default crop', () => {
+    expect(isValidCropQuad(defaultCropQuad())).toBe(true);
+  });
+
+  it('rejects a collapsed crop', () => {
+    const collapsed = [
+      { x: 0.5, y: 0.5 },
+      { x: 0.52, y: 0.5 },
+      { x: 0.52, y: 0.52 },
+      { x: 0.5, y: 0.52 },
+    ] as CardQuad;
+
+    expect(isValidCropQuad(collapsed)).toBe(false);
+  });
+
+  it('rejects a self-intersecting (bow-tie) crop', () => {
+    const bowTie = [
+      { x: 0.1, y: 0.1 },
+      { x: 0.9, y: 0.9 },
+      { x: 0.9, y: 0.1 },
+      { x: 0.1, y: 0.9 },
+    ] as CardQuad;
+
+    expect(isValidCropQuad(bowTie)).toBe(false);
+  });
+
+  it('rejects corners outside the image', () => {
+    const outside = [
+      { x: -0.1, y: 0.1 },
+      { x: 0.9, y: 0.1 },
+      { x: 0.9, y: 0.9 },
+      { x: 0.1, y: 0.9 },
+    ] as CardQuad;
+
+    expect(isValidCropQuad(outside)).toBe(false);
+  });
+});
+
+describe('clampPoint', () => {
+  it('keeps a dragged corner inside the image', () => {
+    expect(clampPoint({ x: -0.2, y: 1.4 })).toEqual({ x: 0, y: 1 });
+    expect(clampPoint({ x: 0.3, y: 0.7 })).toEqual({ x: 0.3, y: 0.7 });
+  });
+});
+
+describe('containRect', () => {
+  it('letterboxes a 9:16 preview on a taller phone screen', () => {
+    // 390x844 is an iPhone 14 viewport; 9:16 content leaves bars top and bottom.
+    const rect = containRect(9, 16, 390, 844);
+
+    expect(rect.width).toBeCloseTo(390, 5);
+    expect(rect.height).toBeCloseTo(390 * (16 / 9), 5);
+    expect(rect.x).toBeCloseTo(0, 5);
+    expect(rect.y).toBeCloseTo((844 - 390 * (16 / 9)) / 2, 5);
+  });
+
+  it('pillarboxes content wider than its container', () => {
+    const rect = containRect(4, 3, 300, 300);
+
+    expect(rect.width).toBeCloseTo(300, 5);
+    expect(rect.height).toBeCloseTo(225, 5);
+    expect(rect.y).toBeCloseTo(37.5, 5);
+  });
+
+  it('returns an empty rect before layout', () => {
+    expect(containRect(9, 16, 0, 0)).toEqual({ x: 0, y: 0, width: 0, height: 0 });
   });
 });

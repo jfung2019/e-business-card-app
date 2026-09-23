@@ -79,6 +79,8 @@ jest.mock('react-native-vision-camera', () => {
       hasPermission: true,
       requestPermission: jest.fn(() => Promise.resolve(true)),
     }),
+    useCameraDevice: jest.fn(() => ({ id: 'back-0', position: 'back' })),
+    useCameraDevices: jest.fn(() => [{ id: 'back-0', position: 'back' }]),
     useFrameOutput: jest.fn(() => ({})),
     usePhotoOutput: jest.fn(() => ({ capturePhoto: jest.fn() })),
   };
@@ -86,7 +88,13 @@ jest.mock('react-native-vision-camera', () => {
 
 jest.mock('react-native-fast-opencv', () => ({
   __esModule: true,
-  OpenCV: {},
+  OpenCV: {
+    Mat: {
+      create: jest.fn(),
+      createFromBuffer: jest.fn(),
+      createFromBase64: jest.fn(),
+    },
+  },
   ColorConversionCodes: {},
   ContourApproximationModes: {},
   DataTypes: {},
