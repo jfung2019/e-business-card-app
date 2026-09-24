@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -8,7 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useAuth } from '../context/AuthContext';
@@ -19,7 +19,6 @@ import {
   type WalletCardLimit,
 } from '../context/CardPrefsContext';
 import { CARD_DESIGN_PRESETS } from '../theme/cardDesigns';
-import { useUserCards } from '../hooks/useUserCards';
 import type { MainStackParamList } from '../navigation/AppNavigator';
 import type { WalletThemeColors } from '../theme/appTheme';
 import { getEmailInitials } from '../utils/formatDate';
@@ -125,33 +124,6 @@ function createStyles(wallet: WalletThemeColors) {
     memberSince: {
       fontSize: 14,
       color: wallet.subtitle,
-    },
-    statsRow: {
-      flexDirection: 'row',
-      gap: 10,
-      width: '100%',
-      marginTop: 8,
-    },
-    statCard: {
-      flex: 1,
-      backgroundColor: wallet.background,
-      borderRadius: 14,
-      borderWidth: 1,
-      borderColor: wallet.border,
-      padding: 12,
-      gap: 2,
-      alignItems: 'center',
-    },
-    statValue: {
-      color: wallet.title,
-      fontSize: 18,
-      fontWeight: '700',
-    },
-    statLabel: {
-      color: wallet.subtitle,
-      fontSize: 12,
-      fontWeight: '600',
-      textAlign: 'center',
     },
     section: {
       gap: 10,
@@ -272,16 +244,9 @@ export function ProfileScreen({ onSignOut }: ProfileScreenProps): React.JSX.Elem
   const { user, sendPasswordReset } = useAuth();
   const { wallet, isDark, toggleColorScheme } = useAppTheme();
   const styles = useMemo(() => createStyles(wallet), [wallet]);
-  const { cards: userCards, fetchUserCards } = useUserCards();
   const { designId, setDesignId, walletLimit, setWalletLimit } = useCardPrefs();
   const [signingOut, setSigningOut] = useState(false);
   const [sendingReset, setSendingReset] = useState(false);
-
-  useFocusEffect(
-    useCallback(() => {
-      void fetchUserCards();
-    }, [fetchUserCards]),
-  );
 
   const email = user?.email ?? 'No email on file';
   const memberSince = formatMemberSince(user?.metadata.creationTime);
@@ -356,18 +321,6 @@ export function ProfileScreen({ onSignOut }: ProfileScreenProps): React.JSX.Elem
         {memberSince ? (
           <Text style={styles.memberSince}>Member since {memberSince}</Text>
         ) : null}
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{userCards.length}</Text>
-            <Text style={styles.statLabel}>
-              {userCards.length === 1 ? 'profile card' : 'profile cards'}
-            </Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{isDark ? 'Dark' : 'Light'}</Text>
-            <Text style={styles.statLabel}>appearance</Text>
-          </View>
-        </View>
       </View>
 
       <View style={styles.section}>
