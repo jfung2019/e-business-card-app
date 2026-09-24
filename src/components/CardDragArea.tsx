@@ -73,6 +73,11 @@ export function useDraggingContext(): CardDragContextValue {
 interface CardDragAreaProps {
   cards: UserCard[];
   onDrop: (cardId: string, dropIndex: number) => void;
+  /**
+   * A quick tap opens the card. The rows are inert by design, so the tap is
+   * resolved here from the touch position, exactly as the pickup is.
+   */
+  onCardPress?: (card: UserCard) => void;
 }
 
 /**
@@ -134,6 +139,7 @@ export default function CardDragArea({
   children,
   cards,
   onDrop,
+  onCardPress,
 }: PropsWithChildren<CardDragAreaProps>) {
   const [draggingCardId, setDraggingCardId] = useState<string | null>(null);
   const [layoutEpoch, setLayoutEpoch] = useState(0);
@@ -145,6 +151,16 @@ export default function CardDragArea({
   // The UI thread hands us indices; ids are resolved here, where the array lives.
   const cardsRef = useRef(cards);
   cardsRef.current = cards;
+
+  const pressCardOnJS = useCallback(
+    (index: number) => {
+      const card = cardsRef.current[index];
+      if (card) {
+        onCardPress?.(card);
+      }
+    },
+    [onCardPress],
+  );
 
   const dragX = useSharedValue(CARD_LIST_HORIZONTAL_PADDING);
   const dragScreenY = useSharedValue(0);
@@ -366,7 +382,33 @@ export default function CardDragArea({
         }
       });
 
-    return Gesture.Simultaneous(longPress, pan);
+    // Shorter than the pickup delay, so holding to drag never also opens a card.
+    const tap = Gesture.Tap()
+      .maxDuration(CARD_LONG_PRESS_DELAY - 40)
+      .maxDistance(LONG_PRESS_MAX_DISTANCE)
+      .onEnd((event, success) => {
+        if (!success || isDragging.value) {
+          return;
+        }
+        const count = cardCount.value;
+        const listY = listOffsetY.value;
+        const height = listHeight.value;
+        if (count <= 0 || !Number.isFinite(listY)) {
+          return;
+        }
+        const viewportInList = event.y - listY;
+        if (viewportInList < 0 || (height > 0 && viewportInList > height)) {
+          return;
+        }
+        const contentY = viewportInList + Math.max(0, scrollY.value);
+        const index = Math.floor(contentY / CARD_ITEM_HEIGHT);
+        if (index < 0 || index >= count) {
+          return;
+        }
+        runOnJS(pressCardOnJS)(index);
+      });
+
+    return Gesture.Simultaneous(longPress, pan, tap);
   }, [
     activeDropIndex,
     autoscrollEnabled,
@@ -378,6 +420,7 @@ export default function CardDragArea({
     draggingFromIndex,
     endDrag,
     isDragging,
+    pressCardOnJS,
     listHeight,
     listOffsetY,
     pendingDropIndex,

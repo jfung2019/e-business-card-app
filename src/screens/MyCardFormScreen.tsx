@@ -15,7 +15,6 @@ import type { RouteProp } from '@react-navigation/native';
 import ViewShot, { type ViewShotRef } from 'react-native-view-shot';
 
 import { CardImageComposer, type CardImageComposerRef } from '../components/CardImageComposer';
-import { DesignPicker } from '../components/DesignPicker';
 import { ExportCardModal, type CardExportOption } from '../components/ExportCardModal';
 import { MY_CARD_WIDTH, MyCardFace } from '../components/MyCardFace';
 import { createUserCard, deleteUserCard, updateUserCard, updateUserCardWalletDisplay } from '../api/userCards';
@@ -24,13 +23,14 @@ import {
   isLocalUserCardId,
   localUserCardIdToQueueId,
   getQueuedUserScan,
+  queuedUserScanToUserCard,
   removeQueuedUserScan,
   updateQueuedUserScan,
 } from '../services/offlineUserCardQueue';
 import { exportCardAsPdf, saveCardPhotosToAlbum } from '../services/cardExport';
 import { useAppTheme } from '../context/ThemeContext';
+import { useCardDesignId } from '../context/CardPrefsContext';
 import type { MainStackParamList } from '../navigation/AppNavigator';
-import { DEFAULT_CARD_DESIGN_ID } from '../theme/cardDesigns';
 import type { WalletThemeColors } from '../theme/appTheme';
 import type { CoreFields } from '../types/card';
 import type { UserCard, UserCardDraft, PhotoFace, WalletDisplay } from '../types/userCard';
@@ -55,7 +55,10 @@ const FIELD_SECTIONS: Array<{
     title: 'Identity',
     helper: 'This is the first thing people see when they open your card.',
     fields: [
-      ['name', 'Name *', 'Your full name'],
+      ['name', 'Name *', 'As printed on your card'],
+      ['first_name', 'First name', 'Used for sorting and search'],
+      ['last_name', 'Last name', 'Used for sorting and search'],
+      ['name_cn', 'Chinese name', '中文姓名'],
       ['company_name', 'Company', 'Company or organization'],
       ['job_title', 'Job title', 'Role, team, or title'],
     ],
@@ -259,8 +262,10 @@ export function MyCardFormScreen(): React.JSX.Element {
   const navigation = useNavigation<FormNavigation>();
   const route = useRoute<FormRoute>();
   const { wallet } = useAppTheme();
+  const preferredDesignId = useCardDesignId();
   const styles = useMemo(() => createStyles(wallet), [wallet]);
-  const params = route.params;
+  // The Add tab mounts this screen with no params, which means "create".
+  const params = route.params ?? { mode: 'create' as const };
   const mode = params.mode;
   const card = mode === 'edit' ? params.card : undefined;
   const parsedPreview = mode === 'create' ? params.parsedPreview : undefined;
@@ -294,7 +299,9 @@ export function MyCardFormScreen(): React.JSX.Element {
 
   const [fields, setFields] = useState<CoreFields>(initialFields);
   const [customFields, setCustomFields] = useState<Record<string, string>>(initialCustomFields);
-  const [designId, setDesignId] = useState(card?.design_id ?? DEFAULT_CARD_DESIGN_ID);
+  // Kept for the API payload only: the colour comes from Settings now, so the
+  // form no longer asks. An existing card keeps whatever it was saved with.
+  const designId = card?.design_id ?? preferredDesignId;
   const [isPrimary, setIsPrimary] = useState(card?.is_primary ?? mode === 'create');
   const [walletDisplay, setWalletDisplay] = useState<WalletDisplay>(() => {
     if (!card || !userCardHasScanImage(card)) {
@@ -360,6 +367,9 @@ export function MyCardFormScreen(): React.JSX.Element {
 
     const normalized: CoreFields = {
       name: fields.name.trim(),
+      first_name: fields.first_name?.trim() || null,
+      last_name: fields.last_name?.trim() || null,
+      name_cn: fields.name_cn?.trim() || null,
       company_name: fields.company_name?.trim() || null,
       job_title: fields.job_title?.trim() || null,
       email: fields.email?.trim() || null,
@@ -371,6 +381,7 @@ export function MyCardFormScreen(): React.JSX.Element {
 
     try {
       if (mode === 'edit' && card) {
+        let saved: UserCard;
         if (isLocalUserCardId(card._id)) {
           const queueId = localUserCardIdToQueueId(card._id);
           const existingQueueItem = await getQueuedUserScan(queueId);
@@ -390,7 +401,7 @@ export function MyCardFormScreen(): React.JSX.Element {
             edited.add('meta.is_primary');
           }
 
-          await updateQueuedUserScan(queueId, {
+          const queued = await updateQueuedUserScan(queueId, {
             core_fields: normalized,
             custom_fields: normalizedCustomFields,
             designId,
@@ -399,8 +410,9 @@ export function MyCardFormScreen(): React.JSX.Element {
             wallet_display: walletDisplay,
             photo_face: photoFace,
           });
+          saved = queued ? queuedUserScanToUserCard(queued) : card;
         } else {
-          await updateUserCard(card._id, {
+          saved = await updateUserCard(card._id, {
             core_fields: normalized,
             custom_fields: normalizedCustomFields,
             design_id: designId,
@@ -413,13 +425,24 @@ export function MyCardFormScreen(): React.JSX.Element {
             userCardHasScanImage(card) &&
             (walletDisplay !== initialWalletDisplay || photoFace !== initialPhotoFace)
           ) {
-            await updateUserCardWalletDisplay(card._id, { walletDisplay, photoFace });
+            saved = await updateUserCardWalletDisplay(card._id, { walletDisplay, photoFace });
           }
         }
+        // Back to the card with the values just saved. Going back instead would
+        // redisplay whatever the detail screen was handed when it opened.
+        navigation.navigate('MyCard', { card: saved });
       } else {
-        await createUserCard(buildDraft(normalized, normalizedCustomFields, designId, isPrimary));
+        // Straight to the card you just made, rather than back to the wallet
+        // wondering whether it saved.
+        const created = await createUserCard(
+          buildDraft(normalized, normalizedCustomFields, designId, isPrimary),
+        );
+        // The Add tab keeps this form mounted, so clear it — otherwise coming
+        // back shows the card that was just saved, ready to be saved again.
+        setFields(initialFields);
+        setCustomFields(initialCustomFields);
+        navigation.navigate('MyCard', { card: created });
       }
-      navigation.navigate('Collection');
     } catch (saveError) {
       const message =
         saveError instanceof ApiClientError
@@ -589,8 +612,6 @@ export function MyCardFormScreen(): React.JSX.Element {
           </Pressable>
         ) : null}
       </View>
-
-      <DesignPicker selectedDesignId={designId} onSelect={setDesignId} />
 
       <View style={styles.form}>
         {FIELD_SECTIONS.map(section => (

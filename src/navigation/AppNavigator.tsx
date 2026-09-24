@@ -26,10 +26,12 @@ import { useShareLink } from '../context/ShareLinkContext';
 import { useAppTheme } from '../context/ThemeContext';
 import { AllCardsScreen } from '../screens/AllCardsScreen';
 import { CardDetailScreen } from '../screens/CardDetailScreen';
+import { MainTabs } from './MainTabs';
 import { ChangePasswordScreen } from '../screens/ChangePasswordScreen';
-import { CollectionScreen } from '../screens/CollectionScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { MyCardFormScreen } from '../screens/MyCardFormScreen';
+import { AllMyCardsScreen } from '../screens/AllMyCardsScreen';
+import { MyCardScreen } from '../screens/MyCardScreen';
 import { MyCardScanScreen } from '../screens/MyCardScanScreen';
 import { ManageAccountScreen } from '../screens/ManageAccountScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
@@ -63,6 +65,8 @@ export type MainStackParamList = {
   ScanEnhancementLoading:
     | { kind: 'captured'; cardId: string; card: CapturedCard }
     | { kind: 'user'; cardId: string; card: UserCard };
+  AllMyCards: undefined;
+  MyCard: { card: UserCard };
   MyCardForm:
     | { mode: 'create'; parsedPreview?: ParsedUserCardPreview }
     | { mode: 'edit'; card: UserCard };
@@ -112,7 +116,7 @@ function MainNavigator({
   return (
     <MainStack.Navigator initialRouteName="Collection" screenOptions={screenOptions}>
       <MainStack.Screen name="Collection" options={{ headerShown: false }}>
-        {() => <CollectionScreen />}
+        {() => <MainTabs onSignOut={onSignOut} />}
       </MainStack.Screen>
       <MainStack.Screen name="Profile" options={{ title: 'Profile' }}>
         {() => <ProfileScreen onSignOut={onSignOut} />}
@@ -152,6 +156,16 @@ function MainNavigator({
         name="MyCardScan"
         component={MyCardScanScreen}
         options={{ title: 'Scan My Card' }}
+      />
+      <MainStack.Screen
+        name="AllMyCards"
+        component={AllMyCardsScreen}
+        options={{ title: 'My cards' }}
+      />
+      <MainStack.Screen
+        name="MyCard"
+        component={MyCardScreen}
+        options={{ title: 'My card' }}
       />
       <MainStack.Screen
         name="MyCardForm"

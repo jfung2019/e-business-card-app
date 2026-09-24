@@ -13,6 +13,12 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useAuth } from '../context/AuthContext';
 import { useAppTheme } from '../context/ThemeContext';
+import {
+  WALLET_CARD_LIMITS,
+  useCardPrefs,
+  type WalletCardLimit,
+} from '../context/CardPrefsContext';
+import { CARD_DESIGN_PRESETS } from '../theme/cardDesigns';
 import { useUserCards } from '../hooks/useUserCards';
 import type { MainStackParamList } from '../navigation/AppNavigator';
 import type { WalletThemeColors } from '../theme/appTheme';
@@ -150,6 +156,60 @@ function createStyles(wallet: WalletThemeColors) {
     section: {
       gap: 10,
     },
+    prefRow: {
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: wallet.border,
+      gap: 8,
+    },
+    prefLabel: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: wallet.title,
+    },
+    prefHint: {
+      fontSize: 13,
+      color: wallet.subtitle,
+      marginTop: -4,
+    },
+    swatchRow: {
+      flexDirection: 'row',
+      gap: 10,
+      flexWrap: 'wrap',
+    },
+    swatch: {
+      width: 44,
+      height: 32,
+      borderRadius: 9,
+      borderWidth: 1,
+      // Sand is lighter than the surface it sits on, so an unselected swatch
+      // needs an edge to stay a shape.
+      borderColor: wallet.border,
+    },
+    segment: {
+      flexDirection: 'row',
+      alignSelf: 'flex-start',
+      backgroundColor: wallet.background,
+      borderRadius: 999,
+      padding: 3,
+    },
+    segmentItem: {
+      paddingHorizontal: 14,
+      paddingVertical: 6,
+      borderRadius: 999,
+    },
+    segmentItemActive: {
+      backgroundColor: wallet.addButton,
+    },
+    segmentLabel: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: wallet.subtitle,
+    },
+    segmentLabelActive: {
+      color: wallet.addButtonText,
+    },
     sectionTitle: {
       fontSize: 14,
       fontWeight: '700',
@@ -213,6 +273,7 @@ export function ProfileScreen({ onSignOut }: ProfileScreenProps): React.JSX.Elem
   const { wallet, isDark, toggleColorScheme } = useAppTheme();
   const styles = useMemo(() => createStyles(wallet), [wallet]);
   const { cards: userCards, fetchUserCards } = useUserCards();
+  const { designId, setDesignId, walletLimit, setWalletLimit } = useCardPrefs();
   const [signingOut, setSigningOut] = useState(false);
   const [sendingReset, setSendingReset] = useState(false);
 
@@ -310,37 +371,6 @@ export function ProfileScreen({ onSignOut }: ProfileScreenProps): React.JSX.Elem
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>My cards</Text>
-        <View style={styles.card}>
-          <ProfileRow
-            styles={styles}
-            label="Add business card"
-            hint="Scan front/back or enter your details manually"
-            onPress={() => navigation.navigate('MyCardScan')}
-          />
-          {userCards.length > 0 ? (
-            <ProfileRow
-              styles={styles}
-              label="Manage e-business cards"
-              hint={`${userCards.length} ${userCards.length === 1 ? 'card' : 'cards'} on your profile`}
-              onPress={() => {
-                const primary = userCards.find(card => card.is_primary) ?? userCards[0];
-                navigation.navigate('MyCardForm', { mode: 'edit', card: primary });
-              }}
-            />
-          ) : null}
-          {userCards.length > 1 ? (
-            <ProfileRow
-              styles={styles}
-              label="Reorder business cards"
-              hint="Drag to change order and primary card"
-              onPress={() => navigation.navigate('ReorderMyCards', { cards: userCards })}
-            />
-          ) : null}
-        </View>
-      </View>
-
-      <View style={styles.section}>
         <Text style={styles.sectionTitle}>Appearance</Text>
         <View style={styles.card}>
           <ProfileRow
@@ -349,6 +379,56 @@ export function ProfileScreen({ onSignOut }: ProfileScreenProps): React.JSX.Elem
             hint={isDark ? 'Currently using dark theme' : 'Currently using light theme'}
             onPress={toggleColorScheme}
           />
+          <View style={styles.prefRow}>
+            <Text style={styles.prefLabel}>Card colour</Text>
+            <Text style={styles.prefHint}>Used on every card with no scan photo.</Text>
+            <View style={styles.swatchRow}>
+              {CARD_DESIGN_PRESETS.map(preset => {
+                const selected = preset.id === designId;
+                return (
+                  <Pressable
+                    key={preset.id}
+                    onPress={() => setDesignId(preset.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel={preset.label}
+                    accessibilityState={selected ? { selected: true } : {}}
+                    style={[
+                      styles.swatch,
+                      { backgroundColor: preset.background },
+                      selected && { borderColor: wallet.accent, borderWidth: 2 },
+                    ]}
+                  />
+                );
+              })}
+            </View>
+          </View>
+          <View style={styles.prefRow}>
+            <Text style={styles.prefLabel}>Cards in the wallet</Text>
+            <Text style={styles.prefHint}>The rest are behind Browse all.</Text>
+            <View style={styles.segment}>
+              {WALLET_CARD_LIMITS.map((limit: WalletCardLimit) => {
+                const selected = limit === walletLimit;
+                return (
+                  <Pressable
+                    key={String(limit)}
+                    onPress={() => setWalletLimit(limit)}
+                    accessibilityRole="button"
+                    accessibilityState={selected ? { selected: true } : {}}
+                    style={[styles.segmentItem, selected && styles.segmentItemActive]}
+                  >
+                    <Text
+                      style={[
+                        styles.segmentLabel,
+                        selected && styles.segmentLabelActive,
+                      ]}
+                    >
+                      {limit === 'all' ? 'All' : String(limit)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
         </View>
       </View>
 

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Modal } from 'react-native';
+import { Modal, Platform } from 'react-native';
 
 import { CardScannerScreen } from '../screens/CardScannerScreen';
 import {
@@ -14,18 +14,28 @@ import {
  * `scanBusinessCard()` is a plain service call with no navigation context, so
  * the scanner is presented as a modal driven by the controller rather than as
  * a route. The camera only mounts while a scan is in flight.
+ *
+ * iOS only. Android keeps ML Kit's document scanner, which already limits
+ * itself to a single page — see `scanWithCardScanner` in `services/ocr.ts`.
  */
-export function CardScannerHost(): React.JSX.Element {
+export function CardScannerHost(): React.JSX.Element | null {
   const [request, setRequest] = useState<CardScannerRequest | null>(null);
 
   useEffect(() => {
+    if (Platform.OS !== 'ios') {
+      return;
+    }
     setCardScannerListener(setRequest);
     return () => setCardScannerListener(null);
   }, []);
 
-  const handleComplete = useCallback((imageUri: string | null) => {
-    finishCardScan(imageUri);
+  const handleComplete = useCallback((imageUris: string[] | null) => {
+    finishCardScan(imageUris);
   }, []);
+
+  if (Platform.OS !== 'ios') {
+    return null;
+  }
 
   return (
     <Modal
@@ -35,7 +45,7 @@ export function CardScannerHost(): React.JSX.Element {
       statusBarTranslucent
       onRequestClose={() => finishCardScan(null)}>
       {request ? (
-        <CardScannerScreen side={request.side} onComplete={handleComplete} />
+        <CardScannerScreen sides={request.sides} onComplete={handleComplete} />
       ) : null}
     </Modal>
   );

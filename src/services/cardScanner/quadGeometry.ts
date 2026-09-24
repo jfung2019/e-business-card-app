@@ -40,18 +40,44 @@ const MAX_ASPECT_RATIO = 2.35;
 /** Corners sharper than this are not a rectangle viewed at an angle. */
 const MIN_CORNER_COSINE = 0.5;
 
+/**
+ * Orders four points as top-left, top-right, bottom-right, bottom-left.
+ *
+ * Sorts by angle around the centroid rather than by y-then-x: splitting into a
+ * "top pair" and "bottom pair" breaks down for a card rotated near 45°, where
+ * two corners share almost the same height.
+ */
 export function orderQuadCorners(points: readonly QuadPoint[]): CardQuad | null {
   'worklet';
   if (points.length !== 4) {
     return null;
   }
 
-  // Sort by y to split top pair from bottom pair, then by x within each pair.
-  const sorted = [...points].sort((a, b) => a.y - b.y);
-  const top = sorted.slice(0, 2).sort((a, b) => a.x - b.x);
-  const bottom = sorted.slice(2, 4).sort((a, b) => a.x - b.x);
+  const centroidX = (points[0].x + points[1].x + points[2].x + points[3].x) / 4;
+  const centroidY = (points[0].y + points[1].y + points[2].y + points[3].y) / 4;
 
-  return [top[0], top[1], bottom[1], bottom[0]] as CardQuad;
+  // Screen space has y pointing down, so ascending atan2 walks clockwise:
+  // top-left, top-right, bottom-right, bottom-left.
+  const clockwise = [...points].sort(
+    (a, b) =>
+      Math.atan2(a.y - centroidY, a.x - centroidX) -
+      Math.atan2(b.y - centroidY, b.x - centroidX),
+  );
+
+  // Start from whichever corner is nearest the top-left.
+  let start = 0;
+  for (let i = 1; i < 4; i += 1) {
+    if (clockwise[i].x + clockwise[i].y < clockwise[start].x + clockwise[start].y) {
+      start = i;
+    }
+  }
+
+  return [
+    clockwise[start],
+    clockwise[(start + 1) % 4],
+    clockwise[(start + 2) % 4],
+    clockwise[(start + 3) % 4],
+  ] as CardQuad;
 }
 
 /** Shoelace area, in normalized units (1.0 == the whole frame). */
@@ -89,7 +115,7 @@ export function quadAspectRatio(quad: CardQuad): number {
 }
 
 /** True when all four cross products share a sign — i.e. the quad is convex. */
-function isConvex(quad: CardQuad): boolean {
+export function isConvex(quad: CardQuad): boolean {
   'worklet';
   let sign = 0;
   for (let i = 0; i < 4; i += 1) {
@@ -212,4 +238,76 @@ export function expandQuad(quad: CardQuad, padding: number): CardQuad {
     });
   }
   return points as unknown as CardQuad;
+}
+
+/** A crop smaller than this (normalized area) is almost certainly a mis-drag. */
+const MIN_CROP_AREA = 0.01;
+
+/**
+ * Whether a user-adjusted crop can be warped: convex, not collapsed, and
+ * inside the image. `quad` is in normalized image space.
+ */
+export function isValidCropQuad(quad: CardQuad): boolean {
+  'worklet';
+  for (let i = 0; i < 4; i += 1) {
+    const { x, y } = quad[i];
+    if (x < 0 || x > 1 || y < 0 || y > 1) {
+      return false;
+    }
+  }
+  return quadArea(quad) >= MIN_CROP_AREA && isConvex(quad);
+}
+
+/** Starting crop when no edge was detected: the image, inset slightly. */
+export function defaultCropQuad(inset = 0.08): CardQuad {
+  'worklet';
+  return [
+    { x: inset, y: inset },
+    { x: 1 - inset, y: inset },
+    { x: 1 - inset, y: 1 - inset },
+    { x: inset, y: 1 - inset },
+  ] as CardQuad;
+}
+
+/** Normalized 0..1 point clamped to the image. */
+export function clampPoint(point: QuadPoint): QuadPoint {
+  'worklet';
+  return {
+    x: point.x < 0 ? 0 : point.x > 1 ? 1 : point.x,
+    y: point.y < 0 ? 0 : point.y > 1 ? 1 : point.y,
+  };
+}
+
+/** Where an image of `imageWidth` x `imageHeight` lands when `contain`-fit. */
+export interface ContainRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * The rect a `resizeMode="contain"` image or preview actually occupies inside
+ * its container. Overlays must be drawn relative to this, not the container:
+ * the letterbox bars are not part of the image.
+ */
+export function containRect(
+  contentWidth: number,
+  contentHeight: number,
+  containerWidth: number,
+  containerHeight: number,
+): ContainRect {
+  'worklet';
+  if (contentWidth <= 0 || contentHeight <= 0 || containerWidth <= 0 || containerHeight <= 0) {
+    return { x: 0, y: 0, width: 0, height: 0 };
+  }
+  const scale = Math.min(containerWidth / contentWidth, containerHeight / contentHeight);
+  const width = contentWidth * scale;
+  const height = contentHeight * scale;
+  return {
+    x: (containerWidth - width) / 2,
+    y: (containerHeight - height) / 2,
+    width,
+    height,
+  };
 }

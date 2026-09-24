@@ -9,6 +9,9 @@ function searchableText(card: FilterableCard): string {
   const { core_fields, custom_fields } = card;
   const parts = [
     core_fields.name,
+    core_fields.name_cn,
+    core_fields.first_name,
+    core_fields.last_name,
     core_fields.company_name,
     core_fields.job_title,
     core_fields.email,

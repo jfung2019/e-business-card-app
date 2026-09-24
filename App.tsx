@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { CardScannerHost } from './src/components/CardScannerHost';
 import { AuthProvider } from './src/context/AuthContext';
+import { CardPrefsProvider } from './src/context/CardPrefsContext';
 import { ShareLinkProvider } from './src/context/ShareLinkContext';
 import { ThemeProvider, useAppTheme } from './src/context/ThemeContext';
 import { AppNavigator } from './src/navigation/AppNavigator';
@@ -20,12 +21,14 @@ export default function App(): React.JSX.Element {
       <SafeAreaProvider>
         <ThemeProvider>
           <ThemedStatusBar />
-          <AuthProvider>
-            <ShareLinkProvider>
-              <AppNavigator />
-              <CardScannerHost />
-            </ShareLinkProvider>
-          </AuthProvider>
+          <CardPrefsProvider>
+            <AuthProvider>
+              <ShareLinkProvider>
+                <AppNavigator />
+                <CardScannerHost />
+              </ShareLinkProvider>
+            </AuthProvider>
+          </CardPrefsProvider>
         </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

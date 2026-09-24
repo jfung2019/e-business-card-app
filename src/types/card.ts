@@ -1,7 +1,39 @@
 /** Mirrors e-business-card-api openapi.yaml / Pydantic models */
 
+/** Latin-script name parts. Either half may be missing on a real card. */
+export interface NamePartsEn {
+  first: string | null;
+  last: string | null;
+}
+
+/**
+ * Which value the server's sort key was built from, so the UI can tell a real
+ * family name from a fallback and offer to fix it.
+ */
+export type NameSortBasis =
+  | 'last_en'
+  | 'first_en'
+  /** Split guessed from the printed name, for cards scanned before the API captured it. */
+  | 'guessed_en'
+  | 'romanized_cn'
+  | 'company'
+  | 'none';
+
 export interface CoreFields {
+  /**
+   * The name exactly as the card prints it. Display uses this and only this —
+   * the parts below exist for sorting and search, never for recomposition.
+   */
   name: string;
+  /**
+   * Split of the Latin name, flat because every other consumer treats
+   * core_fields as a map of strings — the edit form, the suggestion diff and
+   * the offline patch builder all iterate it.
+   */
+  first_name?: string | null;
+  last_name?: string | null;
+  /** The Chinese name as printed, if the card carries one. */
+  name_cn?: string | null;
   company_name?: string | null;
   job_title?: string | null;
   email?: string | null;
@@ -43,6 +75,9 @@ export interface CapturedCard {
   enhanced_suggestions?: Record<string, string>;
   parse_error?: string | null;
   parsed_at?: string | null;
+  /** Lowercase Latin key the list sorts and sections on. Computed server-side. */
+  sort_key?: string | null;
+  sort_basis?: NameSortBasis | null;
 }
 
 export interface ProcessCardRequest {
