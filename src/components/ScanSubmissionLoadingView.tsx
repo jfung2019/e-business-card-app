@@ -6,12 +6,19 @@ import { useAppTheme } from '../context/ThemeContext';
 import { useRotatingMessage } from '../hooks/useRotatingMessage';
 import type { WalletThemeColors } from '../theme/appTheme';
 
-export type ScanSubmissionLoadingPreset = 'submit' | 'retry';
+export type ScanSubmissionLoadingPreset = 'submit' | 'retry' | 'read';
 
 const SUBMIT_MESSAGES = [
   'Uploading your scan...',
   'Enhancing the card image...',
   'Parsing contact details...',
+];
+
+/** The on-device pass, in the order it actually happens. */
+const READ_MESSAGES = [
+  'Checking for a QR code...',
+  'Reading the text...',
+  'Preparing the photo...',
 ];
 
 const RETRY_MESSAGES = [
@@ -79,7 +86,8 @@ export function ScanSubmissionLoadingView({
 }: ScanSubmissionLoadingViewProps): React.JSX.Element {
   const { wallet } = useAppTheme();
   const styles = useMemo(() => createStyles(wallet), [wallet]);
-  const messages = preset === 'retry' ? RETRY_MESSAGES : SUBMIT_MESSAGES;
+  const messages =
+    preset === 'retry' ? RETRY_MESSAGES : preset === 'read' ? READ_MESSAGES : SUBMIT_MESSAGES;
   const message = useRotatingMessage(messages, isHolding);
 
   return (

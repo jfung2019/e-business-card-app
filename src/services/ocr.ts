@@ -269,6 +269,12 @@ export interface ScanBusinessCardOptions {
   requireText?: boolean;
   /** Which side is being captured — drives the scanner's on-screen prompt. */
   side?: CardScannerSide;
+  /**
+   * Fires once the image is in hand and the slow part begins: QR detection, OCR
+   * and compression, which together take about a second. The camera is closed
+   * by then, so the caller has to show something in its place.
+   */
+  onAnalysisStart?: () => void;
 }
 
 export async function scanBusinessCard(
@@ -287,6 +293,7 @@ export async function scanBusinessCard(
     return null;
   }
 
+  options?.onAnalysisStart?.();
   return analyzeCardImage(picked.uri, requireText);
 }
 

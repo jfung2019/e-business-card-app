@@ -77,12 +77,9 @@ export function MyCardWalletStack({
               pressed && styles.pressed,
             ]}
           >
-            <View style={styles.peekRow}>
-              <Text style={[styles.peekLabel, { color: design.text }]} numberOfLines={1}>
-                {label}
-              </Text>
-              <View style={[styles.peekAccent, { backgroundColor: design.accent }]} />
-            </View>
+            <Text style={[styles.peekLabel, { color: design.text }]} numberOfLines={1}>
+              {label}
+            </Text>
           </Pressable>
         );
       })}
@@ -111,20 +108,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 12,
   },
-  peekRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
   peekLabel: {
-    flex: 1,
     fontSize: 13,
     fontWeight: '600',
-  },
-  peekAccent: {
-    width: 18,
-    height: 4,
-    borderRadius: 2,
   },
   pressed: {
     opacity: 0.92,

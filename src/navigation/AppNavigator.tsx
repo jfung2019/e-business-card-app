@@ -69,7 +69,9 @@ export type MainStackParamList = {
   MyCard: { card: UserCard };
   MyCardForm:
     | { mode: 'create'; parsedPreview?: ParsedUserCardPreview }
-    | { mode: 'edit'; card: UserCard };
+    // `origin: 'scan'` marks the confirm-your-details step that follows a scan.
+    // Saving there ends the scan, so the form must not stay behind the card.
+    | { mode: 'edit'; card: UserCard; origin?: 'scan' };
   ReorderMyCards: { cards: UserCard[] };
   Profile: undefined;
   ChangePassword: undefined;

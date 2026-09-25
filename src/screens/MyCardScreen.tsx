@@ -22,6 +22,7 @@ import type { MainStackParamList } from '../navigation/AppNavigator';
 import { exportCardAsPdf, saveCardPhotosToAlbum } from '../services/cardExport';
 import { isLocalUserCardId } from '../services/offlineUserCardQueue';
 import type { WalletThemeColors } from '../theme/appTheme';
+import type { PhotoFace } from '../types/userCard';
 import { formatCustomFieldLabel } from '../utils/formatCustomFieldLabel';
 import { useAuthenticatedImageSource } from '../utils/scanImage';
 import { userCardHasScanImage } from '../utils/walletDisplay';
@@ -40,10 +41,16 @@ export function MyCardScreen(): React.JSX.Element {
   const styles = useMemo(() => createStyles(wallet), [wallet]);
   const navigation = useNavigation<MyCardNavigation>();
   const route = useRoute<MyCardRoute>();
-  const { cards, removeUserCard, editUserCard } = useUserCards();
+  const { cards, removeUserCard, editUserCard, setCardPhotoFace } = useUserCards();
 
   // Prefer the freshly fetched copy so edits made elsewhere show up on return.
   const card = cards.find(item => item._id === route.params.card._id) ?? route.params.card;
+
+  // The flip lives here rather than in the card: the face shown comes from the
+  // card object, and this screen's copy of the list is never fetched, so an
+  // update through the hook alone would not change what is on screen.
+  const [photoFace, setPhotoFace] = useState<PhotoFace | null>(null);
+  const shownCard = photoFace ? { ...card, photo_face: photoFace } : card;
 
   const [exportVisible, setExportVisible] = useState(false);
   const [busyOption, setBusyOption] = useState<CardExportOption | null>(null);
@@ -185,7 +192,15 @@ export function MyCardScreen(): React.JSX.Element {
     <>
       <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
         <View style={styles.cardSlot}>
-          <MyCardFace card={card} compact controlsBelow />
+          <MyCardFace
+            card={shownCard}
+            compact
+            controlsBelow
+            onPhotoFaceChange={(cardId, nextFace) => {
+              setPhotoFace(nextFace);
+              void setCardPhotoFace(cardId, nextFace);
+            }}
+          />
         </View>
 
         <View style={styles.actionRow}>

@@ -31,6 +31,7 @@ import { exportCardAsPdf, saveCardPhotosToAlbum } from '../services/cardExport';
 import { useAppTheme } from '../context/ThemeContext';
 import { useCardDesignId } from '../context/CardPrefsContext';
 import type { MainStackParamList } from '../navigation/AppNavigator';
+import { finishMyCardScan } from '../navigation/finishScan';
 import type { WalletThemeColors } from '../theme/appTheme';
 import type { CoreFields } from '../types/card';
 import type { UserCard, UserCardDraft, PhotoFace, WalletDisplay } from '../types/userCard';
@@ -268,6 +269,9 @@ export function MyCardFormScreen(): React.JSX.Element {
   const params = route.params ?? { mode: 'create' as const };
   const mode = params.mode;
   const card = mode === 'edit' ? params.card : undefined;
+  // Reached as the confirm-your-details step right after a scan, rather than as
+  // an edit opened from a card.
+  const fromScan = mode === 'edit' && params.origin === 'scan';
   const parsedPreview = mode === 'create' ? params.parsedPreview : undefined;
 
   const initialFields = useMemo<CoreFields>(() => {
@@ -428,9 +432,16 @@ export function MyCardFormScreen(): React.JSX.Element {
             saved = await updateUserCardWalletDisplay(card._id, { walletDisplay, photoFace });
           }
         }
-        // Back to the card with the values just saved. Going back instead would
-        // redisplay whatever the detail screen was handed when it opened.
-        navigation.navigate('MyCard', { card: saved });
+        if (fromScan) {
+          // The scan ends here. Leaving the form in the stack would put the
+          // whole capture flow behind the card, so back went to the form.
+          finishMyCardScan(navigation, saved);
+        } else {
+          // Back to the card with the values just saved. Going back instead
+          // would redisplay whatever the detail screen was handed when it
+          // opened.
+          navigation.navigate('MyCard', { card: saved });
+        }
       } else {
         // Straight to the card you just made, rather than back to the wallet
         // wondering whether it saved.

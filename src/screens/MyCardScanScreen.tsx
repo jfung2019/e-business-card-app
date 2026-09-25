@@ -9,6 +9,7 @@ import { useAppTheme } from '../context/ThemeContext';
 import { useProcessUserCard } from '../hooks/useProcessUserCard';
 import { useScanSubmissionProgress } from '../hooks/useScanSubmissionProgress';
 import type { MainStackParamList } from '../navigation/AppNavigator';
+import { finishMyCardScan } from '../navigation/finishScan';
 import type { WalletThemeColors } from '../theme/appTheme';
 import { scanBusinessCard, type OcrSource } from '../services/ocr';
 import { mergeCardOcrText } from '../utils/mergeCardOcrText';
@@ -156,8 +157,12 @@ export function MyCardScanScreen(): React.JSX.Element {
 
   const isSuccess = state.status === 'success' && userCard !== null;
   const isBusy = state.status === 'loading';
+  // The on-device read — QR, OCR, compression — runs after the camera closes and
+  // takes about a second with nothing to show for it. Without this the front
+  // page sat there looking idle until the back prompt appeared.
+  const [readingCard, setReadingCard] = useState(false);
   const { progressWidth, showProgress, showResult, isHolding } = useScanSubmissionProgress(
-    isBusy,
+    isBusy || readingCard,
     isSuccess,
   );
   const pendingImageReview =
@@ -178,7 +183,9 @@ export function MyCardScanScreen(): React.JSX.Element {
     setFrontImageBase64(null);
 
     try {
-      const result = await scanBusinessCard(source);
+      const result = await scanBusinessCard(source, {
+        onAnalysisStart: () => setReadingCard(true),
+      });
       if (!result) {
         return;
       }
@@ -190,6 +197,8 @@ export function MyCardScanScreen(): React.JSX.Element {
       const message =
         error instanceof Error ? error.message : 'Failed to read text from image.';
       setScanError(message);
+    } finally {
+      setReadingCard(false);
     }
   };
 
@@ -214,15 +223,23 @@ export function MyCardScanScreen(): React.JSX.Element {
   const handleScanBack = async (source: OcrSource) => {
     setScanError(null);
     try {
-      const result = await scanBusinessCard(source, { requireText: false, side: 'back' });
+      const result = await scanBusinessCard(source, {
+        requireText: false,
+        side: 'back',
+        onAnalysisStart: () => setReadingCard(true),
+      });
       if (!result) {
         return;
       }
+      // Hand over to the upload progress rather than stacking two loading states.
+      setReadingCard(false);
       await finalizeSubmission(result.imageBase64, result.ocrText);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Failed to capture the back image.';
       setScanError(message);
+    } finally {
+      setReadingCard(false);
     }
   };
 
@@ -236,7 +253,7 @@ export function MyCardScanScreen(): React.JSX.Element {
     setFrontOcrText(null);
     setFrontImageBase64(null);
     setAwaitingBackCapture(false);
-    navigation.navigate('Collection');
+    finishMyCardScan(navigation);
   };
 
   const handleViewDetails = () => {
@@ -249,7 +266,7 @@ export function MyCardScanScreen(): React.JSX.Element {
     setFrontOcrText(null);
     setFrontImageBase64(null);
     setAwaitingBackCapture(false);
-    navigation.navigate('MyCardForm', { mode: 'edit', card });
+    navigation.navigate('MyCardForm', { mode: 'edit', card, origin: 'scan' });
   };
 
   const renderActionButton = (
@@ -283,7 +300,8 @@ export function MyCardScanScreen(): React.JSX.Element {
       <ScanSubmissionLoadingView
         progressWidth={progressWidth}
         isHolding={isHolding}
-        preset="submit"
+        preset={readingCard ? 'read' : 'submit'}
+        title={readingCard ? 'Reading your card' : undefined}
       />
     );
   }

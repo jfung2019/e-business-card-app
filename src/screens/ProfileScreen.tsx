@@ -5,6 +5,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   View,
 } from 'react-native';
@@ -205,6 +206,15 @@ function createStyles(wallet: WalletThemeColors) {
       borderBottomWidth: 1,
       borderBottomColor: wallet.border,
     },
+    switchRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: wallet.border,
+    },
     rowPressed: {
       opacity: 0.7,
     },
@@ -326,12 +336,21 @@ export function ProfileScreen({ onSignOut }: ProfileScreenProps): React.JSX.Elem
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Appearance</Text>
         <View style={styles.card}>
-          <ProfileRow
-            styles={styles}
-            label={isDark ? 'Dark mode' : 'Light mode'}
-            hint={isDark ? 'Currently using dark theme' : 'Currently using light theme'}
-            onPress={toggleColorScheme}
-          />
+          <View style={styles.switchRow}>
+            <View style={styles.rowCopy}>
+              <Text style={styles.rowLabel}>Dark mode</Text>
+              <Text style={styles.rowHint}>
+                {isDark ? 'Currently using dark theme' : 'Currently using light theme'}
+              </Text>
+            </View>
+            <Switch
+              value={isDark}
+              onValueChange={toggleColorScheme}
+              accessibilityLabel="Dark mode"
+              trackColor={{ true: wallet.addButton, false: wallet.border }}
+              thumbColor={wallet.surface}
+            />
+          </View>
           <View style={styles.prefRow}>
             <Text style={styles.prefLabel}>Card colour</Text>
             <Text style={styles.prefHint}>Used on every card with no scan photo.</Text>
