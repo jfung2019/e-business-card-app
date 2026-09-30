@@ -1,4 +1,5 @@
 import type { CoreFields, NamePartsEn, NameSortBasis } from '../types/card';
+import { romanizeChineseSurname } from './chineseSurname';
 
 /**
  * Bucket for cards with no Latin key at all. They sort after A–Z rather than by
@@ -22,41 +23,120 @@ function clean(value: string | null | undefined): string | null {
   return trimmed ? trimmed : null;
 }
 
+const HAN = /\p{Script=Han}/u;
+
+/** English words in a printed name, ignoring any Chinese beside them. */
+function latinWords(name: string | null): string[] {
+  return name?.match(/\p{Script=Latin}[\p{Script=Latin}\p{M}'\u2019.-]*/gu) ?? [];
+}
+
 /**
- * The Latin name parts.
+ * The printed English words left over once `known` is taken off either end:
+ * "Andy Chan" minus "Andy" is "Chan". Null when `known` is not at an end.
+ */
+function remainderOf(words: string[], known: string): string | null {
+  const knownWords = latinWords(known).map((word) => word.toLowerCase());
+  const lower = words.map((word) => word.toLowerCase());
+  const n = knownWords.length;
+  if (n === 0 || n >= words.length) {
+    return null;
+  }
+  const matchesAt = (offset: number) =>
+    knownWords.every((word, index) => lower[offset + index] === word);
+
+  if (matchesAt(0)) {
+    return words.slice(n).join(' ');
+  }
+  if (matchesAt(words.length - n)) {
+    return words.slice(0, words.length - n).join(' ');
+  }
+  return null;
+}
+
+interface ResolvedNameParts extends NamePartsEn {
+  /** True when `last` is the romanized Chinese surname, not English on the card. */
+  lastIsRomanized: boolean;
+}
+
+function resolveNameParts(
+  coreFields: CoreFields,
+  customFields?: Record<string, string>,
+): ResolvedNameParts {
+  const printed = clean(coreFields.name);
+  const words = latinWords(printed);
+  const romanizedSurname = () =>
+    romanizeChineseSurname(
+      printed && HAN.test(printed)
+        ? printed
+        : clean(coreFields.name_cn) ?? clean(customFields?.name_cn),
+    );
+
+  let first = clean(coreFields.first_name);
+  let last = clean(coreFields.last_name);
+  if (!first && !last) {
+    first = clean(customFields?.first_name);
+    last = clean(customFields?.last_name);
+  }
+
+  if (first && last) {
+    return { first, last, lastIsRomanized: false };
+  }
+
+  // Only one half stored: take the other from the printed English name, and
+  // failing that, the family name from the Chinese surname.
+  if (first) {
+    const rest = remainderOf(words, first);
+    if (rest) {
+      return { first, last: rest, lastIsRomanized: false };
+    }
+    const romanized = romanizedSurname();
+    return { first, last: romanized, lastIsRomanized: romanized !== null };
+  }
+  if (last) {
+    return { first: remainderOf(words, last), last, lastIsRomanized: false };
+  }
+
+  // Nothing stored. A purely Chinese name has no English parts and stays in
+  // the 中文 section.
+  if (words.length === 0) {
+    return { first: null, last: null, lastIsRomanized: false };
+  }
+  if (words.length === 1) {
+    // "Andy 陳": the English word is the given name, the Chinese one the surname.
+    const romanized = romanizedSurname();
+    if (romanized && romanized.toLowerCase() !== words[0].toLowerCase()) {
+      return { first: words[0], last: romanized, lastIsRomanized: true };
+    }
+    return { first: null, last: words[0], lastIsRomanized: false };
+  }
+  return {
+    first: words.slice(0, -1).join(' '),
+    last: words[words.length - 1],
+    lastIsRomanized: false,
+  };
+}
+
+/**
+ * The English name parts.
  *
  * Reads the API's `first_name`/`last_name` first, then the custom fields an
- * older API puts them in, and only then guesses from the printed name. The guess is crude on
- * purpose: "Wong Ka Ming" leads with the family name while "Chris Huang" ends
- * with it, and nothing in the string says which convention is in play. Treat it
- * as a starting point the user can correct, never as a fact.
+ * older API puts them in. A missing half is filled in: from the printed
+ * English name ("Andy Chan" with only "Andy" stored gives "Chan"), and failing
+ * that from the Chinese surname in HK romanization ("Andy 陳" gives "Chan").
+ *
+ * With nothing stored, the split is guessed from the printed name. The guess
+ * is crude on purpose: "Wong Ka Ming" leads with the family name while "Chris
+ * Huang" ends with it, and nothing in the string says which convention is in
+ * play. Treat it as a starting point the user can correct, never as a fact.
+ *
+ * Derived only — nothing here is written back to the card.
  */
 export function getNameParts(
   coreFields: CoreFields,
   customFields?: Record<string, string>,
 ): NamePartsEn {
-  const apiFirst = clean(coreFields.first_name);
-  const apiLast = clean(coreFields.last_name);
-  if (apiFirst || apiLast) {
-    return { first: apiFirst, last: apiLast };
-  }
-
-  const storedFirst = clean(customFields?.first_name);
-  const storedLast = clean(customFields?.last_name);
-  if (storedFirst || storedLast) {
-    return { first: storedFirst, last: storedLast };
-  }
-
-  const name = clean(coreFields.name);
-  if (!name || !LATIN_LETTER.test(name)) {
-    return { first: null, last: null };
-  }
-
-  const tokens = name.split(/\s+/);
-  if (tokens.length === 1) {
-    return { first: null, last: tokens[0] };
-  }
-  return { first: tokens.slice(0, -1).join(' '), last: tokens[tokens.length - 1] };
+  const { first, last } = resolveNameParts(coreFields, customFields);
+  return { first, last };
 }
 
 /** The Chinese name, when the card carries one that differs from the printed name. */
@@ -89,22 +169,29 @@ export function resolveSortKey(card: SortableCard, mode: NameSortMode = 'last'):
     return (parts.first ?? parts.last ?? '').toLowerCase();
   }
 
+  // The server's key wins unless it filed by something other than a family
+  // name while one is known here — the row reads "Chan, Andy", so it must not
+  // sit under A.
   const serverKey = clean(card.sort_key);
-  if (serverKey) {
+  if (serverKey && (serverUsedFamilyName(card.sort_basis) || !parts.last)) {
     return serverKey.toLowerCase();
   }
 
   return (parts.last ?? parts.first ?? clean(card.core_fields.company_name) ?? '').toLowerCase();
 }
 
+function serverUsedFamilyName(basis: NameSortBasis | null | undefined): boolean {
+  return basis === 'last_en' || basis === 'guessed_en' || basis === 'romanized_cn';
+}
+
 /** Why the key is what it is, for the hint on the edit form. */
 export function resolveSortBasis(card: SortableCard): NameSortBasis {
-  if (card.sort_basis) {
+  const parts = resolveNameParts(card.core_fields, card.custom_fields);
+  if (card.sort_basis && (serverUsedFamilyName(card.sort_basis) || !parts.last)) {
     return card.sort_basis;
   }
-  const parts = getNameParts(card.core_fields, card.custom_fields);
   if (parts.last) {
-    return 'last_en';
+    return parts.lastIsRomanized ? 'romanized_cn' : 'last_en';
   }
   if (parts.first) {
     return 'first_en';
@@ -140,37 +227,36 @@ export function compareBySortKey(a: string, b: string): number {
 }
 
 export interface SortedNameDisplay {
-  /** Leading part, shown in bold: the family name the row files under. */
+  /** Leading part, shown in bold: the name part the row files under. */
   lead: string;
-  /** The rest of the printed name, or null when the lead is the whole name. */
+  /** The rest of the name, or null when the lead is the whole name. */
   rest: string | null;
 }
 
 /**
- * How a name reads while the list is sorted by it.
+ * How an English name reads while the list is sorted by name. Every card with
+ * both English parts follows one pattern per sort, however it was printed:
  *
- * A card printed "Given Family" inverts to "Family, Given", the way Contacts
- * does, so the eye lands on the part the section letter came from. A card
- * printed family-first — "Li Shan Shan", "Wong Ka Ming" — is already in that
- * order and stays exactly as printed.
+ * - First name: "Andy Chan" — given name leads.
+ * - Last name:  "Chan, Andy" — family name leads, the way Contacts does.
+ *
+ * So "Li Shan Shan" (printed family-first) reads "Shan Shan Li" / "Li, Shan
+ * Shan", same as a card printed "Shan Shan Li". A name without both English
+ * parts — "陳大文", or a single word like "Madonna" — stays as printed.
  */
 export function sortedNameDisplay(
   coreFields: CoreFields,
   customFields?: Record<string, string>,
+  mode: 'first' | 'last' = 'last',
 ): SortedNameDisplay {
   const printed = clean(coreFields.name) ?? '';
-  const parts = getNameParts(coreFields, customFields);
-  const last = parts.last;
+  const { first, last } = getNameParts(coreFields, customFields);
 
-  if (!last) {
+  if (!first || !last || !LATIN_LETTER.test(first) || !LATIN_LETTER.test(last)) {
     return { lead: printed, rest: null };
   }
 
-  if (printed.toLowerCase().startsWith(last.toLowerCase())) {
-    const rest = printed.slice(last.length).trim();
-    return { lead: last, rest: rest || null };
-  }
-
-  const first = parts.first;
-  return { lead: last, rest: first ? `, ${first}` : null };
+  return mode === 'first'
+    ? { lead: first, rest: ` ${last}` }
+    : { lead: last, rest: `, ${first}` };
 }

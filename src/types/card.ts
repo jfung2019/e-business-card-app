@@ -21,8 +21,9 @@ export type NameSortBasis =
 
 export interface CoreFields {
   /**
-   * The name exactly as the card prints it. Display uses this and only this —
-   * the parts below exist for sorting and search, never for recomposition.
+   * The name exactly as the card prints it. Shown as-is everywhere except the
+   * Collected list while sorted by name, which recomposes the English parts
+   * below ("Andy Chan" / "Chan, Andy") — see `sortedNameDisplay`.
    */
   name: string;
   /**

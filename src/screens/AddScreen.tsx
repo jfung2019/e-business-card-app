@@ -46,7 +46,7 @@ export function AddScreen(): React.JSX.Element {
 
       <View style={styles.segment}>
         {renderTab('mine', 'My own card')}
-        {renderTab('contact', 'A contact')}
+        {renderTab('contact', 'Add contact')}
       </View>
 
       <View style={styles.body}>

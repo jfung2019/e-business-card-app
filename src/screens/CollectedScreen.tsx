@@ -189,11 +189,12 @@ export function CollectedScreen(): React.JSX.Element {
             .join(' · ');
           const detail = item.core_fields.phone ?? item.core_fields.email ?? '';
           const chineseName = getChineseName(item.core_fields, item.custom_fields);
-          // While the list is sorted by name, the family name leads and is set
-          // in bold so the eye lands on what the section letter came from.
+          // While sorted by name, English names follow the sort — "Andy Chan"
+          // by first name, "Chan, Andy" by last — with the part the section
+          // letter came from in bold.
           const sortedName =
             sortMode === 'first' || sortMode === 'last'
-              ? sortedNameDisplay(item.core_fields, item.custom_fields)
+              ? sortedNameDisplay(item.core_fields, item.custom_fields, sortMode)
               : null;
 
           return (
