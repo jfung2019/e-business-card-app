@@ -91,6 +91,11 @@ yarn-error.log
 !.yarn/sdks
 !.yarn/versions
 
+# Claude Code
+# .claude/skills/ and .claude/settings.json are shared with the team — keep them tracked.
+.claude/settings.local.json
+.claude/*.local.json
+
 # screenshots
 store-assets/
 # Local card samples for QR testing (may contain personal WeChat QR codes)

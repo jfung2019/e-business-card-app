@@ -21,6 +21,8 @@ import { applyCardEnhancement, deleteCard, updateCard } from '../api/cards';
 import { CardImageComposer, type CardImageComposerRef } from '../components/CardImageComposer';
 import { CustomFieldsList } from '../components/CustomFieldsList';
 import { ScanImage } from '../components/ScanImage';
+import { TabIcon, type TabIconName } from '../components/icons/TabIcons';
+import { getChineseName } from '../utils/nameSort';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { ExportCardModal, type CardExportOption } from '../components/ExportCardModal';
 import type { MainStackParamList } from '../navigation/AppNavigator';
@@ -55,6 +57,9 @@ type CardDetailNavigation = NativeStackNavigationProp<MainStackParamList, 'CardD
 
 const CORE_FIELD_LABELS: Array<{ key: keyof CoreFields; label: string }> = [
   { key: 'name', label: 'Name' },
+  { key: 'first_name', label: 'First name' },
+  { key: 'last_name', label: 'Last name' },
+  { key: 'name_cn', label: 'Chinese name' },
   { key: 'company_name', label: 'Company' },
   { key: 'job_title', label: 'Job title' },
   { key: 'email', label: 'Email' },
@@ -73,6 +78,7 @@ const WECHAT_APP_URL = 'weixin://';
 type WechatQrStage = 'prompt' | 'saved';
 
 type QuickAction = {
+  icon: TabIconName;
   key: string;
   label: string;
   onPress: () => void;
@@ -149,6 +155,7 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
   const [pendingWhatsapp, setPendingWhatsapp] = useState<string | null>(null);
   const [pendingWechat, setPendingWechat] = useState<string | null>(null);
   const [wechatError, setWechatError] = useState<string | null>(null);
+  const [scanFaceIndex, setScanFaceIndex] = useState(0);
   const [wechatQrStage, setWechatQrStage] = useState<WechatQrStage | null>(null);
   const [savingWechatQr, setSavingWechatQr] = useState(false);
 
@@ -197,6 +204,9 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
 
   const subtitle = buildSubtitle(editing ? draftCoreFields : core_fields);
   const displayName = (editing ? draftCoreFields.name : core_fields.name)?.trim() || 'Unknown contact';
+  // The Chinese name sits under the printed one rather than replacing it; both
+  // are what the card says, and neither is a translation of the other.
+  const chineseName = getChineseName(editing ? draftCoreFields : core_fields, custom_fields);
   const customFieldKeys = sortCustomFieldKeys(
     Object.keys(editing ? draftCustomFields : custom_fields),
   );
@@ -229,8 +239,22 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
         { label: 'Back scan', url: scan_image_back_url },
       ].filter((image): image is { label: string; url: string } => Boolean(image.url));
 
+  // One image with a Front/Back toggle rather than a stack of labelled photos:
+  // the card is the thing to look at, and there are only ever two sides.
+  const scanFaces: { label: string; uri?: string; url?: string }[] = localScanImages.length
+    ? localScanImages.map((image, index) => ({
+        label: index === 0 ? 'Front view' : 'Back view',
+        uri: image.uri,
+      }))
+    : scanImages.map((image, index) => ({
+        label: index === 0 ? 'Front view' : 'Back view',
+        url: image.url,
+      }));
+
   const remoteFrontImageSource = useAuthenticatedImageSource(scan_image_front_url ?? scan_image_url);
   const remoteBackImageSource = useAuthenticatedImageSource(scan_image_back_url);
+  const activeScanIndex = Math.min(scanFaceIndex, Math.max(scanFaces.length - 1, 0));
+  const activeScanFace = scanFaces[activeScanIndex];
   const exportImages = localScanImages.length
     ? localScanImages.map(image => image.uri)
     : [remoteFrontImageSource, remoteBackImageSource]
@@ -250,6 +274,7 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
     const phone = core_fields.phone.trim();
     quickActions.push({
       key: 'phone',
+      icon: 'phone',
       label: 'Call',
       onPress: () => void Linking.openURL(`tel:${phone.replace(/\s/g, '')}`),
     });
@@ -258,6 +283,7 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
     const email = core_fields.email.trim();
     quickActions.push({
       key: 'email',
+      icon: 'mail',
       label: 'Email',
       onPress: () => void Linking.openURL(`mailto:${email}`),
     });
@@ -266,6 +292,7 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
     const website = core_fields.website.trim();
     quickActions.push({
       key: 'website',
+      icon: 'globe',
       label: 'Website',
       onPress: () => void Linking.openURL(normalizeWebsite(website)),
     });
@@ -273,6 +300,7 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
   if (whatsapp) {
     quickActions.push({
       key: 'whatsapp',
+      icon: 'whatsapp',
       label: 'WhatsApp',
       onPress: () => setPendingWhatsapp(whatsapp),
     });
@@ -280,12 +308,14 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
   if (wechat) {
     quickActions.push({
       key: 'wechat',
+      icon: 'wechat',
       label: 'WeChat',
       onPress: () => promptWechat(wechat),
     });
   } else if (hasWechatQr) {
     quickActions.push({
       key: 'wechat-qr',
+      icon: 'wechat',
       label: 'WeChat',
       onPress: () => promptWechatQr(),
     });
@@ -310,7 +340,14 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
                 } else {
                   await deleteCard(card._id);
                 }
-                navigation.navigate('Collection');
+                // Back to wherever the card was opened from — Collected, search,
+                // or the scan flow. navigate('Collection') used to land on the
+                // tab host, which reopens at My cards however you got here.
+                if (navigation.canGoBack()) {
+                  navigation.goBack();
+                } else {
+                  navigation.navigate('Collection');
+                }
               } catch (deleteError) {
                 const message =
                   deleteError instanceof ApiClientError
@@ -605,31 +642,48 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
   return (
     <>
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      {localScanImages.length > 0 ? (
+      {scanFaces.length > 0 ? (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Original scans</Text>
-          {localScanImages.map(image => (
-            <View key={image.label} style={styles.scanCard}>
-              <Text style={styles.scanLabel}>{image.label}</Text>
-              <Image source={{ uri: image.uri }} style={styles.scanImage} resizeMode="contain" />
-            </View>
-          ))}
-        </View>
-      ) : null}
-
-      {scanImages.length > 0 ? (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Original scans</Text>
-          {scanImages.map(image => (
-            <View key={image.label} style={styles.scanCard}>
-              <Text style={styles.scanLabel}>{image.label}</Text>
-              <ScanImage
-                scanImageUrl={image.url}
+          <View style={styles.scanCard}>
+            {activeScanFace?.uri ? (
+              <Image
+                source={{ uri: activeScanFace.uri }}
                 style={styles.scanImage}
                 resizeMode="contain"
               />
+            ) : activeScanFace?.url ? (
+              <ScanImage
+                scanImageUrl={activeScanFace.url}
+                style={styles.scanImage}
+                resizeMode="contain"
+              />
+            ) : null}
+          </View>
+          {scanFaces.length > 1 ? (
+            <View style={styles.faceToggle}>
+              {scanFaces.map((face, index) => {
+                const selected = index === activeScanIndex;
+                return (
+                  <Pressable
+                    key={face.label}
+                    onPress={() => setScanFaceIndex(index)}
+                    accessibilityRole="button"
+                    accessibilityState={selected ? { selected: true } : {}}
+                    style={[styles.faceToggleItem, selected && styles.faceToggleItemActive]}
+                  >
+                    <Text
+                      style={[
+                        styles.faceToggleLabel,
+                        selected && styles.faceToggleLabelActive,
+                      ]}
+                    >
+                      {face.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
-          ))}
+          ) : null}
         </View>
       ) : null}
 
@@ -638,6 +692,7 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
           onPress={openExportModal}
           style={({ pressed }) => [styles.exportButton, pressed && styles.actionButtonPressed]}
         >
+          <TabIcon name="download" size={17} color={wallet.addButtonText} />
           <Text style={styles.exportButtonText}>Export digital card</Text>
         </Pressable>
       ) : null}
@@ -645,6 +700,7 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
       <View style={styles.heroCard}>
         <Text style={styles.eyebrow}>Contact</Text>
         <Text style={styles.name}>{displayName}</Text>
+        {chineseName ? <Text style={styles.nameAlt}>{chineseName}</Text> : null}
         {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
         <Text style={styles.meta}>Added {formatScannedDate(scanned_at)}</Text>
       </View>
@@ -877,17 +933,24 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
 
       {!editing && quickActions.length > 0 ? (
         <View style={styles.actionsRow}>
-          {quickActions.map(action => (
-            <Pressable
-              key={action.key}
-              onPress={action.onPress}
-              style={({ pressed }) => [
-                styles.actionButton,
-                pressed && styles.actionButtonPressed,
-              ]}
-            >
-              <Text style={styles.actionButtonText}>{action.label}</Text>
-            </Pressable>
+          {quickActions.map((action, index) => (
+            <React.Fragment key={action.key}>
+              {index > 0 ? <View style={styles.actionDivider} /> : null}
+              <Pressable
+                onPress={action.onPress}
+                accessibilityRole="button"
+                accessibilityLabel={action.label}
+                style={({ pressed }) => [
+                  styles.actionButton,
+                  pressed && styles.actionButtonPressed,
+                ]}
+              >
+                <TabIcon name={action.icon} size={22} color={wallet.title} />
+                <Text style={styles.actionButtonText} numberOfLines={1}>
+                  {action.label}
+                </Text>
+              </Pressable>
+            </React.Fragment>
           ))}
         </View>
       ) : null}
@@ -1074,6 +1137,11 @@ const createStyles = (wallet: WalletThemeColors) =>
     fontSize: 28,
     fontWeight: '700',
     letterSpacing: -0.3,
+  },
+  nameAlt: {
+    color: wallet.subtitle,
+    fontSize: 16,
+    marginTop: -2,
   },
   subtitle: {
     color: wallet.subtitle,
@@ -1269,12 +1337,40 @@ const createStyles = (wallet: WalletThemeColors) =>
     fontWeight: '600',
   },
   exportButton: {
-    backgroundColor: wallet.addButton,
-    borderRadius: 999,
-    paddingVertical: 12,
+    alignSelf: 'center',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 7,
+    backgroundColor: wallet.addButton,
+    borderRadius: 999,
+    paddingVertical: 11,
+    paddingHorizontal: 16,
     minHeight: 44,
+  },
+  faceToggle: {
+    alignSelf: 'center',
+    flexDirection: 'row',
+    backgroundColor: wallet.background,
+    borderRadius: 999,
+    padding: 3,
+  },
+  faceToggleItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  faceToggleItemActive: {
+    backgroundColor: wallet.surface,
+  },
+  faceToggleLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: wallet.subtitle,
+  },
+  faceToggleLabelActive: {
+    color: wallet.title,
+    fontWeight: '600',
   },
   offscreenCapture: {
     position: 'absolute',
@@ -1283,7 +1379,7 @@ const createStyles = (wallet: WalletThemeColors) =>
   },
   exportButtonText: {
     color: wallet.addButtonText,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
   },
   buttonDisabled: {
@@ -1291,22 +1387,33 @@ const createStyles = (wallet: WalletThemeColors) =>
   },
   actionsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
+    alignItems: 'stretch',
+    backgroundColor: wallet.surface,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: wallet.border,
   },
+  actionDivider: {
+    width: StyleSheet.hairlineWidth,
+    marginVertical: 12,
+    backgroundColor: wallet.border,
+  },
+  // Five actions is the most a card can offer, which is 70pt a column on a
+  // 390pt screen: enough for a 22pt glyph and a one-word label.
   actionButton: {
-    backgroundColor: wallet.addButton,
-    borderRadius: 999,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
+    flex: 1,
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 13,
+    paddingHorizontal: 2,
   },
   actionButtonPressed: {
     opacity: 0.88,
   },
   actionButtonText: {
-    color: wallet.addButtonText,
-    fontSize: 14,
-    fontWeight: '600',
+    color: wallet.title,
+    fontSize: 12,
+    fontWeight: '500',
   },
   section: {
     backgroundColor: wallet.surface,

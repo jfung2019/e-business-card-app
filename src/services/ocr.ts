@@ -7,8 +7,13 @@ import TextRecognition, {
   TextRecognitionScript,
 } from '@react-native-ml-kit/text-recognition';
 import DocumentScanner from 'react-native-document-scanner-plugin';
-import { AppState, InteractionManager } from 'react-native';
+import { AppState, InteractionManager, Platform } from 'react-native';
 
+import {
+  openCardScanner,
+  openCardScannerBothSides,
+  type CardScannerSide,
+} from './cardScanner/cardScannerController';
 import { compressScanImageForUpload } from '../utils/compressScanImage';
 import { detectWechatQrUrls } from './qrDetect';
 
@@ -151,6 +156,10 @@ async function scanWithCameraFallback(): Promise<PickedImage | null> {
   return { uri: asset.uri, base64: asset.base64 ?? undefined };
 }
 
+/**
+ * Android's scanner: ML Kit's document scanner, which honours
+ * `maxNumDocuments` and closes itself after a single page.
+ */
 async function scanWithDocumentCamera(): Promise<string | null> {
   await runAfterInteractions();
   try {
@@ -170,6 +179,32 @@ async function scanWithDocumentCamera(): Promise<string | null> {
     if (!isActivityRegistryError(error)) {
       throw error;
     }
+    const fallback = await scanWithCameraFallback();
+    return fallback?.uri ?? null;
+  }
+}
+
+/**
+ * iOS-only: the in-app card scanner — one card, detected and captured
+ * automatically, done in a single shot.
+ *
+ * Only iOS needs this. The plugin's iOS backend is VisionKit's
+ * `VNDocumentCameraViewController`, a multi-page document scanner that ignores
+ * `maxNumDocuments` entirely, so users scanned several cards and only the
+ * first was ever kept. ML Kit on Android already does the right thing, so
+ * Android stays on {@link scanWithDocumentCamera}.
+ */
+async function scanWithCardScanner(side: CardScannerSide): Promise<string | null> {
+  if (Platform.OS !== 'ios') {
+    return scanWithDocumentCamera();
+  }
+
+  await runAfterInteractions();
+  try {
+    return await openCardScanner(side);
+  } catch {
+    // Camera or OpenCV unavailable: fall back to a plain camera capture
+    // rather than blocking the scan entirely.
     const fallback = await scanWithCameraFallback();
     return fallback?.uri ?? null;
   }
@@ -232,6 +267,14 @@ export function isNoTextDetectedError(error: unknown): boolean {
 export interface ScanBusinessCardOptions {
   /** When false, returns empty ocrText if no text is found (used for optional back scans). */
   requireText?: boolean;
+  /** Which side is being captured — drives the scanner's on-screen prompt. */
+  side?: CardScannerSide;
+  /**
+   * Fires once the image is in hand and the slow part begins: QR detection, OCR
+   * and compression, which together take about a second. The camera is closed
+   * by then, so the caller has to show something in its place.
+   */
+  onAnalysisStart?: () => void;
 }
 
 export async function scanBusinessCard(
@@ -241,14 +284,21 @@ export async function scanBusinessCard(
   const requireText = options?.requireText !== false;
   const picked: PickedImage | null =
     source === 'camera'
-      ? await scanWithDocumentCamera().then((uri) => (uri ? { uri } : null))
+      ? await scanWithCardScanner(options?.side ?? 'front').then((uri) =>
+          uri ? { uri } : null,
+        )
       : await pickGalleryImageUri();
 
   if (!picked) {
     return null;
   }
 
-  const { uri: imageUri } = picked;
+  options?.onAnalysisStart?.();
+  return analyzeCardImage(picked.uri, requireText);
+}
+
+/** OCR, QR detection and the upload copy for one captured side. */
+async function analyzeCardImage(imageUri: string, requireText: boolean): Promise<CardScanResult> {
   // Read QR codes off the original image: the upload copy is downscaled to
   // 1280px at quality 65, which a small printed card QR may not survive.
   // Runs first so a card whose text fails OCR can still yield its QR.
@@ -266,4 +316,27 @@ export async function scanBusinessCard(
   }
   const imageBase64 = await compressScanImageForUpload(imageUri);
   return { imageUri, imageBase64, ocrText, wechatQrUrls };
+}
+
+export interface CardScanPair {
+  front: CardScanResult;
+  /** `null` when the user skipped the back. */
+  back: CardScanResult | null;
+}
+
+/**
+ * iOS-only: front and optional back in one camera session, analyzed together.
+ * Resolves `null` when the user cancels before keeping the front.
+ *
+ * @throws When the front has no readable text, or the scanner cannot open.
+ */
+export async function scanBusinessCardBothSides(): Promise<CardScanPair | null> {
+  await runAfterInteractions();
+  const pair = await openCardScannerBothSides();
+  if (!pair) {
+    return null;
+  }
+  const front = await analyzeCardImage(pair.front, true);
+  const back = pair.back ? await analyzeCardImage(pair.back, false) : null;
+  return { front, back };
 }

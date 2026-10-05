@@ -99,12 +99,14 @@ test('folds legacy address_ch / address_zh onto the Chinese line', async () => {
 test('no band when the card carries no address', async () => {
   const nodes = textNodes(await renderCard({ wechat_id: 'mandes-ko' }));
 
+  // "Primary" is an overlay on the card rather than a line of its content, so it
+  // renders after the face and works over a scan photo too.
   expect(nodes.map(node => node.text)).toEqual([
     'Megaannum AI',
-    'Primary',
     'Mandes Ko',
     'Product engineer',
     'mandes@megaannum.ai',
+    'Primary',
   ]);
 });
 

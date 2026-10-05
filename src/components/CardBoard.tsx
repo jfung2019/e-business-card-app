@@ -7,6 +7,7 @@ import type { UserCard } from '../types/userCard';
 interface CardBoardProps {
   cards: UserCard[];
   onCardsChange: (cards: UserCard[] | ((current: UserCard[]) => UserCard[])) => void;
+  onCardPress?: (card: UserCard) => void;
 }
 
 function moveCard(cards: UserCard[], from: number, to: number): UserCard[] {
@@ -30,7 +31,7 @@ function moveCard(cards: UserCard[], from: number, to: number): UserCard[] {
   return next;
 }
 
-export default function CardBoard({ cards, onCardsChange }: CardBoardProps) {
+export default function CardBoard({ cards, onCardsChange, onCardPress }: CardBoardProps) {
   const handleDrop = useCallback(
     (cardId: string, dropIndex: number) => {
       onCardsChange(current => {
@@ -42,7 +43,7 @@ export default function CardBoard({ cards, onCardsChange }: CardBoardProps) {
   );
 
   return (
-    <CardDragArea cards={cards} onDrop={handleDrop}>
+    <CardDragArea cards={cards} onDrop={handleDrop} onCardPress={onCardPress}>
       <CardList cards={cards} />
     </CardDragArea>
   );

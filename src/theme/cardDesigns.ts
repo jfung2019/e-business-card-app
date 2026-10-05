@@ -5,7 +5,7 @@ export interface CardDesignPreset {
   accent: string;
   text: string;
   muted: string;
-  /** Wash behind the address band. Every preset is dark, so one tint suits all. */
+  /** Wash behind the address band on the dark presets; Sand sets its own. */
   band: string;
 }
 
@@ -49,13 +49,14 @@ export const CARD_DESIGN_PRESETS: CardDesignPreset[] = [
     muted: '#A8DADC',
   },
   {
-    id: 'rose',
-    label: 'Rose',
-    background: '#4A1942',
-    accent: '#FF6B9D',
-    text: '#FFF0F6',
-    band: PRESET_BAND,
-    muted: '#E8B4D0',
+    id: 'sand',
+    label: 'Sand',
+    background: '#D1C6A5',
+    accent: '#6B5B3E',
+    text: '#2A2118',
+    // The only light preset, so the band tints down rather than up.
+    band: 'rgba(0,0,0,0.06)',
+    muted: '#4A4236',
   },
   {
     id: 'noir',
