@@ -1,18 +1,11 @@
 import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { useAppTheme } from '../context/ThemeContext';
 import { useCardPrefs } from '../context/CardPrefsContext';
 import { getCardDesign } from '../theme/cardDesigns';
 import type { PhotoFace, UserCard, WalletDisplay } from '../types/userCard';
 import { CARD_BORDER_RADIUS, MyCardFace } from './MyCardFace';
-
-/**
- * The edge between two stacked cards.
- *
- * Fixed rather than themed: the strips are the card colour, which is the same
- * in light and dark, so a themed border vanished into the card in dark mode.
- */
-const PEEK_EDGE = 'rgba(0,0,0,0.55)';
 
 /** How much of each card below stays visible under the one above it. */
 const PEEK_VISIBLE = 40;
@@ -42,6 +35,7 @@ export function MyCardWalletStack({
   onWalletDisplayChange,
   onPhotoFaceChange,
 }: MyCardWalletStackProps): React.JSX.Element | null {
+  const { wallet } = useAppTheme();
   const { designId } = useCardPrefs();
   const design = useMemo(() => getCardDesign(designId), [designId]);
 
@@ -75,6 +69,11 @@ export function MyCardWalletStack({
               styles.peek,
               {
                 backgroundColor: design.background,
+                // The page colour, so the edge reads as a gap between two
+                // cards: near-white on the light theme, near-black on the dark
+                // one. A fixed colour disappeared into whichever theme matched
+                // it.
+                borderColor: wallet.background,
                 // Earlier cards sit above later ones, so each tucks under its
                 // predecessor rather than covering it.
                 zIndex: rest.length - index,
@@ -107,7 +106,6 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: CARD_BORDER_RADIUS,
     borderBottomRightRadius: CARD_BORDER_RADIUS,
     borderWidth: 1,
-    borderColor: PEEK_EDGE,
     // The top edge is behind the card above; a line there would draw a seam.
     borderTopWidth: 0,
     justifyContent: 'flex-end',
