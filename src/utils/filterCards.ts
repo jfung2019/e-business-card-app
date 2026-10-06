@@ -1,4 +1,5 @@
 import type { CoreFields } from '../types/card';
+import { getNameParts } from './nameSort';
 
 interface FilterableCard {
   core_fields: CoreFields;
@@ -7,8 +8,16 @@ interface FilterableCard {
 
 function searchableText(card: FilterableCard): string {
   const { core_fields, custom_fields } = card;
+  // Includes derived parts, so "Andy 陳" is found by "chan" — the list shows
+  // it as "Chan, Andy".
+  const derived = getNameParts(core_fields, custom_fields);
   const parts = [
+    derived.first,
+    derived.last,
     core_fields.name,
+    core_fields.name_cn,
+    core_fields.first_name,
+    core_fields.last_name,
     core_fields.company_name,
     core_fields.job_title,
     core_fields.email,

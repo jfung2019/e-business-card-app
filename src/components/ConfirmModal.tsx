@@ -8,6 +8,8 @@ interface ConfirmModalProps {
   visible: boolean;
   title: string;
   message?: string;
+  /** Shown in red under the message, e.g. when the confirm action failed. */
+  errorMessage?: string | null;
   confirmLabel: string;
   cancelLabel?: string;
   onConfirm: () => void;
@@ -46,6 +48,13 @@ function createStyles(scan: ScanThemeColors) {
       lineHeight: 20,
       textAlign: 'center',
     },
+    errorMessage: {
+      color: scan.error,
+      fontSize: 14,
+      lineHeight: 20,
+      fontWeight: '600',
+      textAlign: 'center',
+    },
     primaryButton: {
       marginTop: 4,
       width: '100%',
@@ -81,6 +90,7 @@ export function ConfirmModal({
   visible,
   title,
   message,
+  errorMessage,
   confirmLabel,
   cancelLabel = 'Cancel',
   onConfirm,
@@ -95,6 +105,7 @@ export function ConfirmModal({
         <Pressable style={styles.panel} onPress={() => {}}>
           <Text style={styles.title}>{title}</Text>
           {message ? <Text style={styles.message}>{message}</Text> : null}
+          {errorMessage ? <Text style={styles.errorMessage}>{errorMessage}</Text> : null}
 
           <Pressable
             onPress={onConfirm}

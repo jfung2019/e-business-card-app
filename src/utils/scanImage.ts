@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { ImageSourcePropType } from 'react-native';
+import { InteractionManager, type ImageSourcePropType } from 'react-native';
 
 import { API_BASE_URL } from '../config/apiConfig';
 import { getAccessToken } from '../api/authToken';
@@ -105,6 +105,15 @@ export async function prefetchScanImage(
   await getOrLoadImageSource(uri);
 }
 
+/**
+ * Warm every card's scan images without blocking the UI.
+ *
+ * Each miss is fetched, base64-encoded and written to AsyncStorage on the JS
+ * thread — the same thread that dispatches taps. Loading them all at once after
+ * a list refresh froze the buttons on whatever screen triggered the refresh, so
+ * this waits for interactions to settle and then works through them one at a
+ * time, leaving a gap on every await for touches to get through.
+ */
 export async function prefetchScanImagesForCards(cards: ScanImageFields[]): Promise<void> {
   const urls = new Set<string>();
   for (const card of cards) {
@@ -112,7 +121,25 @@ export async function prefetchScanImagesForCards(cards: ScanImageFields[]): Prom
       urls.add(url);
     }
   }
-  await Promise.allSettled([...urls].map(url => prefetchScanImage(url)));
+
+  const pending: string[] = [];
+  for (const url of urls) {
+    const uri = resolveScanImageUri(url);
+    if (uri && !imageSourceCache.has(uri)) {
+      pending.push(url);
+    }
+  }
+  if (pending.length === 0) {
+    return;
+  }
+
+  await new Promise<void>(resolve => {
+    InteractionManager.runAfterInteractions(() => resolve());
+  });
+
+  for (const url of pending) {
+    await prefetchScanImage(url);
+  }
 }
 
 export function resolveScanImageUri(

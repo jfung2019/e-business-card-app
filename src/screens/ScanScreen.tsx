@@ -9,8 +9,10 @@ import { useAppTheme } from '../context/ThemeContext';
 import { useProcessCard } from '../hooks/useProcessCard';
 import { useScanSubmissionProgress } from '../hooks/useScanSubmissionProgress';
 import type { MainStackParamList } from '../navigation/AppNavigator';
+import { finishCollectedScan } from '../navigation/finishScan';
 import type { WalletThemeColors } from '../theme/appTheme';
 import { scanBusinessCard, type OcrSource } from '../services/ocr';
+import { mergeWechatQrUrls } from '../services/qrDetect';
 import { mergeCardOcrText } from '../utils/mergeCardOcrText';
 import { shouldOpenScanImageReview } from '../utils/scanImageReview';
 
@@ -152,12 +154,17 @@ export function ScanScreen(): React.JSX.Element {
   const [scanError, setScanError] = useState<string | null>(null);
   const [frontOcrText, setFrontOcrText] = useState<string | null>(null);
   const [frontImageBase64, setFrontImageBase64] = useState<string | null>(null);
+  const [frontWechatQrUrls, setFrontWechatQrUrls] = useState<string[]>([]);
   const [awaitingBackCapture, setAwaitingBackCapture] = useState(false);
 
   const isSuccess = state.status === 'success' && capturedCard !== null;
   const isBusy = state.status === 'loading';
+  // The on-device read — QR, OCR, compression — runs after the camera closes and
+  // takes about a second with nothing to show for it. Without this the front
+  // page sat there looking idle until the back prompt appeared.
+  const [readingCard, setReadingCard] = useState(false);
   const { progressWidth, showProgress, showResult, isHolding } = useScanSubmissionProgress(
-    isBusy,
+    isBusy || readingCard,
     isSuccess,
   );
   const pendingImageReview =
@@ -176,24 +183,34 @@ export function ScanScreen(): React.JSX.Element {
     setAwaitingBackCapture(false);
     setFrontOcrText(null);
     setFrontImageBase64(null);
+    setFrontWechatQrUrls([]);
 
     try {
-      const result = await scanBusinessCard(source);
+      const result = await scanBusinessCard(source, {
+        onAnalysisStart: () => setReadingCard(true),
+      });
       if (!result) {
         return;
       }
 
       setFrontOcrText(result.ocrText);
       setFrontImageBase64(result.imageBase64);
+      setFrontWechatQrUrls(result.wechatQrUrls);
       setAwaitingBackCapture(true);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Failed to read text from image.';
       setScanError(message);
+    } finally {
+      setReadingCard(false);
     }
   };
 
-  const finalizeSubmission = async (backImageBase64?: string, backOcrText?: string) => {
+  const finalizeSubmission = async (
+    backImageBase64?: string,
+    backOcrText?: string,
+    backWechatQrUrls: string[] = [],
+  ) => {
     if (!frontOcrText || !frontImageBase64) {
       setScanError('Front card image is missing. Please scan the front again.');
       setAwaitingBackCapture(false);
@@ -204,24 +221,35 @@ export function ScanScreen(): React.JSX.Element {
       ocrText: mergeCardOcrText(frontOcrText, backOcrText),
       imageBase64: frontImageBase64,
       backImageBase64,
+      // A WeChat QR is often printed on the back only.
+      wechatQrUrls: mergeWechatQrUrls(frontWechatQrUrls, backWechatQrUrls),
     });
     setAwaitingBackCapture(false);
     setFrontOcrText(null);
     setFrontImageBase64(null);
+    setFrontWechatQrUrls([]);
   };
 
   const handleScanBack = async (source: OcrSource) => {
     setScanError(null);
     try {
-      const result = await scanBusinessCard(source, { requireText: false });
+      const result = await scanBusinessCard(source, {
+        requireText: false,
+        side: 'back',
+        onAnalysisStart: () => setReadingCard(true),
+      });
       if (!result) {
         return;
       }
-      await finalizeSubmission(result.imageBase64, result.ocrText);
+      // Hand over to the upload progress rather than stacking two loading states.
+      setReadingCard(false);
+      await finalizeSubmission(result.imageBase64, result.ocrText, result.wechatQrUrls);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Failed to capture the back image.';
       setScanError(message);
+    } finally {
+      setReadingCard(false);
     }
   };
 
@@ -235,7 +263,7 @@ export function ScanScreen(): React.JSX.Element {
     setFrontOcrText(null);
     setFrontImageBase64(null);
     setAwaitingBackCapture(false);
-    navigation.navigate('Collection');
+    finishCollectedScan(navigation);
   };
 
   const handleViewDetails = () => {
@@ -248,7 +276,7 @@ export function ScanScreen(): React.JSX.Element {
     setFrontOcrText(null);
     setFrontImageBase64(null);
     setAwaitingBackCapture(false);
-    navigation.navigate('CardDetail', { card });
+    finishCollectedScan(navigation, card);
   };
 
   const renderActionButton = (
@@ -282,7 +310,8 @@ export function ScanScreen(): React.JSX.Element {
       <ScanSubmissionLoadingView
         progressWidth={progressWidth}
         isHolding={isHolding}
-        preset="submit"
+        preset={readingCard ? 'read' : 'submit'}
+        title={readingCard ? 'Reading your card' : undefined}
       />
     );
   }

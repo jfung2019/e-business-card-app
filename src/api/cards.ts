@@ -21,6 +21,22 @@ export async function listCards(): Promise<CapturedCard[]> {
   return cards.map(normalizeCapturedCard);
 }
 
+/**
+ * Saves a contact the user typed in. Not an offline draft: a draft is queued
+ * for AI enhancement of its OCR text, and there is none here, so enhancement
+ * would rewrite what the user typed.
+ */
+export async function createManualCard(
+  coreFields: CapturedCard['core_fields'],
+  customFields: Record<string, string>,
+): Promise<CapturedCard> {
+  const card = await apiPost<CapturedCardApiPayload>(`${API_V1_PREFIX}/cards`, {
+    core_fields: coreFields,
+    custom_fields: customFields,
+  });
+  return normalizeCapturedCard(card);
+}
+
 export async function retryCardScanEnhancement(cardId: string): Promise<CapturedCard> {
   const card = await apiPost<CapturedCardApiPayload>(
     `${API_V1_PREFIX}/cards/${cardId}/scan-image-enhancement/retry`,

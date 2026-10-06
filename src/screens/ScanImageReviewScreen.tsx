@@ -20,6 +20,7 @@ import {
 import { ScanImage } from '../components/ScanImage';
 import { useAppTheme } from '../context/ThemeContext';
 import type { MainStackParamList } from '../navigation/AppNavigator';
+import { finishCollectedScan } from '../navigation/finishScan';
 import type { WalletThemeColors } from '../theme/appTheme';
 import type { CapturedCard, PhotoFace } from '../types/card';
 import type { UserCard } from '../types/userCard';
@@ -108,9 +109,13 @@ export function ScanImageReviewScreen({ navigation, route }: Props): React.JSX.E
 
   const finish = (updated: ReviewCard) => {
     if (kind === 'captured') {
-      navigation.replace('CardDetail', { card: updated as CapturedCard });
+      finishCollectedScan(navigation, updated as CapturedCard);
     } else {
-      navigation.replace('MyCardForm', { mode: 'edit', card: updated as UserCard });
+      navigation.replace('MyCardForm', {
+        mode: 'edit',
+        card: updated as UserCard,
+        origin: 'scan',
+      });
     }
   };
 

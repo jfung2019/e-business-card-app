@@ -7,13 +7,15 @@ import {
 } from 'react-native';
 
 import { useAppTheme } from '../context/ThemeContext';
+import { useCardDesignId } from '../context/CardPrefsContext';
 import { getCardDesign } from '../theme/cardDesigns';
-import type { PhotoFace, UserCard, WalletDisplay } from '../types/userCard';
 import {
-  nextUserCardWalletDisplay,
-  showsUserCardPhoto,
-  userCardHasScanImage,
-} from '../utils/walletDisplay';
+  ADDRESS_CN_KEY,
+  ADDRESS_EN_KEY,
+  findCustomFieldValue,
+} from '../utils/customFieldKeys';
+import type { PhotoFace, UserCard, WalletDisplay } from '../types/userCard';
+import { showsUserCardPhoto, userCardHasScanImage } from '../utils/walletDisplay';
 import { CardFaceControls } from './CardFaceControls';
 import { CardPhotoFlip } from './CardPhotoFlip';
 
@@ -21,7 +23,8 @@ export const MY_CARD_WIDTH = 300;
 export const MY_CARD_HEIGHT = 176;
 const SCAN_CARD_ASPECT_RATIO = 1.586;
 export const MY_CARD_SCAN_HEIGHT = Math.round(MY_CARD_WIDTH / SCAN_CARD_ASPECT_RATIO);
-const CARD_BORDER_RADIUS = 22;
+export const CARD_BORDER_RADIUS = 22;
+const ADDRESS_BAND_LINES = 3;
 
 interface MyCardFaceProps {
   card: UserCard;
@@ -37,13 +40,11 @@ function BelowCardControls({
   showPhoto,
   photoFace,
   hasBackPhoto,
-  onFlip,
   onFlipFace,
 }: {
   showPhoto: boolean;
   photoFace: PhotoFace;
   hasBackPhoto: boolean;
-  onFlip: () => void;
   onFlipFace: () => void;
 }): React.JSX.Element {
   const { wallet } = useAppTheme();
@@ -67,28 +68,30 @@ function BelowCardControls({
           </Text>
         </Pressable>
       ) : null}
-      <Pressable
-        onPress={onFlip}
-        hitSlop={8}
-        style={({ pressed }) => [
-          styles.belowControlButton,
-          { borderColor: wallet.border },
-          pressed && styles.belowControlButtonPressed,
-        ]}
-        accessibilityLabel="Switch card style"
-        accessibilityRole="button"
-      >
-        <Text style={[styles.belowControlText, { color: wallet.title }]}>
-          {showPhoto ? '⇄ Design' : '⇄ Scan'}
-        </Text>
-      </Pressable>
     </View>
   );
 }
 
-function TemplateCardFace({ card }: { card: UserCard }): React.JSX.Element {
-  const design = getCardDesign(card.design_id);
+function TemplateCardFace({
+  card,
+  reserveControlSpace,
+}: {
+  card: UserCard;
+  /** The back-view toggle overlays bottom-right; keep the address clear of it. */
+  reserveControlSpace: boolean;
+}): React.JSX.Element {
+  // The design is a wallet-wide preference now, not a property of one card.
+  const design = getCardDesign(useCardDesignId());
   const { core_fields } = card;
+  const addressCn = findCustomFieldValue(card.custom_fields, ADDRESS_CN_KEY);
+  const addressEn = findCustomFieldValue(card.custom_fields, ADDRESS_EN_KEY);
+  const hasBothAddresses = Boolean(addressCn && addressEn);
+  // The band holds three lines. They are split by where the overflow actually
+  // is: an English address leads with the unit and street and runs ~66 chars
+  // against a ~52 budget, so it needs the second line, while a Chinese address
+  // fits one line far more often. A lone address takes the whole band.
+  const addressCnLines = hasBothAddresses ? 1 : ADDRESS_BAND_LINES;
+  const addressEnLines = hasBothAddresses ? 2 : ADDRESS_BAND_LINES;
 
   return (
     <View style={styles.templateRoot}>
@@ -98,9 +101,6 @@ function TemplateCardFace({ card }: { card: UserCard }): React.JSX.Element {
           <Text style={[styles.company, { color: design.text }]} numberOfLines={1}>
             {core_fields.company_name ?? core_fields.name}
           </Text>
-          {card.is_primary ? (
-            <Text style={[styles.primaryBadge, { color: design.muted }]}>Primary</Text>
-          ) : null}
         </View>
         <View style={styles.bottomBlock}>
           <Text style={[styles.name, { color: design.text }]} numberOfLines={1}>
@@ -118,6 +118,35 @@ function TemplateCardFace({ card }: { card: UserCard }): React.JSX.Element {
           ) : null}
         </View>
       </View>
+      {addressCn || addressEn ? (
+        <View
+          style={[
+            styles.addressBand,
+            { backgroundColor: design.band },
+            reserveControlSpace && styles.addressBandInset,
+          ]}
+        >
+          {addressCn ? (
+            <Text
+              style={[styles.addressLine, { color: design.text }]}
+              numberOfLines={addressCnLines}
+              // A Chinese address runs country to unit, so the tail is the part
+              // worth keeping when it does not fit.
+              ellipsizeMode="head"
+            >
+              {addressCn}
+            </Text>
+          ) : null}
+          {addressEn ? (
+            <Text
+              style={[styles.addressLine, { color: design.muted }]}
+              numberOfLines={addressEnLines}
+            >
+              {addressEn}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -139,7 +168,7 @@ function MyCardFaceContent({
   onWalletDisplayChange?: (cardId: string, walletDisplay: WalletDisplay) => void;
   onPhotoFaceChange?: (cardId: string, photoFace: PhotoFace) => void;
 }): React.JSX.Element {
-  const design = getCardDesign(card.design_id);
+  const design = getCardDesign(useCardDesignId());
   const hasScan = userCardHasScanImage(card);
   const showPhoto = hasScan && showsUserCardPhoto(card);
   const photoFace: PhotoFace = card.photo_face === 'back' ? 'back' : 'front';
@@ -148,13 +177,6 @@ function MyCardFaceContent({
   const backPhotoUrl = card.scan_image_back_url;
   const cardHeight = getMyCardDisplayHeight(card);
   const cardWidth = compact ? ('100%' as const) : MY_CARD_WIDTH;
-
-  const handleFlip = (): void => {
-    if (!hasScan || !onWalletDisplayChange) {
-      return;
-    }
-    onWalletDisplayChange(card._id, nextUserCardWalletDisplay(card));
-  };
 
   const handleFlipFace = (): void => {
     if (!hasBackPhoto || !onPhotoFaceChange) {
@@ -193,8 +215,16 @@ function MyCardFaceContent({
           variant="image"
         />
       ) : (
-        <TemplateCardFace card={card} />
+        <TemplateCardFace
+          card={card}
+          reserveControlSpace={!controlsBelow && hasBackPhoto}
+        />
       )}
+      {card.is_primary ? (
+        <View style={styles.primaryOverlay} pointerEvents="none">
+          <Text style={styles.primaryOverlayText}>Primary</Text>
+        </View>
+      ) : null}
       {!controlsBelow && hasBackPhoto ? (
         <CardFaceControls showFlipFace={hasBackPhoto} onFlipFace={handleShowBack} />
       ) : null}
@@ -212,7 +242,6 @@ function MyCardFaceContent({
         showPhoto={showPhoto}
         photoFace={photoFace}
         hasBackPhoto={hasBackPhoto}
-        onFlip={handleFlip}
         onFlipFace={handleFlipFace}
       />
     </View>
@@ -290,7 +319,8 @@ const styles = StyleSheet.create({
   cardInner: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingVertical: 18,
+    paddingTop: 16,
+    paddingBottom: 10,
     justifyContent: 'space-between',
   },
   topRow: {
@@ -301,9 +331,26 @@ const styles = StyleSheet.create({
   },
   company: {
     flex: 1,
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '600',
     fontStyle: 'italic',
+  },
+  primaryOverlay: {
+    position: 'absolute',
+    top: 12,
+    left: 16,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    // Held at 42% so the printed company name still reads through it.
+    backgroundColor: 'rgba(17,17,17,0.42)',
+    zIndex: 2,
+  },
+  primaryOverlayText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   primaryBadge: {
     fontSize: 11,
@@ -312,18 +359,33 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   bottomBlock: {
-    gap: 4,
+    gap: 2,
   },
   name: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '700',
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '500',
   },
   detail: {
-    fontSize: 12,
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  addressBand: {
+    paddingHorizontal: 20,
+    paddingTop: 7,
+    paddingBottom: 9,
+  },
+  // Clears the single 34pt back-view button pinned to bottom-right.
+  addressBandInset: {
+    paddingRight: 56,
+  },
+  addressLine: {
+    fontSize: 10,
+    // Explicit: Android clips CJK descenders at the default line height.
+    lineHeight: 13,
     fontWeight: '500',
   },
   belowControlsWrap: {
