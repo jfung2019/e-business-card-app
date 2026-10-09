@@ -10,7 +10,9 @@ import Animated, {
 import { getCardPaletteIndex } from '../theme/wallet';
 import { WALLET_SPRING } from '../theme/walletAnimations';
 import type { CapturedCard, PhotoFace } from '../types/card';
+import { useScanImageAspectRatios } from '../utils/scanImageAspect';
 import {
+  getCardFrontPhotoUrl,
   getWalletStackHeight,
   WALLET_CARD_STACK_STEP,
   WalletCard,
@@ -100,6 +102,8 @@ export function WalletCardStack({
   onWalletDisplayChange,
   onPhotoFaceChange,
 }: WalletCardStackProps): React.JSX.Element {
+  // Re-renders as photos are measured, so the stack height tracks the cards.
+  useScanImageAspectRatios(cards.map(getCardFrontPhotoUrl));
   const defaultOrder = useMemo(() => buildDefaultOrder(cards), [cards]);
   const [stackOrder, setStackOrder] = useState<string[]>(defaultOrder);
 

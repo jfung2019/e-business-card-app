@@ -11,11 +11,12 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { fetchSharedCard, saveSharedCardToCollection } from '../api/shareLinks';
 import { ApiClientError } from '../api/client';
 import { CustomFieldsList } from '../components/CustomFieldsList';
-import { ScanImage } from '../components/ScanImage';
+import { ScanPhotoFrame } from '../components/ScanPhotoFrame';
 import { SecondaryButton } from '../components/SecondaryButton';
 import { useAppTheme } from '../context/ThemeContext';
 import type { MainStackParamList } from '../navigation/AppNavigator';
 import type { WalletThemeColors } from '../theme/appTheme';
+import { SCAN_IMAGE_BORDER_RADIUS } from '../theme/scanImageLayout';
 import type { CoreFields } from '../types/card';
 
 type SharedCardPreviewProps = NativeStackScreenProps<MainStackParamList, 'SharedCardPreview'>;
@@ -57,8 +58,7 @@ function createStyles(wallet: WalletThemeColors) {
     },
     scanFrame: {
       width: '100%',
-      aspectRatio: 1.586,
-      borderRadius: 18,
+      borderRadius: SCAN_IMAGE_BORDER_RADIUS,
       overflow: 'hidden',
       backgroundColor: wallet.surface,
     },
@@ -200,9 +200,7 @@ export function SharedCardPreviewScreen({
       {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
 
       {scan_image_front_url ? (
-        <View style={styles.scanFrame}>
-          <ScanImage scanImageUrl={scan_image_front_url} style={StyleSheet.absoluteFill} />
-        </View>
+        <ScanPhotoFrame scanImageUrl={scan_image_front_url} style={styles.scanFrame} />
       ) : null}
 
       <Text style={styles.sectionTitle}>Contact</Text>

@@ -10,19 +10,22 @@ import { useAppTheme } from '../context/ThemeContext';
 import { useCardDesignId } from '../context/CardPrefsContext';
 import { getCardDesign } from '../theme/cardDesigns';
 import {
+  SCAN_IMAGE_BORDER_RADIUS,
+  SCAN_IMAGE_RESIZE_MODE,
+} from '../theme/scanImageLayout';
+import {
   ADDRESS_CN_KEY,
   ADDRESS_EN_KEY,
   findCustomFieldValue,
 } from '../utils/customFieldKeys';
 import type { PhotoFace, UserCard, WalletDisplay } from '../types/userCard';
+import { getScanImageAspectRatio, useScanImageAspectRatio } from '../utils/scanImageAspect';
 import { showsUserCardPhoto, userCardHasScanImage } from '../utils/walletDisplay';
 import { CardFaceControls } from './CardFaceControls';
 import { CardPhotoFlip } from './CardPhotoFlip';
 
 export const MY_CARD_WIDTH = 300;
 export const MY_CARD_HEIGHT = 176;
-const SCAN_CARD_ASPECT_RATIO = 1.586;
-export const MY_CARD_SCAN_HEIGHT = Math.round(MY_CARD_WIDTH / SCAN_CARD_ASPECT_RATIO);
 export const CARD_BORDER_RADIUS = 22;
 const ADDRESS_BAND_LINES = 3;
 
@@ -32,6 +35,12 @@ interface MyCardFaceProps {
   compact?: boolean;
   /** Renders scan/back controls under the card instead of overlay badges on the card. */
   controlsBelow?: boolean;
+  /**
+   * In a compact (full-width) layout, keeps the template face at its fixed
+   * card width, centered, instead of stretching it. Scan photos still fill the
+   * width.
+   */
+  centerTemplate?: boolean;
   onWalletDisplayChange?: (cardId: string, walletDisplay: WalletDisplay) => void;
   onPhotoFaceChange?: (cardId: string, photoFace: PhotoFace) => void;
 }
@@ -70,6 +79,12 @@ function BelowCardControls({
       ) : null}
     </View>
   );
+}
+
+/** The letterbox fill behind a contain-fit scan photo. */
+function ScanPhotoBackdrop(): React.JSX.Element {
+  const { wallet } = useAppTheme();
+  return <View style={[styles.scanPhoto, { backgroundColor: wallet.surface }]} />;
 }
 
 function TemplateCardFace({
@@ -151,20 +166,34 @@ function TemplateCardFace({
   );
 }
 
+/** The front photo sets the frame for both faces, so a flip never resizes it. */
+export function getMyCardFrontPhotoUrl(card: UserCard): string | null | undefined {
+  return card.scan_image_front_url ?? card.scan_image_url;
+}
+
+/**
+ * Height at the fixed {@link MY_CARD_WIDTH}. A card with a scan is shaped like
+ * its photo once measured; see `utils/scanImageAspect`.
+ */
 export function getMyCardDisplayHeight(card: UserCard): number {
-  return userCardHasScanImage(card) ? MY_CARD_SCAN_HEIGHT : MY_CARD_HEIGHT;
+  if (!userCardHasScanImage(card)) {
+    return MY_CARD_HEIGHT;
+  }
+  return Math.round(MY_CARD_WIDTH / getScanImageAspectRatio(getMyCardFrontPhotoUrl(card)));
 }
 
 function MyCardFaceContent({
   card,
   compact,
   controlsBelow,
+  centerTemplate,
   onWalletDisplayChange,
   onPhotoFaceChange,
 }: {
   card: UserCard;
   compact?: boolean;
   controlsBelow?: boolean;
+  centerTemplate?: boolean;
   onWalletDisplayChange?: (cardId: string, walletDisplay: WalletDisplay) => void;
   onPhotoFaceChange?: (cardId: string, photoFace: PhotoFace) => void;
 }): React.JSX.Element {
@@ -173,10 +202,12 @@ function MyCardFaceContent({
   const showPhoto = hasScan && showsUserCardPhoto(card);
   const photoFace: PhotoFace = card.photo_face === 'back' ? 'back' : 'front';
   const hasBackPhoto = Boolean(card.scan_image_back_url);
-  const frontPhotoUrl = card.scan_image_front_url ?? card.scan_image_url;
+  const frontPhotoUrl = getMyCardFrontPhotoUrl(card);
   const backPhotoUrl = card.scan_image_back_url;
+  const photoAspectRatio = useScanImageAspectRatio(hasScan ? frontPhotoUrl : null);
   const cardHeight = getMyCardDisplayHeight(card);
-  const cardWidth = compact ? ('100%' as const) : MY_CARD_WIDTH;
+  const fullWidth = compact && (showPhoto || !centerTemplate);
+  const cardWidth = fullWidth ? ('100%' as const) : MY_CARD_WIDTH;
 
   const handleFlipFace = (): void => {
     if (!hasBackPhoto || !onPhotoFaceChange) {
@@ -201,17 +232,20 @@ function MyCardFaceContent({
     <View
       style={[
         styles.cardShell,
-        { width: cardWidth, height: cardHeight },
+        showPhoto
+          ? [styles.scanPhotoShell, { width: cardWidth, aspectRatio: photoAspectRatio }]
+          : { width: cardWidth, height: cardHeight },
         !showPhoto && { backgroundColor: design.background },
       ]}
     >
+      {showPhoto ? <ScanPhotoBackdrop /> : null}
       {showPhoto ? (
         <CardPhotoFlip
           frontPhotoUrl={frontPhotoUrl}
           backPhotoUrl={backPhotoUrl}
           photoFace={photoFace}
           style={styles.scanPhoto}
-          resizeMode="cover"
+          resizeMode={SCAN_IMAGE_RESIZE_MODE}
           variant="image"
         />
       ) : (
@@ -236,7 +270,13 @@ function MyCardFaceContent({
   }
 
   return (
-    <View style={[styles.belowControlsWrap, compact && styles.belowControlsWrapCompact]}>
+    <View
+      style={[
+        styles.belowControlsWrap,
+        compact && styles.belowControlsWrapCompact,
+        compact && !fullWidth && styles.belowControlsWrapCentered,
+      ]}
+    >
       {cardBody}
       <BelowCardControls
         showPhoto={showPhoto}
@@ -253,9 +293,14 @@ export function MyCardFace({
   onPress,
   compact = false,
   controlsBelow = false,
+  centerTemplate = false,
   onWalletDisplayChange,
   onPhotoFaceChange,
 }: MyCardFaceProps): React.JSX.Element {
+  // Re-renders once the photo is measured, so the fixed height below updates.
+  useScanImageAspectRatio(
+    userCardHasScanImage(card) ? getMyCardFrontPhotoUrl(card) : null,
+  );
   const cardHeight = getMyCardDisplayHeight(card);
 
   const content = (
@@ -263,6 +308,7 @@ export function MyCardFace({
       card={card}
       compact={compact}
       controlsBelow={controlsBelow}
+      centerTemplate={centerTemplate}
       onWalletDisplayChange={onWalletDisplayChange}
       onPhotoFaceChange={onPhotoFaceChange}
     />
@@ -276,8 +322,9 @@ export function MyCardFace({
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [
-        { height: cardHeight },
-        !compact && { width: MY_CARD_WIDTH },
+        // Compact faces size themselves: a scan photo's height follows the
+        // container width through its aspect ratio.
+        !compact && { width: MY_CARD_WIDTH, height: cardHeight },
         pressed && styles.pressed,
       ]}
     >
@@ -292,6 +339,10 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.35)',
+  },
+  scanPhotoShell: {
+    borderRadius: SCAN_IMAGE_BORDER_RADIUS,
+    borderWidth: 0,
   },
   templateRoot: {
     flex: 1,
@@ -394,6 +445,9 @@ const styles = StyleSheet.create({
   },
   belowControlsWrapCompact: {
     width: '100%',
+  },
+  belowControlsWrapCentered: {
+    alignItems: 'center',
   },
   belowControlsRow: {
     flexDirection: 'row',
