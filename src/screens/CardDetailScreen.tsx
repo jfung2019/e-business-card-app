@@ -51,6 +51,11 @@ import {
 import { formatCustomFieldLabel } from '../utils/formatCustomFieldLabel';
 import { parseWechatQrUrls, WECHAT_QR_KEY } from '../utils/classifyQrPayload';
 import { useAuthenticatedImageSource } from '../utils/scanImage';
+import {
+  SCAN_IMAGE_BORDER_RADIUS,
+  SCAN_IMAGE_RESIZE_MODE,
+} from '../theme/scanImageLayout';
+import { useScanImageAspectRatio } from '../utils/scanImageAspect';
 
 type CardDetailProps = NativeStackScreenProps<MainStackParamList, 'CardDetail'>;
 type CardDetailNavigation = NativeStackNavigationProp<MainStackParamList, 'CardDetail'>;
@@ -255,6 +260,9 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
   const remoteBackImageSource = useAuthenticatedImageSource(scan_image_back_url);
   const activeScanIndex = Math.min(scanFaceIndex, Math.max(scanFaces.length - 1, 0));
   const activeScanFace = scanFaces[activeScanIndex];
+  const activeScanAspectRatio = useScanImageAspectRatio(
+    activeScanFace?.uri ?? activeScanFace?.url,
+  );
   const exportImages = localScanImages.length
     ? localScanImages.map(image => image.uri)
     : [remoteFrontImageSource, remoteBackImageSource]
@@ -648,14 +656,14 @@ export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element 
             {activeScanFace?.uri ? (
               <Image
                 source={{ uri: activeScanFace.uri }}
-                style={styles.scanImage}
-                resizeMode="contain"
+                style={[styles.scanImage, { aspectRatio: activeScanAspectRatio }]}
+                resizeMode={SCAN_IMAGE_RESIZE_MODE}
               />
             ) : activeScanFace?.url ? (
               <ScanImage
                 scanImageUrl={activeScanFace.url}
-                style={styles.scanImage}
-                resizeMode="contain"
+                style={[styles.scanImage, { aspectRatio: activeScanAspectRatio }]}
+                resizeMode={SCAN_IMAGE_RESIZE_MODE}
               />
             ) : null}
           </View>
@@ -1094,9 +1102,7 @@ const createStyles = (wallet: WalletThemeColors) =>
   },
   scanCard: {
     backgroundColor: wallet.surface,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: wallet.border,
+    borderRadius: SCAN_IMAGE_BORDER_RADIUS,
     overflow: 'hidden',
   },
   scanLabel: {
@@ -1111,8 +1117,7 @@ const createStyles = (wallet: WalletThemeColors) =>
   },
   scanImage: {
     width: '100%',
-    aspectRatio: 1.586,
-    backgroundColor: wallet.background,
+    backgroundColor: wallet.surface,
   },
   heroCard: {
     backgroundColor: wallet.surface,

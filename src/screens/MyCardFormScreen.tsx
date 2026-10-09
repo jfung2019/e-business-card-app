@@ -124,11 +124,12 @@ function createStyles(wallet: WalletThemeColors) {
       lineHeight: 20,
     },
     previewWrap: {
-      width: MY_CARD_WIDTH,
+      // Full width so a scan preview matches the Review Scan screen; the
+      // template face keeps its own fixed width and stays centered.
+      width: '100%',
       alignItems: 'center',
       gap: 10,
       marginBottom: 8,
-      alignSelf: 'center',
     },
     previewHint: {
       color: wallet.subtitle,
@@ -604,6 +605,7 @@ export function MyCardFormScreen(): React.JSX.Element {
           card={previewCard}
           compact
           controlsBelow
+          centerTemplate
           onWalletDisplayChange={handleWalletDisplayChange}
           onPhotoFaceChange={handlePhotoFaceChange}
         />

@@ -7,6 +7,11 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useAppTheme } from '../context/ThemeContext';
+import {
+  SCAN_IMAGE_BORDER_RADIUS,
+  SCAN_IMAGE_RESIZE_MODE,
+} from '../theme/scanImageLayout';
 import { getWalletPalette, type WalletCardPalette } from '../theme/wallet';
 import type { CapturedCard, PhotoFace } from '../types/card';
 import {
@@ -14,20 +19,18 @@ import {
   ADDRESS_EN_KEY,
   findCustomFieldValue,
 } from '../utils/customFieldKeys';
+import { getScanImageAspectRatio, useScanImageAspectRatio } from '../utils/scanImageAspect';
 import { hasScanImage, nextWalletDisplay, showsWalletPhoto } from '../utils/walletDisplay';
 import { CardFaceControls } from './CardFaceControls';
 import { CardPhotoFlip } from './CardPhotoFlip';
 
 const CARD_BORDER_RADIUS = 22;
-const SCAN_CARD_ASPECT_RATIO = 1.586;
 const WALLET_HORIZONTAL_PADDING = 48;
 const CROSSFADE_MS = 200;
 const ADDRESS_BAND_LINES = 3;
 
 export const WALLET_CARD_FULL_HEIGHT = 196;
-export const WALLET_CARD_SCAN_HEIGHT = Math.round(
-  (Dimensions.get('window').width - WALLET_HORIZONTAL_PADDING) / SCAN_CARD_ASPECT_RATIO,
-);
+const WALLET_CARD_WIDTH = Dimensions.get('window').width - WALLET_HORIZONTAL_PADDING;
 export const WALLET_CARD_PEEK_HEIGHT = 50;
 export const WALLET_CARD_STACK_STEP = WALLET_CARD_PEEK_HEIGHT;
 export const WALLET_STACK_SHADOW_PADDING = 24;
@@ -58,8 +61,19 @@ function getBrand(card: CapturedCard): string {
   return card.core_fields.company_name ?? card.core_fields.name;
 }
 
+/** The front photo sets the frame for both faces, so a flip never resizes it. */
+export function getCardFrontPhotoUrl(card: CapturedCard): string | null | undefined {
+  return card.scan_image_front_url ?? card.scan_image_url;
+}
+
+/** A card with a scan is shaped like its photo once measured. */
 export function getCardDisplayHeight(card: CapturedCard): number {
-  return hasScanImage(card) ? WALLET_CARD_SCAN_HEIGHT : WALLET_CARD_FULL_HEIGHT;
+  if (!hasScanImage(card)) {
+    return WALLET_CARD_FULL_HEIGHT;
+  }
+  return Math.round(
+    WALLET_CARD_WIDTH / getScanImageAspectRatio(getCardFrontPhotoUrl(card)),
+  );
 }
 
 function ClassicCardFace({
@@ -152,12 +166,15 @@ function WalletCardFace({
   onWalletDisplayChange?: (cardId: string, walletDisplay: 'photo' | 'classic') => void;
   onPhotoFaceChange?: (cardId: string, photoFace: PhotoFace) => void;
 }): React.JSX.Element {
+  const { wallet } = useAppTheme();
   const palette = getWalletPalette(paletteIndex);
   const hasScan = hasScanImage(card);
   const showPhoto = showsWalletPhoto(card);
   const photoFace: PhotoFace = card.photo_face === 'back' ? 'back' : 'front';
   const hasBackPhoto = Boolean(card.scan_image_back_url);
-  const frontPhotoUrl = card.scan_image_front_url ?? card.scan_image_url;
+  const frontPhotoUrl = getCardFrontPhotoUrl(card);
+  // Re-renders once the photo is measured, so the height below updates.
+  useScanImageAspectRatio(hasScan ? frontPhotoUrl : null);
   const backPhotoUrl = card.scan_image_back_url;
   const photoOpacity = useRef(new Animated.Value(showPhoto ? 1 : 0)).current;
 
@@ -218,23 +235,23 @@ function WalletCardFace({
       onPress={onPress}
       style={({ pressed }) => [
         styles.cardWrapper,
-        styles.scanCardWrapper,
+        { height: getCardDisplayHeight(card) },
         pressed && styles.pressed,
       ]}
     >
-      <View style={styles.frontCard}>
+      <View style={[styles.frontCard, showPhoto && styles.scanPhotoCard]}>
         <Animated.View
           pointerEvents={showPhoto ? 'auto' : 'none'}
           style={[styles.faceLayer, { opacity: photoOpacity }]}
         >
-          <View style={styles.fill}>
+          <View style={[styles.fill, { backgroundColor: wallet.surface }]}>
             <CardPhotoFlip
               frontPhotoUrl={frontPhotoUrl}
               backPhotoUrl={backPhotoUrl}
               photoFace={photoFace}
               style={styles.fill}
               imageStyle={styles.scanImageFill}
-              resizeMode="cover"
+              resizeMode={SCAN_IMAGE_RESIZE_MODE}
               variant="background"
             />
           </View>
@@ -297,9 +314,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: WALLET_CARD_FULL_HEIGHT,
   },
-  scanCardWrapper: {
-    height: WALLET_CARD_SCAN_HEIGHT,
-  },
   pressed: {
     opacity: 0.94,
     transform: [{ scale: 0.988 }],
@@ -310,6 +324,10 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.35)',
+  },
+  scanPhotoCard: {
+    borderRadius: SCAN_IMAGE_BORDER_RADIUS,
+    borderWidth: 0,
   },
   fill: {
     flex: 1,

@@ -17,10 +17,11 @@ import {
   confirmUserCardScanEnhancement,
   discardUserCardScanEnhancement,
 } from '../api/userCards';
-import { ScanImage } from '../components/ScanImage';
+import { ScanPhotoFrame } from '../components/ScanPhotoFrame';
 import { useAppTheme } from '../context/ThemeContext';
 import type { MainStackParamList } from '../navigation/AppNavigator';
 import { finishCollectedScan } from '../navigation/finishScan';
+import { SCAN_IMAGE_BORDER_RADIUS } from '../theme/scanImageLayout';
 import type { WalletThemeColors } from '../theme/appTheme';
 import type { CapturedCard, PhotoFace } from '../types/card';
 import type { UserCard } from '../types/userCard';
@@ -59,8 +60,7 @@ function createStyles(wallet: WalletThemeColors) {
     label: { color: wallet.title, fontSize: 15, fontWeight: '700' },
     image: {
       width: '100%',
-      aspectRatio: 1.57,
-      borderRadius: 14,
+      borderRadius: SCAN_IMAGE_BORDER_RADIUS,
       backgroundColor: wallet.surface,
     },
     unavailable: {
@@ -191,12 +191,12 @@ export function ScanImageReviewScreen({ navigation, route }: Props): React.JSX.E
       <View style={styles.comparison}>
         <View style={styles.imageBlock}>
           <Text style={styles.label}>Original</Text>
-          <ScanImage scanImageUrl={originalUrl} style={styles.image} resizeMode="contain" />
+          <ScanPhotoFrame scanImageUrl={originalUrl} style={styles.image} />
         </View>
         <View style={styles.imageBlock}>
           <Text style={styles.label}>AI cleaned</Text>
           {candidateUrl ? (
-            <ScanImage scanImageUrl={candidateUrl} style={styles.image} resizeMode="contain" />
+            <ScanPhotoFrame scanImageUrl={candidateUrl} style={styles.image} />
           ) : (
             <View style={styles.unavailable}>
               <Text style={styles.text}>No AI preview is available. Retry or use the original.</Text>
