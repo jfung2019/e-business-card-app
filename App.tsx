@@ -3,7 +3,6 @@ import { StatusBar, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { CardScannerHost } from './src/components/CardScannerHost';
 import { AuthProvider } from './src/context/AuthContext';
 import { CardPrefsProvider } from './src/context/CardPrefsContext';
 import { ShareLinkProvider } from './src/context/ShareLinkContext';
@@ -25,7 +24,6 @@ export default function App(): React.JSX.Element {
             <AuthProvider>
               <ShareLinkProvider>
                 <AppNavigator />
-                <CardScannerHost />
               </ShareLinkProvider>
             </AuthProvider>
           </CardPrefsProvider>

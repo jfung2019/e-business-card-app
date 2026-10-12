@@ -3,7 +3,14 @@ import type { NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
 import { FlatList, StyleSheet, View } from 'react-native';
 
 import type { PhotoFace, UserCard, WalletDisplay } from '../types/userCard';
-import { getMyCardDisplayHeight, MY_CARD_HEIGHT, MY_CARD_WIDTH, MyCardFace } from './MyCardFace';
+import { useScanImageAspectRatios } from '../utils/scanImageAspect';
+import {
+  getMyCardDisplayHeight,
+  getMyCardFrontPhotoUrl,
+  MY_CARD_HEIGHT,
+  MY_CARD_WIDTH,
+  MyCardFace,
+} from './MyCardFace';
 
 interface MyCardCarouselProps {
   cards: UserCard[];
@@ -23,6 +30,7 @@ export function MyCardCarousel({
   onPhotoFaceChange,
   onActiveIndexChange,
 }: MyCardCarouselProps): React.JSX.Element {
+  useScanImageAspectRatios(cards.map(getMyCardFrontPhotoUrl));
   const carouselHeight = Math.max(
     ...cards.map(getMyCardDisplayHeight),
     MY_CARD_HEIGHT,

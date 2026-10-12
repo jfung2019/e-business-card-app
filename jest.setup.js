@@ -66,37 +66,6 @@ jest.mock('react-native-worklets', () => ({
   runOnUI: fn => fn,
 }));
 
-jest.mock('react-native-vision-camera', () => {
-  const { View } = require('react-native');
-  return {
-    __esModule: true,
-    Camera: View,
-    CommonResolutions: {
-      HD_16_9: { width: 720, height: 1280 },
-      FHD_16_9: { width: 1080, height: 1920 },
-    },
-    useCameraPermission: () => ({
-      hasPermission: true,
-      requestPermission: jest.fn(() => Promise.resolve(true)),
-    }),
-    useFrameOutput: jest.fn(() => ({})),
-    usePhotoOutput: jest.fn(() => ({ capturePhoto: jest.fn() })),
-  };
-});
-
-jest.mock('react-native-fast-opencv', () => ({
-  __esModule: true,
-  OpenCV: {},
-  ColorConversionCodes: {},
-  ContourApproximationModes: {},
-  DataTypes: {},
-  DecompTypes: {},
-  InterpolationFlags: {},
-  BorderTypes: {},
-  MorphShapes: {},
-  MorphTypes: {},
-  RetrievalModes: {},
-}));
 
 jest.mock('react-native-blob-util', () => ({
   __esModule: true,

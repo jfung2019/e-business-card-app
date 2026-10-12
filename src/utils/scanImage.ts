@@ -50,7 +50,9 @@ async function fetchAuthenticatedImageSource(
   }
 }
 
-async function getOrLoadImageSource(uri: string): Promise<ImageSourcePropType | null> {
+export async function getOrLoadImageSource(
+  uri: string,
+): Promise<ImageSourcePropType | null> {
   const cached = imageSourceCache.get(uri);
   if (cached) {
     return cached;

@@ -225,7 +225,6 @@ export function MyCardScanScreen(): React.JSX.Element {
     try {
       const result = await scanBusinessCard(source, {
         requireText: false,
-        side: 'back',
         onAnalysisStart: () => setReadingCard(true),
       });
       if (!result) {
