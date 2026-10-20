@@ -8,7 +8,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { AppState, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   type SharedValue,
@@ -78,6 +78,7 @@ interface CardDragAreaProps {
    * resolved here from the touch position, exactly as the pickup is.
    */
   onCardPress?: (card: UserCard) => void;
+  enabled?: boolean;
 }
 
 /**
@@ -140,6 +141,7 @@ export default function CardDragArea({
   cards,
   onDrop,
   onCardPress,
+  enabled = true,
 }: PropsWithChildren<CardDragAreaProps>) {
   const [draggingCardId, setDraggingCardId] = useState<string | null>(null);
   const [layoutEpoch, setLayoutEpoch] = useState(0);
@@ -175,6 +177,7 @@ export default function CardDragArea({
   const activeDropIndex = useSharedValue(-1);
   const pendingDropIndex = useSharedValue(-1);
   const pendingSince = useSharedValue(0);
+  const [appIsActive, setAppIsActive] = useState(AppState.currentState === 'active');
 
   useEffect(() => {
     cardCount.value = cards.length;
@@ -263,6 +266,44 @@ export default function CardDragArea({
     [onDrop],
   );
 
+  const cancelDragOnJS = useCallback(() => {
+    autoscrollEnabled.value = false;
+    isDragging.value = false;
+    draggingFromIndex.value = -1;
+    activeDropIndex.value = -1;
+    pendingDropIndex.value = -1;
+    setDraggingCardId(null);
+    setDropIndex(-1);
+    setLayoutEpoch(value => value + 1);
+  }, [
+    activeDropIndex,
+    autoscrollEnabled,
+    draggingFromIndex,
+    isDragging,
+    pendingDropIndex,
+  ]);
+
+  // iOS can move through `inactive` (Control Centre, notifications, calls) and
+  // either platform can cancel a native gesture without delivering the normal
+  // final callback when the app backgrounds or this screen loses focus. Clear
+  // both copies of the drag state so the full-screen handler cannot remain active.
+  useEffect(() => {
+    if (!enabled) {
+      cancelDragOnJS();
+    }
+  }, [cancelDragOnJS, enabled]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextState => {
+      const active = nextState === 'active';
+      setAppIsActive(active);
+      if (!active) {
+        cancelDragOnJS();
+      }
+    });
+    return () => subscription.remove();
+  }, [cancelDragOnJS]);
+
   /**
    * Single teardown path, on the UI thread. Idempotent: whichever of onEnd /
    * onFinalize fires first wins and the other becomes a no-op.
@@ -317,9 +358,11 @@ export default function CardDragArea({
   );
 
   const gesture = useMemo(() => {
+    const handlerEnabled = enabled && appIsActive;
     // Pickup runs entirely on the UI thread: the row is derived from the touch
     // position, so `isDragging` is already true when the pan asks about it.
     const longPress = Gesture.LongPress()
+      .enabled(handlerEnabled)
       .minDuration(CARD_LONG_PRESS_DELAY)
       .maxDistance(LONG_PRESS_MAX_DISTANCE)
       .onStart(event => {
@@ -358,6 +401,7 @@ export default function CardDragArea({
       });
 
     const pan = Gesture.Pan()
+      .enabled(handlerEnabled)
       .manualActivation(true)
       .onTouchesMove((_event, stateManager) => {
         if (isDragging.value) {
@@ -384,6 +428,7 @@ export default function CardDragArea({
 
     // Shorter than the pickup delay, so holding to drag never also opens a card.
     const tap = Gesture.Tap()
+      .enabled(handlerEnabled)
       .maxDuration(CARD_LONG_PRESS_DELAY - 40)
       .maxDistance(LONG_PRESS_MAX_DISTANCE)
       .onEnd((event, success) => {
@@ -411,6 +456,7 @@ export default function CardDragArea({
     return Gesture.Simultaneous(longPress, pan, tap);
   }, [
     activeDropIndex,
+    appIsActive,
     autoscrollEnabled,
     beginDragOnJS,
     cardCount,
@@ -419,6 +465,7 @@ export default function CardDragArea({
     dragX,
     draggingFromIndex,
     endDrag,
+    enabled,
     isDragging,
     pressCardOnJS,
     listHeight,
