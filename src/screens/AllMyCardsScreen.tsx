@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import CardBoard from '../components/CardBoard';
@@ -27,6 +27,7 @@ export function AllMyCardsScreen(): React.JSX.Element {
   const { wallet } = useAppTheme();
   const styles = useMemo(() => createStyles(wallet), [wallet]);
   const navigation = useNavigation<AllMyCardsNavigation>();
+  const isFocused = useIsFocused();
   const { state, cards, fetchUserCards, reorderCards } = useUserCards();
 
   const [order, setOrder] = useState<UserCard[]>(cards);
@@ -117,7 +118,12 @@ export function AllMyCardsScreen(): React.JSX.Element {
         </View>
       ) : (
         <View style={styles.board}>
-          <CardBoard cards={order} onCardsChange={handleOrderChange} onCardPress={openCard} />
+          <CardBoard
+            cards={order}
+            onCardsChange={handleOrderChange}
+            onCardPress={openCard}
+            enabled={isFocused}
+          />
         </View>
       )}
     </View>

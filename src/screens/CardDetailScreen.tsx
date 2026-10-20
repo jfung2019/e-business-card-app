@@ -23,6 +23,7 @@ import { CustomFieldsList } from '../components/CustomFieldsList';
 import { ScanImage } from '../components/ScanImage';
 import { TabIcon, type TabIconName } from '../components/icons/TabIcons';
 import { getChineseName } from '../utils/nameSort';
+import { normalizeCoreFields } from '../utils/normalizeCoreFields';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { ExportCardModal, type CardExportOption } from '../components/ExportCardModal';
 import type { MainStackParamList } from '../navigation/AppNavigator';
@@ -124,17 +125,6 @@ function currentSuggestionValue(card: CapturedCard, fieldKey: string): string {
 
 function toDataUri(base64: string): string {
   return base64.startsWith('data:') ? base64 : `data:image/jpeg;base64,${base64}`;
-}
-
-function normalizeCoreFields(fields: CoreFields): CoreFields {
-  return {
-    name: fields.name.trim(),
-    company_name: fields.company_name?.trim() || null,
-    job_title: fields.job_title?.trim() || null,
-    email: fields.email?.trim() || null,
-    phone: fields.phone?.trim() || null,
-    website: fields.website?.trim() || null,
-  };
 }
 
 export function CardDetailScreen({ route }: CardDetailProps): React.JSX.Element {
@@ -1474,4 +1464,3 @@ const createStyles = (wallet: WalletThemeColors) =>
     fontSize: 16,
   },
 });
-
