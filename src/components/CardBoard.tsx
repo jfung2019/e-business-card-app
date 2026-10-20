@@ -8,6 +8,7 @@ interface CardBoardProps {
   cards: UserCard[];
   onCardsChange: (cards: UserCard[] | ((current: UserCard[]) => UserCard[])) => void;
   onCardPress?: (card: UserCard) => void;
+  enabled?: boolean;
 }
 
 function moveCard(cards: UserCard[], from: number, to: number): UserCard[] {
@@ -31,7 +32,12 @@ function moveCard(cards: UserCard[], from: number, to: number): UserCard[] {
   return next;
 }
 
-export default function CardBoard({ cards, onCardsChange, onCardPress }: CardBoardProps) {
+export default function CardBoard({
+  cards,
+  onCardsChange,
+  onCardPress,
+  enabled = true,
+}: CardBoardProps) {
   const handleDrop = useCallback(
     (cardId: string, dropIndex: number) => {
       onCardsChange(current => {
@@ -43,7 +49,12 @@ export default function CardBoard({ cards, onCardsChange, onCardPress }: CardBoa
   );
 
   return (
-    <CardDragArea cards={cards} onDrop={handleDrop} onCardPress={onCardPress}>
+    <CardDragArea
+      cards={cards}
+      onDrop={handleDrop}
+      onCardPress={onCardPress}
+      enabled={enabled}
+    >
       <CardList cards={cards} />
     </CardDragArea>
   );
